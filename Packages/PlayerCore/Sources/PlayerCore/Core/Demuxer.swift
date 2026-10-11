@@ -18,7 +18,15 @@ final class Demuxer {
 
     deinit { close() }
 
-    func open() throws {
+    /// Opens the container and reads its stream info.
+    ///
+    /// - Parameter seekBeforeProbe: position the input here before `find_stream_info`, so probing
+    ///   reads the target instead of the start of the stream. For segmented formats (HLS) that is
+    ///   the difference between making the server transcode the start of the item as well as the
+    ///   part we want. Probing consumes packets, so unsegmented inputs are repositioned afterwards
+    ///   (a cheap range request); segmented ones are not, and begin at the first packet probing
+    ///   left behind.
+    func open(seekBeforeProbe: Double? = nil) throws {
         guard var ctx = avformat_alloc_context() else { throw FFmpegError(cff_averror_eio(), "alloc context") }
         io.install(on: ctx)
         let source: ByteSource
@@ -39,9 +47,12 @@ final class Demuxer {
         av_dict_set(&options, "seg_max_retry", "3", 0)
         // MKV/MP4 describe their streams in the header; with no video decoders in our FFmpeg
         // build, the default probing (5 MB / 5 s) mostly just downloads data before playback.
-        // MPEG-TS/HLS has no header and keeps the defaults.
+        // MPEG-TS has no header, so it keeps the defaults unless we have already positioned the
+        // input (`seekBeforeProbe`), in which case probing reads the segment we are about to play.
         let ext = url.pathExtension.lowercased()
-        if !["m3u8", "ts", "m2ts", "mts"].contains(ext) {
+        let container = ["ts", "m2ts", "mts"].contains(ext)
+        let segmented = ext == "m3u8"
+        if !container && (!segmented || (seekBeforeProbe ?? 0) > 0.5) {
             ctx.pointee.probesize = 2_000_000
             ctx.pointee.max_analyze_duration = 2 * Int64(AV_TIME_BASE)
         }
@@ -55,9 +66,18 @@ final class Demuxer {
         }
         ctx = opened
         context = ctx
+        if let target = seekBeforeProbe, target > 0.5 {
+            let seekStart = Date()
+            try? seek(to: target)
+            PlayerLog.engine(String(format: "Pre-probe seek to %.1f s in %.2f s", target,
+                                    Date().timeIntervalSince(seekStart)))
+        }
         let probeStart = Date()
         try check(avformat_find_stream_info(ctx, nil), "find stream info")
         PlayerLog.engine("Probed \(url.lastPathComponent) in \(String(format: "%.2f", Date().timeIntervalSince(probeStart))) s")
+        if let target = seekBeforeProbe, target > 0.5, !isSegmented {
+            try? seek(to: target)
+        }
         tracks = (0..<Int(ctx.pointee.nb_streams)).map { describe(stream: ctx.pointee.streams[$0]!) }
     }
 
@@ -81,6 +101,10 @@ final class Demuxer {
     func clearInterrupt() { io.interrupt.set(false) }
 
     func setTimelineOffset(_ offset: Double) { timelineOffset = offset }
+
+    /// True for formats served as separate segments, where seeking costs a new fetch (and, with a
+    /// transcoding server, new encoding work) rather than a range request.
+    var isSegmented: Bool { formatName == "hls" }
 
     /// Whether FFmpeg may seek the main input directly.
     var isSeekable: Bool {

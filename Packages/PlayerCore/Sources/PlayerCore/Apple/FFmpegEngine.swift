@@ -134,19 +134,22 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             setState(.failed(String(describing: error)))
             throw error
         }
+        pipeline.start()
+        try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30)
         queue.sync {
             active = pipeline
-            resetTimeline(at: startAt)
+            // Segmented streams start at a segment boundary, and probing consumes packets, so the
+            // media can begin after the requested position. Start the clock where it actually
+            // begins, otherwise the player shows nothing until the clock catches up.
+            resetTimeline(at: max(startAt, pipeline.firstQueuedTime ?? startAt))
             snapshotLock.lock()
             snapshotTracks = pipeline.tracks
             snapshotDuration = pipeline.duration
             snapshotLock.unlock()
             startFeeding()
             startTimer()
+            if desiredRate == 0 { setState(.paused) }
         }
-        pipeline.start()
-        try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30)
-        queue.sync { if desiredRate == 0 { setState(.paused) } }
     }
 
     public func play() {

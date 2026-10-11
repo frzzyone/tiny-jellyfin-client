@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         switch model.session.state {
@@ -11,8 +12,18 @@ struct RootView: View {
         case .signIn(let server, let username, let error):
             SignInView(server: server, username: username, error: error)
         case .signedIn(let session):
-            LibraryRootView(session: session)
+            signedIn(session)
         }
+    }
+
+    @ViewBuilder
+    private func signedIn(_ session: SignedInSession) -> some View {
+        let view = LibraryRootView(session: session)
+        #if DEBUG
+        view.task { await DebugAutoplay.runIfRequested(model: model, openWindow: openWindow) }
+        #else
+        view
+        #endif
     }
 }
 

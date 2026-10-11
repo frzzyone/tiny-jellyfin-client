@@ -57,6 +57,13 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   URLSession. Never let FFmpeg open a socket itself.
 - **Transcoding asks Jellyfin for MPEG-TS segments**, not fMP4: FFmpeg 7.1 cannot seek HLS with fMP4
   segments.
+- **`EngineCapabilities` describes decoding, never the display.** It feeds the server's
+  DeviceProfile, so anything display-dependent (`AVPlayer.eligibleForHDRPlayback` changes with the
+  window) makes the server flip between direct play and a full transcode of the same file. macOS
+  tone-maps what the panel cannot show.
+- **Probing consumes packets.** After `Demuxer.open(seekBeforeProbe:)` the read position is past the
+  target, so unsegmented inputs are repositioned afterwards (cheap) and segmented ones are not —
+  the engine instead starts the clock at the first queued packet.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Threading:** all `FFmpegEngine` mutable state lives on its `queue`; each `Pipeline` owns a reader
   thread. `Pipeline.currentDemuxer` is replaced on the reader thread (HLS seeks reopen the stream).
@@ -70,6 +77,12 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   The player overlay shows it under the spinner after 5 s, and test failures include it.
 - A stall before any video arrives (`state=loading`, `vQ=0`) is the open path: look at `Open took …`.
   A stall with queues full is the start condition; with empty queues it is the network or the server.
+- Debug builds can start playback without clicking, which is how the open path was measured against
+  a real server: `TJ_AUTOPLAY=1` (plus `TJ_AUTOPLAY_ITEM`, `TJ_AUTOPLAY_FROM_START`,
+  `TJ_AUTOPLAY_QUALITY`) — see `DebugAutoplay`. Run the binary directly to pass them, and watch with
+  `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
+- Quit the app rather than killing it: `stopForTermination` tells the server to stop transcoding,
+  and a killed process leaves the server encoding for nothing.
 
 ## Conventions
 

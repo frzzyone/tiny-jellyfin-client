@@ -85,6 +85,28 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertEqual(conditions.first { $0["Property"] as? String == "Width" }?["Value"] as? String, "1280")
     }
 
+    /// A Dolby Vision capable client must advertise the DOVI range types, or the server transcodes
+    /// every DV file in full. A client without them must not.
+    func testDolbyVisionRangeTypes() throws {
+        let withDV = try json(DeviceProfileBuilder.build(capabilities: caps, quality: .original))
+        let conditions = (withDV["CodecProfiles"] as! [[String: Any]])
+            .filter { $0["Codec"] as? String == "hevc" }
+            .flatMap { $0["Conditions"] as! [[String: Any]] }
+        let ranges = conditions.first { $0["Property"] as? String == "VideoRangeType" }?["Value"] as? String
+        XCTAssertNotNil(ranges)
+        for expected in ["DOVI", "DOVIWithHDR10", "HDR10", "HLG", "SDR"] {
+            XCTAssertTrue(ranges!.contains(expected), "missing \(expected) in \(ranges!)")
+        }
+
+        let noDV = PlaybackCapabilities(av1: false, hevc10Bit: true, dolbyVision: false)
+        let without = try json(DeviceProfileBuilder.build(capabilities: noDV, quality: .original))
+        let plainRanges = (without["CodecProfiles"] as! [[String: Any]])
+            .filter { $0["Codec"] as? String == "hevc" }
+            .flatMap { $0["Conditions"] as! [[String: Any]] }
+            .first { $0["Property"] as? String == "VideoRangeType" }?["Value"] as? String
+        XCTAssertFalse(plainRanges?.contains("DOVI") ?? true)
+    }
+
     func testMacWithoutAV1() throws {
         let profile = DeviceProfileBuilder.build(capabilities: PlaybackCapabilities(av1: false), quality: .original)
         XCTAssertEqual(profile.directPlayProfiles[0].videoCodec, "h264,hevc")

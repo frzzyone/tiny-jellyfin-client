@@ -54,11 +54,15 @@ public struct EngineCapabilities: Sendable, Equatable {
         self.dolbyVision = dolbyVision
     }
 
+    /// What this Mac can *decode*. Deliberately not `AVPlayer.eligibleForHDRPlayback`: that
+    /// describes the current display and changes with the window, which would make the server's
+    /// direct-play decision flip between launches and force a full transcode of HDR and Dolby
+    /// Vision files. Whether the panel can show the result is macOS's business — it tone-maps.
     public static func current() -> EngineCapabilities {
-        let hdr = AVPlayer.eligibleForHDRPlayback
+        let hevc = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
         return EngineCapabilities(av1: VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1),
-                                  hevc: VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC),
-                                  hdr: hdr, dolbyVision: hdr)
+                                  hevc: hevc, hdr: hevc,
+                                  dolbyVision: VTIsHardwareDecodeSupported(kCMVideoCodecType_DolbyVisionHEVC))
     }
 }
 

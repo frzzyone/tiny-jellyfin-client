@@ -38,6 +38,9 @@ final class Pipeline: @unchecked Sendable {
     private var seekWaiters: [CheckedContinuation<Void, Never>] = []
     private(set) var failure: String?
     private var consecutiveErrors = 0
+    /// Set at open: check the first packet's timestamp against this and shift the timeline if the
+    /// server restarted it (progressive transcodes do; HLS keeps item-absolute times).
+    private var timelineCheck: Double?
 
     let allowDolbyVision: Bool
 
@@ -53,7 +56,7 @@ final class Pipeline: @unchecked Sendable {
     /// Opens the container, picks streams, builds formats, positions at `startAt`. Blocking.
     func open(startAt: Double) throws {
         let openStart = Date()
-        try demuxer.open()
+        try demuxer.open(seekBeforeProbe: startAt)
         let opened = Date()
         tracks = demuxer.tracks
         duration = demuxer.duration.map { $0 + source.timelineOffset }
@@ -75,8 +78,7 @@ final class Pipeline: @unchecked Sendable {
             subtitleDecoders[track.id] = decoder
             subtitleStores[track.id] = SubtitleTrackStore()
         }
-        if startAt > 0.5 { try? demuxer.seek(to: startAt) }
-        try alignTimeline(near: startAt)
+        if startAt > 10 { timelineCheck = startAt }
         PlayerLog.engine(String(format: "Open took %.2f s (header+probe %.2f s, positioning %.2f s), seekable=%@",
                                 Date().timeIntervalSince(openStart), opened.timeIntervalSince(openStart),
                                 Date().timeIntervalSince(opened), "\(demuxer.isSeekable)"))
@@ -106,17 +108,6 @@ final class Pipeline: @unchecked Sendable {
         }
         return .decode(try AudioDecoder(parameters: stream.pointee.codecpar, timeBase: stream.pointee.time_base,
                                         timelineOffset: source.timelineOffset))
-    }
-
-    /// Server transcodes may restart timestamps; if the first packet after positioning is far
-    /// from where we asked to start, shift the timeline so positions match the item.
-    private func alignTimeline(near startAt: Double) throws {
-        guard startAt > 10, let first = try demuxer.readPacket() else { return }
-        let drift = startAt - first.time
-        if abs(drift) > 10 {
-            demuxer.setTimelineOffset(source.timelineOffset + drift)
-        }
-        try? demuxer.seek(to: startAt)
     }
 
     // MARK: Reader thread
@@ -201,6 +192,21 @@ final class Pipeline: @unchecked Sendable {
                     continue
                 }
                 consecutiveErrors = 0
+                if let expected = timelineCheck {
+                    timelineCheck = nil
+                    let drift = expected - packet.time
+                    if abs(drift) > 10 {
+                        // The stream's own timeline starts at 0 (or elsewhere); shift it so
+                        // positions match the item, then start again from the target.
+                        PlayerLog.engine(String(format: "Timeline starts at %.1f s, expected %.1f s: shifting %+.1f s",
+                                                packet.time, expected, drift))
+                        demuxer.setTimelineOffset(demuxer.timelineOffset + drift)
+                        videoQueue.flush()
+                        audioQueue.flush()
+                        reposition(to: expected)
+                        continue
+                    }
+                }
                 route(packet)
             } catch let error as FFmpegError {
                 if error.isExit || shouldAbortPush { continue }
@@ -272,5 +278,11 @@ final class Pipeline: @unchecked Sendable {
     }
 
     var reachedEnd: Bool { videoQueue.endOfStream || (videoStream == nil && audioQueue.endOfStream) }
+
+    /// Earliest packet still queued, across the streams being played.
+    var firstQueuedTime: Double? {
+        [videoStream != nil ? videoQueue.peek()?.time : nil,
+         audioStream != nil ? audioQueue.peek()?.time : nil].compactMap { $0 }.min()
+    }
 }
 #endif

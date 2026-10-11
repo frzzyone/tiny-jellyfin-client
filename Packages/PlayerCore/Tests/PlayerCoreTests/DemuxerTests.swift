@@ -216,6 +216,39 @@ final class HTTPTests: XCTestCase {
         wait(for: [done], timeout: 2)
     }
 
+    /// `seekBeforeProbe` must position the input before `find_stream_info`, so probing reads the
+    /// target. For HLS that is what stops the server transcoding the start of the item as well.
+    func testPreProbeSeekPositionsSegmentedInput() throws {
+        let server = try TestHTTPServer()
+        let demuxer = Demuxer(url: server.url("hls/main.m3u8"), factory:
+                                DefaultByteSourceFactory(headers: TestHTTPServer.authHeaders))
+        try demuxer.open(seekBeforeProbe: 4.0)
+        XCTAssertEqual(demuxer.tracks.filter { $0.kind != .other }.map(\.codec), ["h264", "aac"],
+                       "stream info is still complete when probing starts at the target")
+        // No seek afterwards for a segmented input: reading begins where probing left it, which is
+        // at or after the target — never back at the start of the stream.
+        var packet = try demuxer.readPacket()
+        while let p = packet, p.streamIndex != 0 { packet = try demuxer.readPacket() }
+        let first = try XCTUnwrap(packet)
+        XCTAssertGreaterThan(first.time, 1.5, "started near the target, not at the beginning")
+        XCTAssertLessThan(first.time, 4.0 + 4.0, "within a segment or two of the target")
+    }
+
+    /// An unsegmented input is repositioned after probing, so reading starts at the keyframe at or
+    /// before the target rather than wherever probing stopped.
+    func testPreProbeSeekRepositionsUnsegmentedInput() throws {
+        let server = try TestHTTPServer()
+        let demuxer = Demuxer(url: server.url("hevc10_eac3.mkv"), factory:
+                                DefaultByteSourceFactory(headers: TestHTTPServer.authHeaders))
+        try demuxer.open(seekBeforeProbe: 4.0)
+        XCTAssertFalse(demuxer.isSegmented)
+        var packet = try demuxer.readPacket()
+        while let p = packet, p.streamIndex != 0 { packet = try demuxer.readPacket() }
+        let first = try XCTUnwrap(packet)
+        XCTAssertLessThanOrEqual(first.time, 4.05, "repositioned to the keyframe at or before 4 s")
+        XCTAssertGreaterThan(first.time, 2.0)
+    }
+
     func testSeekOverHTTP() throws {
         let server = try TestHTTPServer()
         let demuxer = try openDemuxer(server.url("hevc10_eac3.mkv"), headers: TestHTTPServer.authHeaders)

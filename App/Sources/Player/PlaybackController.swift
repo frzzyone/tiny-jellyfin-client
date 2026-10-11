@@ -124,6 +124,8 @@ final class PlaybackController {
                 preferredId: preferences.preferredQualityId(server: service.serverURL), sourceHeight: sourceHeight)
 
             loadingDetail = "Getting stream from the server…"
+            PlayerLog.engine("Capabilities: av1=\(capabilities.av1) hevc10=\(capabilities.hevc10Bit) "
+                             + "dolbyVision=\(capabilities.dolbyVision)")
             PlayerLog.engine("Controller: requesting stream for \(item.id) at \(quality.label), start \(start)")
             let stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
                                                          startSeconds: start,
@@ -200,6 +202,29 @@ final class PlaybackController {
         loadingDetail = nil
         diagnostics = nil
         spinnerSince = nil
+    }
+
+    /// Stops and waits for the server to hear about it. Detached tasks do not survive process
+    /// exit, so quitting mid-playback would otherwise leave the server transcoding.
+    func stopForTermination(timeout: TimeInterval = 3) {
+        guard let service, var session, !session.stoppedReported else {
+            stop()
+            return
+        }
+        let stopped = report(for: session, position: position)
+        let encoding = session.playMethod == .directPlay ? nil : session.playSessionId
+        session.stoppedReported = true
+        self.session = session
+        let done = DispatchSemaphore(value: 0)
+        PlayerLog.engine("Quitting: telling the server to stop\(encoding != nil ? " and end transcoding" : "")")
+        Task.detached {
+            try? await service.reportStopped(stopped)
+            if let encoding { try? await service.endEncoding(playSessionId: encoding) }
+            done.signal()
+        }
+        let timedOut = done.wait(timeout: .now() + timeout) == .timedOut
+        if timedOut { PlayerLog.engine("Quitting: server cleanup timed out") }
+        stop()
     }
 
     private func reportStopOnce() {

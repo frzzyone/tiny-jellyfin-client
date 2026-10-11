@@ -1,3 +1,4 @@
+import AppKit
 import JellyfinKit
 import PlayerCore
 import SwiftUI
@@ -12,6 +13,10 @@ struct TinyJellyfinApp: App {
                 .environment(model)
                 .frame(minWidth: 760, minHeight: 480)
                 .task { model.session.restore() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                    // Tell the server before we go, so it stops transcoding for us.
+                    model.player.stopForTermination()
+                }
         }
         .commands {
             PlaybackCommands(controller: model.player)
