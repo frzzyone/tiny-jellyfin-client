@@ -76,7 +76,7 @@
 ## 10. Integration checks
 
 - [ ] 10.1 Run the end-to-end checklist against a real Jellyfin 10.9+ server: MKV/HEVC Original → Direct Play; VC-1 → video transcoded at source resolution; 1080p → 480p mid-movie with no gap > 1 s; switch while paused stays paused; HDR10 and DV P8 clips present in HDR/DV; Atmos track presents as Atmos (or recorded fallback); subtitles stay in sync across a switch; no leftover transcodes on the server dashboard after switches and after closing; preference persists after relaunch
-- [ ] 10.2 Run `openspec validate add-macos-jellyfin-client --strict` and confirm CI is green on the final commit
+- [x] 10.2 Run `openspec validate add-macos-jellyfin-client --strict` and confirm CI is green on the final commit
 
 ## Workflow follow-up
 
