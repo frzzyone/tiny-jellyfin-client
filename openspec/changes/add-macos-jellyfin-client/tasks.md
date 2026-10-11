@@ -11,20 +11,20 @@
 
 ## 2. JellyfinKit API core
 
-- [ ] 2.1 Implement the `MediaBrowser` authorization header builder (client, device, device ID, version, optional token) and verify unit tests cover with/without token and value escaping
-- [ ] 2.2 Implement `JellyfinClient` request plumbing (base URL joining, JSON coding with PascalCase keys, `JellyfinError` with `.unauthorized` on 401, `.server`, `.network`, `.decoding`) and verify unit tests using a stub `URLProtocol`
-- [ ] 2.3 Implement server-address normalization (default `https://`, keep explicit `http://`, strip trailing slashes, keep port/path) and verify unit tests for each case in the server-connection spec
+- [x] 2.1 Implement the `MediaBrowser` authorization header builder (client, device, device ID, version, optional token) and verify unit tests cover with/without token and value escaping
+- [x] 2.2 Implement `JellyfinClient` request plumbing (base URL joining, JSON coding with PascalCase keys, `JellyfinError` with `.unauthorized` on 401, `.server`, `.network`, `.decoding`) and verify unit tests using a stub `URLProtocol`
+- [x] 2.3 Implement server-address normalization (default `https://`, keep explicit `http://`, strip trailing slashes, keep port/path) and verify unit tests for each case in the server-connection spec
 
 ## 3. Server connection
 
-- [ ] 3.1 Add endpoints `publicSystemInfo()`, `authenticate(username:password:)`, `logout()` with Codable models and verify stubbed-response unit tests including wrong-credentials (401)
+- [x] 3.1 Add endpoints `publicSystemInfo()`, `authenticate(username:password:)`, `logout()` with Codable models and verify stubbed-response unit tests including wrong-credentials (401)
 - [ ] 3.2 Implement `KeychainStore` (protocol + Keychain implementation + in-memory fake) storing only the token, and a persistent device ID in UserDefaults; verify unit tests with the fake and a manual check that the password is absent from Keychain and preferences
-- [ ] 3.3 Implement `SessionModel` (server step → sign-in step → signed-in; restore on launch; 401 anywhere → sign-in with server pre-filled; sign out clears token even offline) and verify view-model unit tests for each server-connection scenario
+- [x] 3.3 Implement `SessionModel` (server step → sign-in step → signed-in; restore on launch; 401 anywhere → sign-in with server pre-filled; sign out clears token even offline) and verify view-model unit tests for each server-connection scenario
 - [ ] 3.4 Build the server-address and sign-in SwiftUI screens with error states and verify manually against a real server: valid/invalid address, wrong password clears field, relaunch restores session, sign out
 
 ## 4. Library browsing
 
-- [ ] 4.1 Add endpoints and models for user views, resume items, paged items, seasons, episodes, item details (incl. `MediaStreams`), and image URLs; verify stubbed unit tests including filtering views to movies/tvshows
+- [x] 4.1 Add endpoints and models for user views, resume items, paged items, seasons, episodes, item details (incl. `MediaStreams`), and image URLs; verify stubbed unit tests including filtering views to movies/tvshows
 - [ ] 4.2 Build the `NavigationSplitView` shell with Home (Continue Watching, hidden when empty) and a library sidebar; verify manually that music libraries are hidden and progress bars appear for partly watched items
 - [ ] 4.3 Build the library poster grid with paging on scroll and title placeholders for missing artwork; verify manually with a library larger than one page
 - [ ] 4.4 Build series → seasons → episodes navigation with episode numbers and watched indicators; verify manually against a TV library
@@ -50,9 +50,9 @@
 
 ## 7. Jellyfin playback integration
 
-- [ ] 7.1 Implement `QualityPreset` (Original + six presets) and `DeviceProfileBuilder` per design D6 from `EngineCapabilities`, and verify JSON snapshot tests for Original, 720p 4 Mbps (bitrate + Height ≤ 720), and a Mac without AV1
-- [ ] 7.2 Add `playbackInfo(...)`, play-URL resolution (static stream vs. `TranscodingUrl`), and the play-method classifier; verify unit tests with recorded PlaybackInfo responses for MKV/HEVC Direct Play, VC-1 transcode, audio-only conversion (Direct Stream), and the "no playable stream" error
-- [ ] 7.3 Add session reporting endpoints and `DELETE /Videos/ActiveEncodings`; verify stubbed unit tests for tick conversion and payload fields
+- [x] 7.1 Implement `QualityPreset` (Original + six presets) and `DeviceProfileBuilder` per design D6 from `EngineCapabilities`, and verify JSON snapshot tests for Original, 720p 4 Mbps (bitrate + Height ≤ 720), and a Mac without AV1
+- [x] 7.2 Add `playbackInfo(...)`, play-URL resolution (static stream vs. `TranscodingUrl`), and the play-method classifier; verify unit tests with recorded PlaybackInfo responses for MKV/HEVC Direct Play, VC-1 transcode, audio-only conversion (Direct Stream), and the "no playable stream" error
+- [x] 7.3 Add session reporting endpoints and `DELETE /Videos/ActiveEncodings`; verify stubbed unit tests for tick conversion and payload fields
 - [ ] 7.4 Implement `PlaybackController` (start at position, 10 s + event-driven progress reports, single `stop()` on close/end with encode cleanup, error state with Retry from last position) and verify controller unit tests with a fake engine and fake reporter
 - [ ] 7.5 Build the player window: display layer host view, SwiftUI control overlay (play/pause, scrubber, skip −10/+30, volume/mute, full screen, auto-hide after 3 s, buffering spinner, error banner) and keyboard shortcuts; verify manually each media-playback controls/shortcuts scenario
 - [ ] 7.6 Add Picture in Picture and Now Playing / remote commands per design D9 and verify manually: PiP enter/leave keeps position, media key pauses, Control Center shows title and progress
@@ -67,7 +67,7 @@
 
 ## 9. Quality switching
 
-- [ ] 9.1 Implement preset visibility by source height and default-quality resolution (remembered per server, fallback to Original without overwriting); verify unit tests for the 1080p, unknown-resolution and hidden-remembered-preset scenarios
+- [x] 9.1 Implement preset visibility by source height and default-quality resolution (remembered per server, fallback to Original without overwriting); verify unit tests for the 1080p, unknown-resolution and hidden-remembered-preset scenarios
 - [ ] 9.2 Implement the second-pipeline prepare and splice-at-keyframe in the engine per design D7 (incl. flush-and-seek fallback and audio-only flush if needed), and verify a headless test that splices between two fixtures of different bitrates with no video gap > 100 ms and position continuity within 1 s
 - [ ] 9.3 Implement the switch flow in `PlaybackController` (no-op on same quality, cancel in-flight, 20 s timeout, failure keeps old session, old session stopped + encode deleted, preference persisted, subtitle selection preserved) and verify controller tests with a fake engine including the failure path
 - [ ] 9.4 Add the quality menu, "<quality> · <play method>" indicator, switching spinner and failure banner in the overlay and the Playback menu; verify manually switching from both places while playing and while paused
