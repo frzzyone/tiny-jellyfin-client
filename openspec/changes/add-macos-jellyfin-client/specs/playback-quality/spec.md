@@ -21,17 +21,17 @@ exceeds the source video's SHALL be hidden.
 - **THEN** the menu lists Original and every preset
 
 ### Requirement: Original quality
-When "Original" is selected the app SHALL play the source file directly if the Mac can play its container and
-codecs; otherwise it SHALL ask the server to repackage or convert only what the Mac cannot play, without
-reducing resolution or bitrate.
+When "Original" is selected the app SHALL play the source file as-is if it can play its formats locally (see
+playback-formats); otherwise it SHALL have the server convert only what it cannot play, without reducing
+resolution.
 
-#### Scenario: Compatible file
-- **WHEN** Original is selected for an MP4 with H.264 video and AAC audio
-- **THEN** the app plays the file directly without server transcoding
+#### Scenario: Supported file
+- **WHEN** Original is selected for an MKV with HEVC video and E-AC-3 audio
+- **THEN** the app plays the file as-is without server conversion
 
-#### Scenario: Incompatible container
-- **WHEN** Original is selected for an MKV file with H.264 video and AAC audio
-- **THEN** the server repackages the stream without re-encoding the video, and the source resolution is kept
+#### Scenario: Unsupported video codec
+- **WHEN** Original is selected for a file with MPEG-2 video
+- **THEN** the server converts the video at the source resolution and the stream plays
 
 ### Requirement: Preset quality
 When a preset is selected the app SHALL request a stream whose bitrate and resolution do not exceed the
@@ -42,7 +42,7 @@ preset; if the source already fits within the preset and is playable, the server
 - **THEN** the stream delivered is at most 720 pixels tall and at most about 4 Mbps
 
 #### Scenario: Source already below preset
-- **WHEN** the user selects 1080p 20 Mbps for a 720p 3 Mbps MP4/H.264 source
+- **WHEN** the user selects 1080p 20 Mbps for a 720p 3 Mbps H.264 source
 - **THEN** the source plays without transcoding
 
 ### Requirement: Switch quality during playback
@@ -63,7 +63,8 @@ position at the moment of switching (within 2 seconds) and keep its play/pause s
 
 ### Requirement: Uninterrupted switching
 While a new quality loads, the current stream SHALL keep playing. Once the new stream is ready the app SHALL
-replace the old one and end any server transcoding job the old stream used.
+replace the old one without a pause or black frame longer than 1 second, and end any server transcoding job the
+old stream used.
 
 #### Scenario: Old stream keeps playing while new one loads
 - **WHEN** the user switches quality and the new stream takes several seconds to start
@@ -83,14 +84,14 @@ selected, and tell the user the switch failed.
 
 ### Requirement: Active quality indicator
 The player SHALL show the selected quality and how the stream is delivered: Direct Play (file as-is), Direct
-Stream (repackaged), or Transcode (re-encoded).
+Stream (video unchanged, other streams converted by the server), or Transcode (video re-encoded).
 
 #### Scenario: Transcoded preset
 - **WHEN** the user plays at 720p 4 Mbps and the server transcodes the video
 - **THEN** the player shows "720p 4 Mbps · Transcode"
 
 #### Scenario: Direct play
-- **WHEN** an MP4/H.264 file plays at Original quality
+- **WHEN** an MKV/HEVC file plays at Original quality
 - **THEN** the player shows "Original · Direct Play"
 
 ### Requirement: Remembered default quality
