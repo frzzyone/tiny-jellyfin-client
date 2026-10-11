@@ -4,3 +4,6 @@ xcuserdata/
 DerivedData/
 .build/
 .swiftpm/
+Vendor/
+Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/*
+!Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/.keep

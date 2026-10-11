@@ -63,7 +63,7 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertTrue((direct["AudioCodec"] as! String).contains("dts"))
         let transcoding = (object["TranscodingProfiles"] as! [[String: Any]])[0]
         XCTAssertEqual(transcoding["Protocol"] as? String, "hls")
-        XCTAssertEqual(transcoding["Container"] as? String, "mp4")
+        XCTAssertEqual(transcoding["Container"] as? String, "ts")
         XCTAssertEqual(transcoding["VideoCodec"] as? String, "hevc,h264")
         // No resolution cap for Original.
         let codecProfiles = object["CodecProfiles"] as! [[String: Any]]

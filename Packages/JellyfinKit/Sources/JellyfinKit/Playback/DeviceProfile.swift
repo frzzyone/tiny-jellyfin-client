@@ -133,7 +133,8 @@ public enum DeviceProfileBuilder {
                 DirectPlayProfile(container: directPlayContainers, audioCodec: audio, videoCodec: video, type: "Video"),
             ],
             transcodingProfiles: [
-                TranscodingProfile(container: "mp4", type: "Video", videoCodec: "hevc,h264", audioCodec: "aac,ac3,eac3",
+                // MPEG-TS segments: FFmpeg's HLS demuxer cannot seek streams with fMP4 segments.
+                TranscodingProfile(container: "ts", type: "Video", videoCodec: "hevc,h264", audioCodec: "aac,ac3,eac3",
                                    protocol: "hls", context: "Streaming", maxAudioChannels: "8",
                                    minSegments: 1, breakOnNonKeyFrames: false),
             ],
