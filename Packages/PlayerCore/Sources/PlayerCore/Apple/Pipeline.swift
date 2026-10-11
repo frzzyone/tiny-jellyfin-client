@@ -52,7 +52,9 @@ final class Pipeline: @unchecked Sendable {
 
     /// Opens the container, picks streams, builds formats, positions at `startAt`. Blocking.
     func open(startAt: Double) throws {
+        let openStart = Date()
         try demuxer.open()
+        let opened = Date()
         tracks = demuxer.tracks
         duration = demuxer.duration.map { $0 + source.timelineOffset }
         videoStream = demuxer.bestStream(AVMEDIA_TYPE_VIDEO).flatMap { index in
@@ -75,6 +77,9 @@ final class Pipeline: @unchecked Sendable {
         }
         if startAt > 0.5 { try? demuxer.seek(to: startAt) }
         try alignTimeline(near: startAt)
+        PlayerLog.engine(String(format: "Open took %.2f s (header+probe %.2f s, positioning %.2f s), seekable=%@",
+                                Date().timeIntervalSince(openStart), opened.timeIntervalSince(openStart),
+                                Date().timeIntervalSince(opened), "\(demuxer.isSeekable)"))
         if let info = videoInfo, info.hasConfigurationRecord {
             videoFormat = try VideoFormat.make(info, firstKeyframe: nil, allowDolbyVision: allowDolbyVision)
         }

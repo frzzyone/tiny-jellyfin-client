@@ -82,6 +82,12 @@ final class Demuxer {
 
     func setTimelineOffset(_ offset: Double) { timelineOffset = offset }
 
+    /// Whether FFmpeg may seek the main input directly.
+    var isSeekable: Bool {
+        guard let pb = context?.pointee.pb else { return false }
+        return pb.pointee.seekable & AVIO_SEEKABLE_NORMAL != 0
+    }
+
     /// FFmpeg's name for the container format, e.g. "hls" or "matroska,webm".
     var formatName: String {
         guard let ctx = context, let format = ctx.pointee.iformat else { return "" }

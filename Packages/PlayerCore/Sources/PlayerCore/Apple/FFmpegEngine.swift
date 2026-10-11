@@ -601,7 +601,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private func summaryOnQueue() -> String {
         do {
             let a = active
-            return String(format: "t=%.3f rate=%.1f state=%@ vEnd=%.3f aEnd=%.3f vQ=%.2fs aQ=%.2fs pend=%d eof=%@ "
+            return String(format: "t=%.3f rate=%.1f state=%@ vEnd=%.3f aEnd=%.3f vQ=%.2fs aQ=%.2fs pend=%ld eof=%@ "
                           + "vReady=%@ aReady=%@ vStatus=%d aStatus=%d audioUsable=%@ splice=%@",
                           currentTime, synchronizer.rate, "\(state)", lastVideoEnd, lastAudioEnd,
                           a?.videoQueue.duration ?? -1, a?.audioQueue.duration ?? -1, pendingAudio.count,

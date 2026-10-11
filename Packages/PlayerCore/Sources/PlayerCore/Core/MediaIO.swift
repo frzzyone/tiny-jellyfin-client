@@ -70,7 +70,10 @@ final class MediaIO {
             av_free(buffer)
             return nil
         }
-        context.pointee.seekable = source.size != nil ? AVIO_SEEKABLE_NORMAL : 0
+        // Always seekable: HTTP sources use Range requests (and cope with servers that ignore
+        // them). Their size is unknown until the first response, and marking them unseekable
+        // makes FFmpeg emulate every forward seek by downloading everything in between.
+        context.pointee.seekable = AVIO_SEEKABLE_NORMAL
         track(source)
         return context
     }

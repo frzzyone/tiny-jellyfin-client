@@ -216,6 +216,18 @@ final class HTTPTests: XCTestCase {
         wait(for: [done], timeout: 2)
     }
 
+    func testSeekOverHTTP() throws {
+        let server = try TestHTTPServer()
+        let demuxer = try openDemuxer(server.url("hevc10_eac3.mkv"), headers: TestHTTPServer.authHeaders)
+        XCTAssertTrue(demuxer.isSeekable, "HTTP input must be seekable so seeks use Range requests")
+        try demuxer.seek(to: 4.2)
+        var packet = try demuxer.readPacket()
+        while let p = packet, p.streamIndex != 0 { packet = try demuxer.readPacket() }
+        let first = try XCTUnwrap(packet)
+        XCTAssertLessThanOrEqual(first.time, 4.25)
+        XCTAssertGreaterThan(first.time, 3.0, "seek landed near the target instead of reading from the start")
+    }
+
     func testDemuxOverHTTP() throws {
         let server = try TestHTTPServer()
         let demuxer = try openDemuxer(server.url("hevc10_eac3.mkv"), headers: TestHTTPServer.authHeaders)
