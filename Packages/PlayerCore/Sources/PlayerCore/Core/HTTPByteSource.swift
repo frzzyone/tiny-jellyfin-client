@@ -11,11 +11,12 @@ public struct HTTPStatusError: Error, CustomStringConvertible {
 /// Streams an HTTP resource with Range requests through URLSession: system TLS, proxies,
 /// and an Authorization header per request (tokens never go into URLs).
 /// Sequential reads come from one streaming response; a seek restarts at the new offset.
-/// Network drops are retried from the current offset (1 s, 2 s, 4 s).
+/// Network drops are retried from the current offset (1 s, 2 s, 4 s). When far enough ahead
+/// of the reader the download is dropped (not suspended: an idle connection would hit the
+/// request timeout) and resumed with a new Range request when the reader catches up.
 public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     public static let retryDelays: [TimeInterval] = [1, 2, 4]
-    static let maxBuffered = 16 * 1024 * 1024
-    static let resumeBelow = 4 * 1024 * 1024
+    static let defaultMaxBuffered = 16 * 1024 * 1024
     /// Forward gaps smaller than this are read through instead of reconnecting.
     static let skipWindow: Int64 = 1024 * 1024
 
@@ -24,6 +25,8 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     let session: URLSession
     var retryDelays = HTTPByteSource.retryDelays
     var readTimeout: TimeInterval = 60
+    /// Bytes buffered ahead of the reader before the download is parked.
+    var maxBuffered = HTTPByteSource.defaultMaxBuffered
 
     private let condition = NSCondition()
     private var task: URLSessionDataTask?
@@ -32,7 +35,8 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     private var skipRemaining: Int64 = 0
     private var finished = false
     private var failure: Error?
-    private var suspended = false
+    /// The download was stopped because the buffer was full; resume at the buffer's end.
+    private var parked = false
     private var knownSize: Int64?
     private var interruptGeneration = 0
     private var closed = false
@@ -68,7 +72,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         while true {
             if closed || generation != interruptGeneration { throw ByteSourceCancelled() }
             let end = bufferOffset + Int64(buffer.count)
-            let positionedHere = task != nil && failure == nil && offset >= bufferOffset
+            let positionedHere = (task != nil || parked) && failure == nil && offset >= bufferOffset
                 && offset <= end + Self.skipWindow
             if !positionedHere {
                 if let failure, !(failure is ByteSourceCancelled) {
@@ -93,7 +97,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
                 if offset >= bufferOffset && available > 0 { break }
                 if finished { return Data() }
                 if failure != nil { break }
-                if suspended { resumeTask() }
+                if parked { start(at: offset) }
                 if !condition.wait(until: deadline) {
                     failure = URLError(.timedOut)
                     break
@@ -115,7 +119,6 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
             let chunk = buffer.prefix(count)
             buffer.removeFirst(count)
             bufferOffset += Int64(count)
-            if suspended && buffer.count < Self.resumeBelow { resumeTask() }
             return Data(chunk)
         }
     }
@@ -150,16 +153,11 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         skipRemaining = 0
         finished = false
         failure = nil
-        suspended = false
+        parked = false
         let task = session.dataTask(with: request)
         HTTPStreamRouter.shared.register(task, for: self)
         self.task = task
         task.resume()
-    }
-
-    private func resumeTask() {
-        suspended = false
-        task?.resume()
     }
 
     // MARK: Delegate callbacks (from the router)
@@ -191,8 +189,8 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     }
 
     fileprivate func received(data: Data, task: URLSessionDataTask) {
-        condition.lock(); defer { condition.unlock() }
-        guard task === self.task else { return }
+        condition.lock()
+        guard task === self.task else { condition.unlock(); return }
         var data = data
         if skipRemaining > 0 {
             let skip = Int(min(Int64(data.count), skipRemaining))
@@ -200,11 +198,16 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
             skipRemaining -= Int64(skip)
         }
         buffer.append(data)
-        if buffer.count > Self.maxBuffered && !suspended {
-            suspended = true
-            task.suspend()
+        let parkNow = buffer.count > maxBuffered
+        if parkNow {
+            // Far enough ahead: drop the connection and pick up from here later.
+            parked = true
+            self.task = nil
         }
         condition.broadcast()
+        condition.unlock()
+        // Cancel outside the lock: URLSession may deliver the completion synchronously.
+        if parkNow { task.cancel() }
     }
 
     fileprivate func completed(task: URLSessionTask, error: Error?) {

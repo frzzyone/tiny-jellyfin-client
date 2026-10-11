@@ -181,6 +181,24 @@ final class HTTPTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(collected.count, 200_000)
     }
 
+    func testParksWhenFarAheadAndResumes() throws {
+        let server = try TestHTTPServer()
+        let source = HTTPByteSource(url: server.url("hevc10_eac3.mkv"), headers: TestHTTPServer.authHeaders,
+                                    session: HTTPByteSource.makeSession())
+        source.maxBuffered = 64 * 1024
+        let local = try Data(contentsOf: try Fixtures.url("hevc10_eac3.mkv"))
+        var collected = try source.read(at: 0, maxLength: 1000)
+        Thread.sleep(forTimeInterval: 0.3)   // the download runs ahead, fills the buffer and parks
+        var offset = Int64(collected.count)
+        while true {
+            let chunk = try source.read(at: offset, maxLength: 32 * 1024)
+            if chunk.isEmpty { break }
+            collected.append(chunk)
+            offset += Int64(chunk.count)
+        }
+        XCTAssertEqual(collected, local, "parking and resuming must not lose or duplicate bytes")
+    }
+
     func testCancelUnblocksRead() throws {
         let server = try TestHTTPServer()
         let source = HTTPByteSource(url: server.url("h264_aac.mp4"), headers: TestHTTPServer.authHeaders,
