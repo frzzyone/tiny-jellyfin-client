@@ -13,7 +13,12 @@ final class Pipeline: @unchecked Sendable {
     }
 
     let source: MediaSource
-    let demuxer: Demuxer
+    /// Replaced only on the reader thread (HLS seeks reopen the stream); read under `condition`.
+    private var currentDemuxer: Demuxer
+    private var demuxer: Demuxer {
+        condition.lock(); defer { condition.unlock() }
+        return currentDemuxer
+    }
     let videoQueue = PacketQueue(maxDuration: 30)
     let audioQueue = PacketQueue(maxDuration: 30)
     private(set) var videoStream: Int?
@@ -39,8 +44,8 @@ final class Pipeline: @unchecked Sendable {
     init(source: MediaSource, allowDolbyVision: Bool) {
         self.source = source
         self.allowDolbyVision = allowDolbyVision
-        demuxer = Demuxer(url: source.url, factory: DefaultByteSourceFactory(headers: source.headers))
-        demuxer.setTimelineOffset(source.timelineOffset)
+        currentDemuxer = Demuxer(url: source.url, factory: DefaultByteSourceFactory(headers: source.headers))
+        currentDemuxer.setTimelineOffset(source.timelineOffset)
     }
 
     deinit { stop() }
@@ -155,8 +160,7 @@ final class Pipeline: @unchecked Sendable {
                 let waiters = seekWaiters
                 seekWaiters.removeAll()
                 condition.unlock()
-                demuxer.clearInterrupt()
-                try? demuxer.seek(to: target)
+                reposition(to: target)
                 videoQueue.flush()
                 audioQueue.flush()
                 if case .decode(let decoder) = audioMode { decoder.flush() }
@@ -199,6 +203,30 @@ final class Pipeline: @unchecked Sendable {
             }
         }
         demuxer.close()
+    }
+
+    /// Seeks the reader. HLS streams are reopened instead: interrupting FFmpeg's HLS demuxer
+    /// mid-segment can leave it unable to continue.
+    private func reposition(to target: Double) {
+        let old = demuxer
+        old.clearInterrupt()
+        guard old.formatName == "hls" else {
+            try? old.seek(to: target)
+            return
+        }
+        let fresh = Demuxer(url: source.url, factory: DefaultByteSourceFactory(headers: source.headers))
+        fresh.setTimelineOffset(old.timelineOffset)
+        do {
+            try fresh.open()
+            if target > 0.5 { try? fresh.seek(to: target) }
+        } catch {
+            try? old.seek(to: target)
+            return
+        }
+        condition.lock()
+        currentDemuxer = fresh
+        condition.unlock()
+        old.close()
     }
 
     private func route(_ packet: Packet) {

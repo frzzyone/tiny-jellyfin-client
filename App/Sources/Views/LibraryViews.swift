@@ -16,14 +16,14 @@ struct LibraryRootView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Label("Home", systemImage: "house").tag(SidebarSelection.home)
+                Label("Home", systemImage: "house").tag(SidebarSelection?.some(.home))
                 Section("Libraries") {
                     switch libraries?.state {
                     case .loaded(let items)?:
                         ForEach(items) { library in
                             Label(library.displayName,
                                   systemImage: library.collectionType == "tvshows" ? "tv" : "film")
-                                .tag(SidebarSelection.library(library.id))
+                                .tag(SidebarSelection?.some(.library(library.id)))
                         }
                     case .failed(let message)?:
                         InlineError(message: message) { Task { await libraries?.load() } }

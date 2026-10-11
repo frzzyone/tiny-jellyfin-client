@@ -72,6 +72,12 @@ final class Demuxer {
 
     func setTimelineOffset(_ offset: Double) { timelineOffset = offset }
 
+    /// FFmpeg's name for the container format, e.g. "hls" or "matroska,webm".
+    var formatName: String {
+        guard let ctx = context, let format = ctx.pointee.iformat else { return "" }
+        return String(cString: format.pointee.name)
+    }
+
     var duration: Double? {
         guard let ctx = context, ctx.pointee.duration > 0 else { return nil }
         return Double(ctx.pointee.duration) / Double(AV_TIME_BASE)
