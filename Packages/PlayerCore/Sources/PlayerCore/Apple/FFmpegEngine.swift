@@ -57,6 +57,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var snapshotState: EngineState = .idle
     private var snapshotTracks: [MediaTrack] = []
     private var snapshotDuration: Double?
+    /// Position set by a seek while the clock is stopped. The synchronizer applies a new paused
+    /// time slightly late, so report this until the clock runs again.
+    private var heldTime: Double?
 
     public init() {
         queue.setSpecific(key: queueKey, value: true)
@@ -77,7 +80,18 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public var state: EngineState { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotState }
     public var tracks: [MediaTrack] { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotTracks }
     public var duration: Double? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotDuration }
-    public var currentTime: Double { max(0, synchronizer.currentTime().seconds.isFinite ? synchronizer.currentTime().seconds : 0) }
+    public var currentTime: Double {
+        snapshotLock.lock()
+        let held = heldTime
+        snapshotLock.unlock()
+        if let held { return held }
+        let t = synchronizer.currentTime().seconds
+        return t.isFinite ? max(0, t) : 0
+    }
+
+    private func setHeldTime(_ time: Double?) {
+        snapshotLock.lock(); heldTime = time; snapshotLock.unlock()
+    }
     public var isPlaying: Bool { state == .playing || (state == .buffering && desiredRateSnapshot > 0) }
     private var desiredRateSnapshot: Float { queue.sync { desiredRate } }
 
@@ -205,6 +219,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         lastVideoEnd = time
         lastAudioEnd = time
         synchronizer.setRate(0, time: SampleBuffers.time(time))
+        setHeldTime(time)
     }
 
     // MARK: Quality switch (prepare-then-splice)
@@ -566,7 +581,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             if forceStart { PlayerLog.engine("Watchdog: starting playback despite buffering state — \(summaryOnQueue())") }
             if forceStart || readyToRun(active, drained: drained) {
                 bufferingSince = nil
-                synchronizer.setRate(desiredRate, time: synchronizer.currentTime())
+                synchronizer.setRate(desiredRate, time: SampleBuffers.time(currentTime))
+                setHeldTime(nil)
                 setState(.playing)
             } else {
                 setState(.buffering)
