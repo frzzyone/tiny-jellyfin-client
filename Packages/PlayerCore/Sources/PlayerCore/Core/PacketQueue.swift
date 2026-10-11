@@ -73,6 +73,12 @@ final class PacketQueue: @unchecked Sendable {
         return dropped
     }
 
+    /// First queued packet matching `predicate`, without removing anything.
+    func first(where predicate: (Packet) -> Bool) -> Packet? {
+        condition.lock(); defer { condition.unlock() }
+        return packets[head...].first(where: predicate)
+    }
+
     var isEmpty: Bool { condition.lock(); defer { condition.unlock() }; return count == 0 }
 
     /// Seconds of media buffered ahead of the front.

@@ -66,7 +66,7 @@ for arch in "${ARCHS[@]}"; do
     "$SRC/configure" --prefix="$build/install" --arch="$arch" --target-os=darwin \
       --cc="clang -arch $arch" \
       --extra-cflags="-mmacosx-version-min=$MACOS_MIN" --extra-ldflags="-mmacosx-version-min=$MACOS_MIN" \
-      "${extra[@]}" "${CONFIGURE_FLAGS[@]}"
+      ${extra[@]+"${extra[@]}"} "${CONFIGURE_FLAGS[@]}"
     make -j"$(sysctl -n hw.ncpu)"
     make install
   )
