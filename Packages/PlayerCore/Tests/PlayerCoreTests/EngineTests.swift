@@ -15,7 +15,7 @@ final class EngineTests: XCTestCase {
         return engine
     }
 
-    func waitFor(_ timeout: TimeInterval, _ condition: () -> Bool) async -> Bool {
+    func waitFor(_ timeout: TimeInterval, _ condition: @escaping () -> Bool) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if condition() { return true }
@@ -30,7 +30,8 @@ final class EngineTests: XCTestCase {
         try await engine.prepare(source: MediaSource(url: url, headers: headers), startAt: 0)
         XCTAssertEqual(engine.state, .paused, file: file, line: line)
         engine.play()
-        let advanced = await waitFor(6) { engine.currentTime >= 2.0 }
+        // Fixtures are 6 s long: require 5 s of rendered playback.
+        let advanced = await waitFor(10) { engine.currentTime >= 5.0 || engine.state == .ended }
         XCTAssertTrue(advanced, "clock stuck at \(engine.currentTime) state \(engine.state)", file: file, line: line)
         XCTAssertNotEqual(engine.videoRenderer.status, .failed,
                           "video renderer: \(String(describing: engine.videoRenderer.error))", file: file, line: line)

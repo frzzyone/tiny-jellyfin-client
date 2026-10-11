@@ -3,8 +3,8 @@
 ## 1. Project scaffolding
 
 - [ ] 1.1 Create `Packages/JellyfinKit` Swift package (library + test target, Foundation only) and verify `swift build` and `swift test` succeed on Linux and macOS with a placeholder test
-- [ ] 1.2 Write `scripts/build-ffmpeg.sh` per design D2 (pinned release, LGPL-only, demux + audio/subtitle decoders, `--disable-network`, arm64 + x86_64 xcframework) and verify the script produces the xcframework on macOS and `ffmpeg -buildconf`-equivalent output shows no `--enable-gpl`
-- [ ] 1.3 Publish the xcframework as a release asset, create `Packages/PlayerCore` (macOS 14, `binaryTarget` with checksum) with a smoke test calling `avformat_version()`, and verify `swift test` passes on macOS
+- [ ] 1.2 Write `scripts/build-ffmpeg.sh` per design D2 (pinned release, LGPL-only, demux + audio/subtitle decoders, `http`/`tcp` protocols only, arm64 + x86_64 universal `libffmpeg.dylib` with headers in `Vendor/FFmpeg`) and verify the script builds on macOS and refuses GPL configurations
+- [ ] 1.3 Create `Packages/PlayerCore` (macOS 14) with a `CFFmpeg` shim target linking `Vendor/FFmpeg` on macOS and the system FFmpeg on Linux, cache `Vendor/FFmpeg` in CI, and verify `swift test` passes on macOS and Linux
 - [ ] 1.4 Add `project.yml` (XcodeGen) for the `TinyJellyfin` app target depending on both packages, with Info.plist (ATS exception, bundle id placeholder) and an FFmpeg LGPL notice in the About panel; git-ignore the generated project and verify `xcodegen generate && xcodebuild build` succeeds with an empty SwiftUI window
 - [ ] 1.5 Add a GitHub Actions workflow: JellyfinKit `swift test` on Linux and macOS, PlayerCore tests and `xcodebuild test` on macOS, with test-fixture generation via the `ffmpeg` CLI; verify it passes on the branch
 - [ ] 1.6 Write `README.md` with prerequisites (Xcode 15+, XcodeGen), FFmpeg build/licence notes, and build/run/test commands; verify the commands run as written on macOS

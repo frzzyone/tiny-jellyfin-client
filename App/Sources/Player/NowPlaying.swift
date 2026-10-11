@@ -52,16 +52,31 @@ final class NowPlayingPublisher {
         guard !commandsInstalled else { return }
         commandsInstalled = true
         let commands = MPRemoteCommandCenter.shared()
-        commands.playCommand.addTarget { [weak self] _ in self?.run { $0.play() } ?? .commandFailed }
-        commands.pauseCommand.addTarget { [weak self] _ in self?.run { $0.pause() } ?? .commandFailed }
-        commands.togglePlayPauseCommand.addTarget { [weak self] _ in self?.run { $0.togglePlayPause() } ?? .commandFailed }
+        // Remote commands are delivered on the main thread.
+        commands.playCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.run { $0.play() } ?? .commandFailed }
+        }
+        commands.pauseCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.run { $0.pause() } ?? .commandFailed }
+        }
+        commands.togglePlayPauseCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.run { $0.togglePlayPause() } ?? .commandFailed }
+        }
         commands.skipForwardCommand.preferredIntervals = [30]
-        commands.skipForwardCommand.addTarget { [weak self] _ in self?.run { $0.skip(by: 30) } ?? .commandFailed }
+        commands.skipForwardCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.run { $0.skip(by: 30) } ?? .commandFailed }
+        }
         commands.skipBackwardCommand.preferredIntervals = [10]
-        commands.skipBackwardCommand.addTarget { [weak self] _ in self?.run { $0.skip(by: -10) } ?? .commandFailed }
+        commands.skipBackwardCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.run { $0.skip(by: -10) } ?? .commandFailed }
+        }
         commands.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
-            return self?.run { controller in Task { await controller.seek(to: event.positionTime) } } ?? .commandFailed
+            guard let position = (event as? MPChangePlaybackPositionCommandEvent)?.positionTime else {
+                return .commandFailed
+            }
+            return MainActor.assumeIsolated {
+                self?.run { controller in Task { await controller.seek(to: position) } } ?? .commandFailed
+            }
         }
     }
 

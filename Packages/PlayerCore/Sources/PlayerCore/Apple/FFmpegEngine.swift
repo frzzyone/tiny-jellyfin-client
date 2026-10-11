@@ -20,6 +20,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     /// Seconds buffered ahead before (re)starting playback, and the low-water mark that pauses it.
     var startThreshold = 1.0
     var stallThreshold = 0.1
+    /// How far ahead of the clock samples are handed to the renderers. Bounding this keeps a
+    /// quality switch able to splice right after what is already enqueued.
+    var feedAhead = 2.0
 
     private let queue = DispatchQueue(label: "PlayerCore.engine", qos: .userInitiated)
     private let capabilities = EngineCapabilities.current()
@@ -207,27 +210,43 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             pipeline.stop()
             throw error
         }
-        try Task.checkCancellation()
 
-        let spliced: Bool = try queue.sync {
-            guard let active else { pipeline.stop(); throw EngineError("Nothing is playing.") }
-            cancelSplice()
-            let now = currentTime
-            let keyframe = pipeline.videoStream == nil
-                ? pipeline.audioQueue.first { $0.time >= now + 0.3 }
-                : pipeline.videoQueue.first { $0.isKeyframe && $0.time >= now + 0.3 }
-            if let keyframe {
-                incoming = pipeline
-                spliceTime = keyframe.time
-                videoSwitched = active.videoStream == nil || pipeline.videoStream == nil
-                audioSwitched = active.audioStream == nil || pipeline.audioStream == nil || !audioUsable
-                checkSpliceDone()
-                return true
+        // Splice at the first keyframe of the new stream that comes after everything already
+        // handed to the renderers; wait briefly for the new stream to reach one.
+        let searchDeadline = Date().addingTimeInterval(10)
+        var spliced = false
+        while true {
+            if Task.isCancelled { pipeline.stop(); throw CancellationError() }
+            let outcome: Bool? = try queue.sync {
+                guard let active else { pipeline.stop(); throw EngineError("Nothing is playing.") }
+                let bound = max(currentTime + 0.3, hasVideo ? lastVideoEnd : 0, hasAudio ? lastAudioEnd : 0)
+                let keyframe = pipeline.videoStream == nil
+                    ? pipeline.audioQueue.first { $0.time >= bound }
+                    : pipeline.videoQueue.first { $0.isKeyframe && $0.time >= bound }
+                if let keyframe {
+                    cancelSplice()
+                    incoming = pipeline
+                    spliceTime = keyframe.time
+                    videoSwitched = active.videoStream == nil || pipeline.videoStream == nil
+                    audioSwitched = active.audioStream == nil || pipeline.audioStream == nil || !audioUsable
+                    checkSpliceDone()
+                    return true
+                }
+                if Date() > searchDeadline || pipeline.reachedEnd || pipeline.hasFailed != nil {
+                    // No usable keyframe ahead of the clock: hard swap at the current position.
+                    cancelSplice()
+                    hardSwap(to: pipeline, at: currentTime)
+                    return false
+                }
+                return nil
             }
-            // No keyframe ahead of the clock: hard swap at the current position (short gap).
-            hardSwap(to: pipeline, at: now)
-            return false
+            if let outcome {
+                spliced = outcome
+                break
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
+
         if spliced {
             let deadline = Date().addingTimeInterval(30)
             while queue.sync(execute: { incoming === pipeline }) {
@@ -357,6 +376,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             }
         }
         let source = videoSwitched ? (incoming ?? active) : active
+        if lastVideoEnd > currentTime + feedAhead { return nil }
         while let packet = source.videoQueue.pop() {
             guard let format = source.videoFormat else { continue }
             let pts = packet.pts ?? packet.dts ?? 0
@@ -390,6 +410,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             }
         }
         let source = audioSwitched ? (incoming ?? active) : active
+        if lastAudioEnd > currentTime + feedAhead { return nil }
         let cutoff: Double? = (source === active && !audioSwitched && incoming != nil) ? spliceTime : nil
         let notBefore = max(preRollTarget ?? -1, (audioSwitched && source !== active) ? (spliceTime ?? -1) : -1)
 

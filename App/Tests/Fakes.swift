@@ -126,7 +126,7 @@ func movie(height: Int = 1080, resumeAt seconds: Double? = nil, defaultSubtitle:
 }
 
 @MainActor
-func eventually(_ timeout: TimeInterval = 3, _ condition: () -> Bool) async -> Bool {
+func eventually(_ timeout: TimeInterval = 3, _ condition: @escaping () -> Bool) async -> Bool {
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         if condition() { return true }

@@ -38,13 +38,20 @@ jobs:
         run: |
           sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
           xcodebuild -version
-      - name: Cache FFmpeg build
-        uses: actions/cache@v4
+      - name: Restore FFmpeg build
+        id: ffmpeg-cache
+        uses: actions/cache/restore@v4
         with:
           path: Vendor/FFmpeg
           key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
       - name: Build FFmpeg
         run: scripts/build-ffmpeg.sh
+      - name: Save FFmpeg build
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: Vendor/FFmpeg
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
       - name: Install tools
         run: brew install xcodegen ffmpeg
       - name: Generate fixtures
@@ -60,3 +67,8 @@ jobs:
           set -o pipefail
           xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -200
+      - name: Release build
+        run: |
+          set -o pipefail
+          xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Release build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -20

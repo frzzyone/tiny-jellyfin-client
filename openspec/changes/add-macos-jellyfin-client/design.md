@@ -48,12 +48,21 @@ for required behavior. Constraints that shape the design:
 force macOS-only builds of the API layer and lose Linux testability).
 
 ### D2. FFmpeg packaging: our own pinned, LGPL-only, demux+audio build
-`scripts/build-ffmpeg.sh` builds a pinned FFmpeg release for macOS 14 (arm64 + x86_64) as an xcframework with
-only `libavformat`, `libavcodec`, `libavutil`, `libswresample`, configured `--disable-gpl --disable-nonfree
---disable-network --disable-programs --disable-encoders --disable-muxers` and only the needed demuxers,
-parsers, and audio/subtitle decoders. Network access is disabled because all I/O goes through URLSession (D4).
-The result is published as a GitHub release asset of this repo and consumed as a SwiftPM `binaryTarget` with a
-checksum. Dynamic frameworks satisfy LGPL; the app ships a licence notice and a link to the build script.
+`scripts/build-ffmpeg.sh` builds a pinned FFmpeg release (7.1.1) for macOS 14 (arm64 + x86_64) with only
+`libavformat`, `libavcodec`, `libavutil`, `libswresample`, configured `--disable-gpl --disable-nonfree
+--disable-programs --disable-encoders --disable-muxers` and only the needed demuxers, parsers, and
+audio/subtitle decoders. The four static libraries are linked into one universal `libffmpeg.dylib`
+(install name `@rpath/libffmpeg.dylib`) in the git-ignored `Vendor/FFmpeg`, with headers next to it.
+PlayerCore reaches it through a small C shim target (`CFFmpeg`) plus linker flags; the app embeds the dylib.
+CI caches `Vendor/FFmpeg` keyed on the script's hash. On Linux the same shim links the system FFmpeg, so the
+portable core is tested there too. Dynamic linking satisfies LGPL; the app ships a licence notice.
+
+Networking: only the `http` and `tcp` protocols are compiled in, without any TLS library. FFmpeg's HLS
+demuxer refuses URLs whose scheme it does not know, so FFmpeg is shown `http://` URLs while every actual
+request still goes through URLSession over the real scheme (D4).
+
+*Implementation note:* the plan was a release-asset `binaryTarget` and `--disable-network`; the first needs
+a release workflow for a dylib-in-xcframework that SwiftPM does not embed well, the second breaks HLS.
 
 *Alternatives:* MPVKit/KSPlayer FFmpeg builds (tied to their release cadence, options not ours, some GPL);
 Homebrew (non-relocatable dylibs, GPL-enabled); the retired ffmpeg-kit project.
@@ -72,14 +81,17 @@ Public surface: `protocol PlaybackEngine` — `prepare(source:startAt:) async th
    colour primaries/transfer/matrix, mastering display and content light level side data as format
    description extensions (this is what turns on HDR/EDR). Each packet becomes a `CMSampleBuffer` (PTS/DTS/
    duration, sync-sample attachments) enqueued to an `AVSampleBufferDisplayLayer`'s `sampleBufferRenderer`
-   from `requestMediaDataWhenReady`. VideoToolbox decodes in hardware.
+   from `requestMediaDataWhenReady`. VideoToolbox decodes in hardware. MPEG-TS streams carry Annex B
+   H.264/HEVC without a configuration record: the description is built from the parameter sets in the first
+   keyframe and packets are converted to 4-byte length prefixes.
 3. **Dolby Vision**: read the `AV_PKT_DATA_DOVI_CONF` record. Profiles 5 and 8 use codec type `dvh1` with the
    `dvcC`/`dvvC` atom in `SampleDescriptionExtensionAtoms` (Profile 8 keeps HEVC compatibility). Profile 7
    drops the enhancement-layer NAL units and plays the HDR10 base layer as plain HEVC.
-4. **Audio**: AAC, AC-3 and E-AC-3 (incl. JOC/Atmos) are passed through compressed to an
-   `AVSampleBufferAudioRenderer` with the proper `CMAudioFormatDescription` and magic cookie. Everything else
-   (DTS, TrueHD, FLAC, Opus, Vorbis, MP3, PCM variants) is decoded with libavcodec, converted with
-   libswresample to interleaved Float32 keeping the channel layout, and enqueued as LPCM.
+4. **Audio**: AC-3 and E-AC-3 (incl. JOC/Atmos) are passed through compressed to an
+   `AVSampleBufferAudioRenderer`. Everything else (AAC, DTS, TrueHD, FLAC, Opus, Vorbis, MP3, PCM variants)
+   is decoded with libavcodec, converted with libswresample to interleaved Float32 keeping the channel
+   layout, and enqueued as LPCM. (AAC is decoded rather than passed through: it is cheap and avoids
+   building ES-descriptor magic cookies.)
 5. **Sync**: both renderers are attached to one `AVSampleBufferRenderSynchronizer`; `setRate(_:time:)` starts,
    pauses and repositions the shared clock. No custom A/V clock code.
 6. **Seek**: interrupt reader → `av_seek_frame(BACKWARD)` to the keyframe ≤ target → flush queues and
@@ -135,8 +147,10 @@ only when `VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)`) and a `QualityPr
 maxHeight }` (Original has neither cap) and produces:
 - DirectPlayProfiles: containers `mkv,webm,mp4,m4v,mov,ts`; video `h264,hevc[,av1]`; audio
   `aac,mp3,ac3,eac3,flac,alac,opus,vorbis,dts,truehd,pcm_*`.
-- TranscodingProfile: HLS, `Container: mp4` (fMP4 segments), video `hevc,h264`, audio `aac,ac3,eac3`,
+- TranscodingProfile: HLS, `Container: ts` (MPEG-TS segments), video `hevc,h264`, audio `aac,ac3,eac3`,
   `Context: Streaming` — listing h264/hevc lets the server copy compatible video (Direct Stream).
+  MPEG-TS rather than fMP4 because FFmpeg 7.1's HLS demuxer cannot seek streams with fMP4 segments
+  (verified with the FFmpeg CLI and in PlayerCore tests).
 - CodecProfiles: HEVC/H.264 level and bit-depth limits from capabilities; for presets, `Height ≤ maxHeight`
   and `Width ≤ maxHeight·16/9` so the server downscales instead of only cutting bitrate.
 - SubtitleProfiles: `srt,subrip,ass,ssa,vtt,webvtt,mov_text` → `Embed` and `External`; `pgssub,dvdsub,dvbsub`
@@ -166,8 +180,10 @@ burn-in on/off):
    `playSessionId`, report `Playing` for the new one; persist the preset for this server.
 7. Any failure in 2–4: discard the new pipeline, keep the old session, surface "Couldn't switch quality".
 
-Subtitle selection for text tracks never reloads: embedded tracks come from the running demuxer, external
-tracks are downloaded and parsed once.
+Subtitle selection for text tracks never reloads the stream. During Direct Play, embedded tracks come from
+the running demuxer (all text tracks are decoded as they are read, so switching is instant). Otherwise —
+external files, or HLS streams from the server, which don't carry text subtitles — the track is downloaded
+once from the server as SRT and parsed with the same decoder.
 
 ### D8. Subtitles
 Text subtitle packets are decoded with libavcodec (SRT/ASS/WebVTT/mov_text → `AVSubtitle` ASS text), ASS

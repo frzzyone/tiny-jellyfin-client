@@ -102,7 +102,6 @@ struct VideoLayerView: NSViewRepresentable {
             didSet {
                 oldValue?.removeFromSuperlayer()
                 if let videoLayer {
-                    videoLayer.wantsExtendedDynamicRangeContent = true
                     layer?.addSublayer(videoLayer)
                     needsLayout = true
                 }
