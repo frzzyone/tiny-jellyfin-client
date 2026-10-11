@@ -84,6 +84,10 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def handle_error(self, request, client_address):
+        # Clients cancel requests all the time (seeks, parking); don't print tracebacks.
+        pass
+
     def server_bind(self):
         # HTTPServer.server_bind calls socket.getfqdn(), a reverse DNS lookup that can stall
         # for ~30 s on CI machines.

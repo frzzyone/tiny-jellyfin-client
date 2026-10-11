@@ -39,8 +39,12 @@ final class Demuxer {
         av_dict_set(&options, "seg_max_retry", "3", 0)
         // MKV/MP4 describe their streams in the header; with no video decoders in our FFmpeg
         // build, the default probing (5 MB / 5 s) mostly just downloads data before playback.
-        ctx.pointee.probesize = 2_000_000
-        ctx.pointee.max_analyze_duration = 2 * Int64(AV_TIME_BASE)
+        // MPEG-TS/HLS has no header and keeps the defaults.
+        let ext = url.pathExtension.lowercased()
+        if !["m3u8", "ts", "m2ts", "mts"].contains(ext) {
+            ctx.pointee.probesize = 2_000_000
+            ctx.pointee.max_analyze_duration = 2 * Int64(AV_TIME_BASE)
+        }
         var maybeCtx: UnsafeMutablePointer<AVFormatContext>? = ctx
         let result = avformat_open_input(&maybeCtx, MediaIO.ffmpegURL(for: url), nil, &options)
         av_dict_free(&options)

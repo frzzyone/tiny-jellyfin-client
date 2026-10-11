@@ -87,14 +87,15 @@ final class EngineTests: XCTestCase {
             for _ in 0..<10 {
                 let target = Double.random(in: 0.2...5.0, using: &generator)
                 await engine.seek(to: target)
-                XCTAssertEqual(engine.currentTime, target, accuracy: 0.1, "\(url.lastPathComponent) → \(target)")
-                XCTAssertEqual(engine.state, .paused)
+                XCTAssertEqual(engine.currentTime, target, accuracy: 0.1,
+                               "\(url.lastPathComponent) → \(target): \(engine.debugSummary)")
+                XCTAssertEqual(engine.state, .paused, "\(url.lastPathComponent): \(engine.debugSummary)")
             }
             // Playback continues after seeking.
             await engine.seek(to: 1.0)
             engine.play()
             let advanced = await waitFor(4) { engine.currentTime > 1.8 }
-            XCTAssertTrue(advanced, "\(url.lastPathComponent) did not play after seeking")
+            XCTAssertTrue(advanced, "\(url.lastPathComponent) did not play after seeking: \(engine.debugSummary)")
             engine.stop()
         }
     }
