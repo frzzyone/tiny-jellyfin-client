@@ -30,6 +30,9 @@ public final class JellyfinClient: @unchecked Sendable {
         self.userId = userId
     }
 
+    /// `Authorization` header value for requests made outside this client (media streams).
+    public var authorizationHeaderValue: String { authorizationHeader }
+
     var authorizationHeader: String {
         lock.lock(); defer { lock.unlock() }
         return identity.authorizationHeader(token: accessToken)

@@ -98,6 +98,12 @@ public struct ItemsResult: Codable, Sendable {
     public var items: [BaseItem]
     public var totalRecordCount: Int?
     public var startIndex: Int?
+
+    public init(items: [BaseItem], totalRecordCount: Int?, startIndex: Int?) {
+        self.items = items
+        self.totalRecordCount = totalRecordCount
+        self.startIndex = startIndex
+    }
 }
 
 public enum MediaStreamType: String, Codable, Sendable {

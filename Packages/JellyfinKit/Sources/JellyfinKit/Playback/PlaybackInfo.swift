@@ -45,6 +45,16 @@ public struct ResolvedStream: Sendable, Equatable {
     /// Seconds the stream's own timeline is offset from the item timeline (non-zero when the
     /// server starts a transcode part-way into the item).
     public var timelineOffset: Double
+
+    public init(url: URL, playMethod: PlayMethod, mediaSource: MediaSourceInfo, mediaSourceId: String,
+                playSessionId: String?, timelineOffset: Double) {
+        self.url = url
+        self.playMethod = playMethod
+        self.mediaSource = mediaSource
+        self.mediaSourceId = mediaSourceId
+        self.playSessionId = playSessionId
+        self.timelineOffset = timelineOffset
+    }
 }
 
 public enum PlayMethodClassifier {

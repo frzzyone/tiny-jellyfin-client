@@ -34,9 +34,12 @@ echo "Writing fixtures to $OUT"
 # Audio codecs that take the decode path (video is H.264 so only the audio differs).
 "${FF[@]}" "${VIDEO[@]}" "${SURROUND[@]}" -map 0:v -map "[a]" "${H264[@]}" -c:a dca -strict -2 -b:a 768k -shortest h264_dts.mkv
 "${FF[@]}" "${VIDEO[@]}" "${SURROUND[@]}" -map 0:v -map "[a]" "${H264[@]}" -c:a truehd -strict -2 -shortest h264_truehd.mkv
-for codec in flac:flac opus:libopus vorbis:libvorbis mp3:libmp3lame pcm:pcm_s16le ac3:ac3 aac:aac; do
-  name="${codec%%:*}"; enc="${codec##*:}"
-  "${FF[@]}" "${STEREO[@]}" -c:a "$enc" "audio_$name.mkv"
+has_encoder() { ffmpeg -hide_banner -encoders 2>/dev/null | grep -q " $1 "; }
+for codec in flac:flac:flac opus:libopus:opus vorbis:libvorbis:vorbis mp3:libmp3lame:libshine pcm:pcm_s16le:pcm_s16le ac3:ac3:ac3 aac:aac:aac; do
+  IFS=: read -r name enc fallback <<< "$codec"
+  if ! has_encoder "$enc"; then enc="$fallback"; fi
+  # FFmpeg's native opus/vorbis encoders are experimental and want stereo.
+  "${FF[@]}" "${STEREO[@]}" -c:a "$enc" -strict -2 -ac 2 "audio_$name.mkv"
 done
 
 # Subtitles: SRT and ASS, embedded and external.

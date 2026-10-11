@@ -1,0 +1,66 @@
+name: TinyJellyfin
+options:
+  bundleIdPrefix: app.tinyjellyfin
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  JellyfinKit:
+    path: Packages/JellyfinKit
+  PlayerCore:
+    path: Packages/PlayerCore
+targets:
+  TinyJellyfin:
+    type: application
+    platform: macOS
+    sources:
+      - path: App/Sources
+      - path: THIRD_PARTY_NOTICES.md
+        buildPhase: resources
+    dependencies:
+      - package: JellyfinKit
+      - package: PlayerCore
+      # Our LGPL FFmpeg build (scripts/build-ffmpeg.sh), dynamically linked and embedded.
+      - framework: Vendor/FFmpeg/lib/libffmpeg.dylib
+        embed: true
+        codeSign: true
+    info:
+      path: App/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Tiny Jellyfin
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSApplicationCategoryType: public.app-category.entertainment
+        LSMinimumSystemVersion: "14.0"
+        NSHumanReadableCopyright: "FFmpeg is used under the LGPL v2.1 — see Acknowledgements."
+        # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin
+        PRODUCT_NAME: TinyJellyfin
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    scheme:
+      testTargets:
+        - TinyJellyfinTests
+  TinyJellyfinTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: App/Tests
+    dependencies:
+      - target: TinyJellyfin
+      - package: JellyfinKit
+      - package: PlayerCore
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TinyJellyfin.app/Contents/MacOS/TinyJellyfin"
+        BUNDLE_LOADER: "$(TEST_HOST)"

@@ -33,12 +33,12 @@ final class AudioDecoderTests: XCTestCase {
     func testDTS51() throws { try assertDecodes("h264_dts.mkv", channels: 6) }
     func testTrueHD51() throws { try assertDecodes("h264_truehd.mkv", channels: 6) }
     func testEAC351() throws { try assertDecodes("hevc10_eac3.mkv", channels: 6) }
-    func testFLAC() throws { try assertDecodes("audio_flac.mkv", channels: 1) }
-    func testOpus() throws { try assertDecodes("audio_opus.mkv", channels: 1) }
-    func testVorbis() throws { try assertDecodes("audio_vorbis.mkv", channels: 1) }
-    func testMP3() throws { try assertDecodes("audio_mp3.mkv", channels: 1) }
-    func testPCM() throws { try assertDecodes("audio_pcm.mkv", channels: 1) }
-    func testAAC() throws { try assertDecodes("audio_aac.mkv", channels: 1) }
+    func testFLAC() throws { try assertDecodes("audio_flac.mkv", channels: 2) }
+    func testOpus() throws { try assertDecodes("audio_opus.mkv", channels: 2) }
+    func testVorbis() throws { try assertDecodes("audio_vorbis.mkv", channels: 2) }
+    func testMP3() throws { try assertDecodes("audio_mp3.mkv", channels: 2) }
+    func testPCM() throws { try assertDecodes("audio_pcm.mkv", channels: 2) }
+    func testAAC() throws { try assertDecodes("audio_aac.mkv", channels: 2) }
 
     func testChannelMaskForFiveOne() throws {
         let frames = try decode("h264_truehd.mkv")
