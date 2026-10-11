@@ -61,21 +61,42 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(advanced)
     }
 
+    /// Once playback has settled, the video renderer must stay locked to the shared clock and the
+    /// clock must advance at real time. A drift that grows over the run is the failure that pulls
+    /// audio and video apart over a long movie; a constant offset at startup is not (the renderers'
+    /// timebases latch a few tens of milliseconds apart when the rate is first set).
     func testClocksStayInSync() async throws {
         let engine = engine()
         defer { engine.stop() }
         try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
         engine.play()
-        _ = await waitFor(3) { engine.state == .playing }
-        var worst = 0.0
-        for _ in 0..<40 {
+        let started = await waitFor(3) { engine.state == .playing }
+        XCTAssertTrue(started, "never started: \(engine.debugSummary)")
+        try await Task.sleep(nanoseconds: 700_000_000)   // let the start transient settle
+
+        var drifts: [Double] = []
+        let firstClock = engine.synchronizer.currentTime().seconds
+        let firstHost = Date()
+        for _ in 0..<30 {
             let clock = engine.synchronizer.currentTime().seconds
             if let timebase = engine.videoRenderer.timebase as CMTimebase? {
-                worst = max(worst, abs(CMTimebaseGetTime(timebase).seconds - clock))
+                drifts.append(abs(CMTimebaseGetTime(timebase).seconds - clock))
             }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
-        XCTAssertLessThan(worst, 0.04, "video renderer timebase drifted \(worst) s from the shared clock")
+        let elapsedClock = engine.synchronizer.currentTime().seconds - firstClock
+        let elapsedHost = Date().timeIntervalSince(firstHost)
+
+        XCTAssertFalse(drifts.isEmpty, "no video timebase: \(engine.debugSummary)")
+        let worst = drifts.max() ?? 0
+        XCTAssertLessThan(worst, 0.04, "video renderer drifted \(worst) s from the shared clock")
+        // No progressive drift: the second half must be no worse than the first plus a margin.
+        let half = drifts.count / 2
+        let early = drifts[..<half].max() ?? 0, late = drifts[half...].max() ?? 0
+        XCTAssertLessThan(late, early + 0.02, "drift grew over the run (\(early) s → \(late) s)")
+        // The clock tracks real time, so audio is not resampling the timeline underneath us.
+        XCTAssertEqual(elapsedClock, elapsedHost, accuracy: max(0.1, elapsedHost * 0.05),
+                       "clock advanced \(elapsedClock) s in \(elapsedHost) s of real time")
     }
 
     func testSeekAccuracy() async throws {
