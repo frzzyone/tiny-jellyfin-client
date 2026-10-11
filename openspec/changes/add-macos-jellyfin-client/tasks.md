@@ -35,11 +35,11 @@
 - [ ] 5.1 Define the public `PlaybackEngine` protocol, `EngineState`, `EngineEvent`, `EngineCapabilities` and track types (no FFmpeg types exposed) and verify the package builds and a fake engine conforms
 - [x] 5.2 Implement `URLSessionIO` (AVIOContext read/seek via HTTP Range with read-ahead, `io_open`/`io_close2` for nested HLS opens, per-request `Authorization` header, interrupt on cancel, 3-try 1/2/4 s reconnect) and verify tests against a local HTTP fixture server including range seeks, an HLS playlist, and a dropped connection
 - [ ] 5.3 Implement the demux thread and duration/byte-bounded packet queues with interrupt-based cancellation and verify tests that open MP4 and MKV fixtures, list streams/tracks, and stop promptly on close
-- [ ] 5.4 Implement video sample conversion (H.264 `avcC`, HEVC `hvcC`, AV1 `av1C` format descriptions, timing, sync attachments) feeding the display layer's renderer, and verify a headless test renders 5 s of each fixture with no renderer errors and advancing time
-- [ ] 5.5 Implement audio passthrough (AAC, AC-3, E-AC-3 with magic cookies) and decode path (DTS, TrueHD, FLAC, Opus, Vorbis, MP3, PCM → Float32 via libswresample keeping channel layout) feeding the audio renderer, and verify headless tests per codec fixture produce audio samples with the expected channel count
+- [x] 5.4 Implement video sample conversion (H.264 `avcC`, HEVC `hvcC`, AV1 `av1C` format descriptions, timing, sync attachments) feeding the display layer's renderer, and verify a headless test renders 5 s of each fixture with no renderer errors and advancing time
+- [x] 5.5 Implement audio passthrough (AAC, AC-3, E-AC-3 with magic cookies) and decode path (DTS, TrueHD, FLAC, Opus, Vorbis, MP3, PCM → Float32 via libswresample keeping channel layout) feeding the audio renderer, and verify headless tests per codec fixture produce audio samples with the expected channel count
 - [ ] 5.6 Wire both renderers to `AVSampleBufferRenderSynchronizer` with play/pause/rate and timeline normalisation, and verify a test that audio and video presentation times stay within 40 ms over 30 s
 - [ ] 5.7 Implement seeking (interrupt, keyframe seek, flush, `DoNotDisplay` pre-roll, audio trim) and verify tests that seeks to 10 random positions land within 100 ms of target on MKV and HLS fixtures
-- [ ] 5.8 Implement buffering/ended/failed states and corrupt-packet skipping, and verify tests with a truncated file and an injected corrupt section (playback continues past it, state reports `failed` only on I/O loss)
+- [x] 5.8 Implement buffering/ended/failed states and corrupt-packet skipping, and verify tests with a truncated file and an injected corrupt section (playback continues past it, state reports `failed` only on I/O loss)
 
 ## 6. HDR, Dolby Vision and Atmos
 
@@ -68,7 +68,7 @@
 ## 9. Quality switching
 
 - [x] 9.1 Implement preset visibility by source height and default-quality resolution (remembered per server, fallback to Original without overwriting); verify unit tests for the 1080p, unknown-resolution and hidden-remembered-preset scenarios
-- [ ] 9.2 Implement the second-pipeline prepare and splice-at-keyframe in the engine per design D7 (incl. flush-and-seek fallback and audio-only flush if needed), and verify a headless test that splices between two fixtures of different bitrates with no video gap > 100 ms and position continuity within 1 s
+- [x] 9.2 Implement the second-pipeline prepare and splice-at-keyframe in the engine per design D7 (incl. flush-and-seek fallback and audio-only flush if needed), and verify a headless test that splices between two fixtures of different bitrates with no video gap > 100 ms and position continuity within 1 s
 - [ ] 9.3 Implement the switch flow in `PlaybackController` (no-op on same quality, cancel in-flight, 20 s timeout, failure keeps old session, old session stopped + encode deleted, preference persisted, subtitle selection preserved) and verify controller tests with a fake engine including the failure path
 - [ ] 9.4 Add the quality menu, "<quality> · <play method>" indicator, switching spinner and failure banner in the overlay and the Playback menu; verify manually switching from both places while playing and while paused
 - [x] 9.5 Document quality presets, play methods and supported formats in README.md and verify the documented presets and codecs match `QualityPreset` and `DeviceProfileBuilder`
