@@ -47,6 +47,11 @@ final class PlaybackController {
     private(set) var selectedSubtitle: Int?
     private(set) var subtitleText: String?
     private(set) var engine: PlaybackEngine?
+    /// What the spinner is waiting for ("Getting stream…", "Opening video…").
+    private(set) var loadingDetail: String?
+    /// Engine internals, shown under the spinner when it has been spinning for a while.
+    private(set) var diagnostics: String?
+    @ObservationIgnored private var spinnerSince: Date?
 
     var volume: Float = 1 { didSet { engine?.volume = volume } }
     var isMuted = false { didSet { engine?.isMuted = isMuted } }
@@ -90,6 +95,7 @@ final class PlaybackController {
         self.service = service
         self.item = item
         status = .loading
+        startUITimer()
         let start = resume ? (item.resumePositionSeconds ?? 0) : 0
         startTask = Task { await begin(item: item, at: start, quality: nil) }
     }
@@ -102,6 +108,7 @@ final class PlaybackController {
         stopEngine(report: false)
         status = .loading
         self.service = service
+        startUITimer()
         startTask = Task { await begin(item: item, at: position, quality: quality) }
     }
 
@@ -116,6 +123,8 @@ final class PlaybackController {
             let quality = requested ?? QualitySelection.startingQuality(
                 preferredId: preferences.preferredQualityId(server: service.serverURL), sourceHeight: sourceHeight)
 
+            loadingDetail = "Getting stream from the server…"
+            PlayerLog.engine("Controller: requesting stream for \(item.id) at \(quality.label), start \(start)")
             let stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
                                                          startSeconds: start,
                                                          mediaSourceId: full.mediaSources?.first?.id,
@@ -124,6 +133,8 @@ final class PlaybackController {
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
 
+            PlayerLog.engine("Controller: \(stream.playMethod.label) \(stream.url.path)?\(stream.url.query ?? "")")
+            loadingDetail = "Opening video (\(stream.playMethod.label))…"
             let engine = engineFactory()
             engine.volume = volume
             engine.isMuted = isMuted
@@ -132,6 +143,7 @@ final class PlaybackController {
             try await engine.prepare(source: MediaSource(url: stream.url, headers: service.streamHeaders,
                                                          timelineOffset: stream.timelineOffset), startAt: start)
             try Task.checkCancellation()
+            loadingDetail = nil
             duration = engine.duration ?? Ticks.seconds(full.runTimeTicks ?? 0)
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
@@ -150,6 +162,8 @@ final class PlaybackController {
             }
         } catch is CancellationError {
         } catch {
+            PlayerLog.engine("Controller: playback failed to start: \(error)")
+            loadingDetail = nil
             status = .failed(describe(error))
             engine?.stop()
         }
@@ -183,6 +197,9 @@ final class PlaybackController {
         subtitleText = nil
         selectedSubtitle = nil
         externalCues = [:]
+        loadingDetail = nil
+        diagnostics = nil
+        spinnerSince = nil
     }
 
     private func reportStopOnce() {
@@ -399,13 +416,30 @@ final class PlaybackController {
                 self.send(.progress, eventName: "TimeUpdate")
             }
         }
-        uiTimer?.invalidate()
+        startUITimer()
+    }
+
+    /// Drives the time display, subtitles and the spinner diagnostics; runs from the moment
+    /// playback is requested so the overlay can explain a slow start.
+    private func startUITimer() {
+        guard uiTimer == nil else { return }
         uiTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
     }
 
     private func refresh() {
+        let spinning = status == .loading || status == .buffering
+        if spinning {
+            let since = spinnerSince ?? Date()
+            spinnerSince = since
+            if Date().timeIntervalSince(since) > 5 {
+                diagnostics = engine?.debugSummary ?? loadingDetail
+            }
+        } else {
+            spinnerSince = nil
+            diagnostics = nil
+        }
         guard let engine else { return }
         if status == .playing || status == .buffering || status == .paused {
             currentTime = engine.currentTime

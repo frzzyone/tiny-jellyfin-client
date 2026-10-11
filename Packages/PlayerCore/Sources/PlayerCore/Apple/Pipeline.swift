@@ -78,6 +78,17 @@ final class Pipeline: @unchecked Sendable {
         if let info = videoInfo, info.hasConfigurationRecord {
             videoFormat = try VideoFormat.make(info, firstKeyframe: nil, allowDolbyVision: allowDolbyVision)
         }
+        let audioDescription: String
+        switch audioMode {
+        case .passthrough?: audioDescription = "passthrough"
+        case .decode?: audioDescription = "decode"
+        case nil: audioDescription = "none"
+        }
+        PlayerLog.engine("Opened \(demuxer.formatName) start=\(startAt) duration=\(duration ?? -1)"
+                         + " tracks=\(tracks.map { "\($0.id):\($0.kind.rawValue)/\($0.codec)" }.joined(separator: ","))"
+                         + " video=\(videoStream.map(String.init) ?? "-") \(videoInfo.map { "\($0.codec) \($0.width)x\($0.height) \($0.bitDepth)bit transfer=\($0.color.transferKind) dv=\($0.dolbyVision.map { "P\($0.profile)" } ?? "no")" } ?? "")"
+                         + " videoFormat=\(videoFormat == nil ? "pending" : (videoFormat!.usesDolbyVision ? "dolby-vision" : "ok"))"
+                         + " audio=\(audioStream.map(String.init) ?? "-") \(audioDescription)")
     }
 
     private func makeAudioMode(_ stream: UnsafeMutablePointer<AVStream>) throws -> AudioMode {
@@ -192,6 +203,7 @@ final class Pipeline: @unchecked Sendable {
                 // Corrupt data: skip ahead. Repeated I/O failure: give up.
                 if error.code == cff_averror_invaliddata() && consecutiveErrors < 200 { continue }
                 if consecutiveErrors >= 3 || error.code != cff_averror_invaliddata() {
+                    PlayerLog.engine("Reader failed: \(error.description)")
                     condition.lock(); failure = error.description; condition.unlock()
                     videoQueue.markEndOfStream()
                     audioQueue.markEndOfStream()

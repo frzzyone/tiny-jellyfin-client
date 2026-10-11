@@ -22,7 +22,20 @@ struct PlayerWindowView: View {
             }
             SubtitleOverlay(text: player.subtitleText)
             if player.status == .loading || player.status == .buffering {
-                ProgressView().controlSize(.large).tint(.white)
+                VStack(spacing: 10) {
+                    ProgressView().controlSize(.large).tint(.white)
+                    if let detail = player.loadingDetail {
+                        Text(detail).font(.callout).foregroundStyle(.white.opacity(0.8))
+                    }
+                    if let diagnostics = player.diagnostics {
+                        Text(diagnostics)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: 520)
+                    }
+                }
             }
             if case .failed(let message) = player.status {
                 ErrorBanner(message: message) { player.retry() }

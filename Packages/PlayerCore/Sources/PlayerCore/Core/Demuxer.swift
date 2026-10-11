@@ -37,6 +37,10 @@ final class Demuxer {
         av_dict_set(&options, "http_persistent", "0", 0)
         av_dict_set(&options, "extension_picky", "0", 0)
         av_dict_set(&options, "seg_max_retry", "3", 0)
+        // MKV/MP4 describe their streams in the header; with no video decoders in our FFmpeg
+        // build, the default probing (5 MB / 5 s) mostly just downloads data before playback.
+        ctx.pointee.probesize = 2_000_000
+        ctx.pointee.max_analyze_duration = 2 * Int64(AV_TIME_BASE)
         var maybeCtx: UnsafeMutablePointer<AVFormatContext>? = ctx
         let result = avformat_open_input(&maybeCtx, MediaIO.ffmpegURL(for: url), nil, &options)
         av_dict_free(&options)
@@ -47,7 +51,9 @@ final class Demuxer {
         }
         ctx = opened
         context = ctx
+        let probeStart = Date()
         try check(avformat_find_stream_info(ctx, nil), "find stream info")
+        PlayerLog.engine("Probed \(url.lastPathComponent) in \(String(format: "%.2f", Date().timeIntervalSince(probeStart))) s")
         tracks = (0..<Int(ctx.pointee.nb_streams)).map { describe(stream: ctx.pointee.streams[$0]!) }
     }
 

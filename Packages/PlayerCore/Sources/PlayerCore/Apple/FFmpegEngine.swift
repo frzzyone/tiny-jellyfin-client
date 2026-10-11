@@ -25,6 +25,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     var feedAhead = 2.0
 
     private let queue = DispatchQueue(label: "PlayerCore.engine", qos: .userInitiated)
+    private let queueKey = DispatchSpecificKey<Bool>()
+    private var onQueue: Bool { DispatchQueue.getSpecific(key: queueKey) == true }
     private let capabilities = EngineCapabilities.current()
 
     // Guarded by `queue`.
@@ -44,6 +46,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var audioUsable = true
     private var allowDolbyVision = true
     private var timer: DispatchSourceTimer?
+    private var bufferingSince: Date?
+    private var lastStallLog = Date.distantPast
+    private var audioSampleFailures = 0
     private var selectedSubtitle: Int?
     private var externalSubtitles: SubtitleTrackStore?
 
@@ -54,6 +59,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var snapshotDuration: Double?
 
     public init() {
+        queue.setSpecific(key: queueKey, value: true)
         synchronizer.addRenderer(videoRenderer)
         synchronizer.addRenderer(audioRenderer)
         displayLayer.videoGravity = .resizeAspect
@@ -90,7 +96,10 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         let changed = snapshotState != newState
         snapshotState = newState
         snapshotLock.unlock()
-        if changed { emit(.state(newState)) }
+        if changed {
+            PlayerLog.engine("State \(newState)" + (onQueue ? " — \(summaryOnQueue())" : ""))
+            emit(.state(newState))
+        }
     }
 
     private func emit(_ event: EngineEvent) {
@@ -421,7 +430,11 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             case .passthrough(let format)?:
                 if packet.time + packet.duration <= notBefore { continue }
                 guard let sample = SampleBuffers.compressedAudio(Data(buffer: packet.data), format: format,
-                                                                 pts: packet.time) else { continue }
+                                                                 pts: packet.time) else {
+                    noteAudioFailure("compressed sample")
+                    continue
+                }
+                audioSampleFailures = 0
                 lastAudioEnd = max(lastAudioEnd, packet.time + max(packet.duration, 0.032))
                 return sample
             case .decode(let decoder)?:
@@ -430,7 +443,11 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
                     if frame.pts + frame.duration <= notBefore { continue }
                     guard let format = pcmFormat(for: frame),
                           let sample = SampleBuffers.pcm(frame, format: format, notBefore: notBefore > 0 ? notBefore : nil)
-                    else { continue }
+                    else {
+                        noteAudioFailure("PCM sample \(frame.channels)ch \(frame.sampleRate)Hz mask=\(frame.channelMask)")
+                        continue
+                    }
+                    audioSampleFailures = 0
                     pendingAudio.append(sample)
                     lastAudioEnd = max(lastAudioEnd, frame.pts + frame.duration)
                 }
@@ -440,6 +457,19 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             }
         }
         return nil
+    }
+
+    /// Audio that can't be turned into sample buffers must not hold up video forever.
+    private func noteAudioFailure(_ what: String) {
+        audioSampleFailures += 1
+        if audioSampleFailures == 1 || audioSampleFailures % 50 == 0 {
+            PlayerLog.engine("Could not create audio \(what) (\(audioSampleFailures) in a row)")
+        }
+        if audioSampleFailures >= 30 && audioUsable {
+            PlayerLog.engine("Disabling audio after repeated failures; continuing with video only")
+            audioUsable = false
+            audioSwitched = true
+        }
     }
 
     private func switchAudio(to pipeline: Pipeline, at splice: Double) {
@@ -521,9 +551,21 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             }
             return
         }
-        guard desiredRate > 0 else { return }
+        guard desiredRate > 0 else { bufferingSince = nil; return }
         if synchronizer.rate == 0 {
-            if readyToRun(active, drained: drained) {
+            let since = bufferingSince ?? Date()
+            bufferingSince = since
+            let waited = Date().timeIntervalSince(since)
+            if waited > 2, Date().timeIntervalSince(lastStallLog) > 2 {
+                lastStallLog = Date()
+                PlayerLog.engine("Still buffering after \(Int(waited)) s — \(summaryOnQueue())")
+            }
+            // Watchdog: plenty is queued and the video renderer has frames, yet the start
+            // condition never became true. Start anyway rather than spin forever.
+            let forceStart = waited > 8 && active.bufferedDuration >= 3 && (!hasVideo || lastVideoEnd > currentTime + 0.05)
+            if forceStart { PlayerLog.engine("Watchdog: starting playback despite buffering state — \(summaryOnQueue())") }
+            if forceStart || readyToRun(active, drained: drained) {
+                bufferingSince = nil
                 synchronizer.setRate(desiredRate, time: synchronizer.currentTime())
                 setState(.playing)
             } else {
@@ -537,9 +579,11 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         }
     }
 
-    /// One-line internal state, for diagnosing stalls in tests and logs.
-    public var debugSummary: String {
-        queue.sync {
+    /// One-line internal state, for diagnosing stalls in tests, logs and the player overlay.
+    public var debugSummary: String { onQueue ? summaryOnQueue() : queue.sync { summaryOnQueue() } }
+
+    private func summaryOnQueue() -> String {
+        do {
             let a = active
             return String(format: "t=%.3f rate=%.1f state=%@ vEnd=%.3f aEnd=%.3f vQ=%.2fs aQ=%.2fs pend=%d eof=%@ "
                           + "vReady=%@ aReady=%@ vStatus=%d aStatus=%d audioUsable=%@ splice=%@",

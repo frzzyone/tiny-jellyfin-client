@@ -40,6 +40,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     private var knownSize: Int64?
     private var interruptGeneration = 0
     private var closed = false
+    private var requestStarted = Date()
 
     public init(url: URL, headers: [String: String], session: URLSession) {
         self.url = url
@@ -154,6 +155,8 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         finished = false
         failure = nil
         parked = false
+        requestStarted = Date()
+        PlayerLog.network("GET \(url.path) from byte \(offset)")
         let task = session.dataTask(with: request)
         HTTPStreamRouter.shared.register(task, for: self)
         self.task = task
@@ -166,6 +169,10 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         condition.lock(); defer { condition.unlock() }
         guard task === self.task else { return false }
         guard let http = response as? HTTPURLResponse else { return true }
+        PlayerLog.network("HTTP \(http.statusCode) after \(String(format: "%.2f", Date().timeIntervalSince(requestStarted))) s"
+                          + " \(url.path) from byte \(bufferOffset)"
+                          + " length=\(http.expectedContentLength)"
+                          + " range=\(http.value(forHTTPHeaderField: "Content-Range") ?? "-")")
         switch http.statusCode {
         case 206:
             if let range = http.value(forHTTPHeaderField: "Content-Range"),
@@ -207,14 +214,20 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         condition.broadcast()
         condition.unlock()
         // Cancel outside the lock: URLSession may deliver the completion synchronously.
-        if parkNow { task.cancel() }
+        if parkNow {
+            PlayerLog.network("Parked \(url.path): buffer full")
+            task.cancel()
+        }
     }
 
     fileprivate func completed(task: URLSessionTask, error: Error?) {
         condition.lock(); defer { condition.unlock() }
         guard task === self.task else { return }
         if let error {
-            if (error as? URLError)?.code != .cancelled, failure == nil { failure = error }
+            if (error as? URLError)?.code != .cancelled, failure == nil {
+                failure = error
+                PlayerLog.network("HTTP error \(url.path) at byte \(bufferOffset + Int64(buffer.count)): \(error.localizedDescription)")
+            }
         } else if failure == nil {
             finished = true
         }
