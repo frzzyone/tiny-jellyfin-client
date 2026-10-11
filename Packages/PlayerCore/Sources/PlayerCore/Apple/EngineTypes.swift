@@ -88,5 +88,7 @@ public protocol PlaybackEngine: AnyObject {
     func setExternalSubtitles(_ cues: [SubtitleCue]?)
     func subtitleText(at time: Double) -> String?
     func stop()
+    /// One-line internal state for diagnostics.
+    var debugSummary: String { get }
 }
 #endif

@@ -50,6 +50,7 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     func setExternalSubtitles(_ cues: [SubtitleCue]?) { externalCues = cues }
     func subtitleText(at time: Double) -> String? { nil }
     func stop() { stopped = true; state = .idle }
+    var debugSummary: String { "fake state=\(state)" }
 
     @MainActor func send(_ event: EngineEvent) { onEvent?(event) }
 }

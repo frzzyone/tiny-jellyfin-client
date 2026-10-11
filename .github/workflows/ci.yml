@@ -66,7 +66,9 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -200
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" > xcodebuild-test.log 2>&1 || status=$?
+          grep -E "error:|Test Case .* failed|Executed [0-9]+ tests|\*\* TEST" xcodebuild-test.log | tail -100
+          exit ${status:-0}
       - name: Release build
         run: |
           set -o pipefail
