@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (JellyfinKit + PlayerCore core)
+    runs-on: ubuntu-24.04
+    container: swift:6.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            libavformat-dev libavcodec-dev libavutil-dev libswresample-dev ffmpeg python3 pkg-config
+      - name: JellyfinKit tests
+        run: swift test --package-path Packages/JellyfinKit
+      - name: Generate fixtures
+        run: scripts/make-fixtures.sh
+      - name: PlayerCore tests
+        run: swift test --package-path Packages/PlayerCore
+
+  macos:
+    name: macOS (packages + app)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: Cache FFmpeg build
+        uses: actions/cache@v4
+        with:
+          path: Vendor/FFmpeg
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/build-ffmpeg.sh') }}
+      - name: Build FFmpeg
+        run: scripts/build-ffmpeg.sh
+      - name: Install tools
+        run: brew install xcodegen ffmpeg
+      - name: Generate fixtures
+        run: scripts/make-fixtures.sh
+      - name: JellyfinKit tests
+        run: swift test --package-path Packages/JellyfinKit
+      - name: PlayerCore tests
+        run: swift test --package-path Packages/PlayerCore
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: App build and tests
+        run: |
+          set -o pipefail
+          xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -200
