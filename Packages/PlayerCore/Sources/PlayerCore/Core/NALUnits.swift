@@ -71,6 +71,53 @@ public enum NALUnits {
         return order.compactMap { wanted in units.first { type(of: $0, codec: codec) == wanted } }
     }
 
+    /// Parameter-set NAL units stored in an avcC or hvcC configuration record.
+    public static func parameterSets(fromConfigurationRecord record: Data, codec: Codec) -> [ArraySlice<UInt8>] {
+        let b = [UInt8](record)
+        var units: [ArraySlice<UInt8>] = []
+        func u16(_ i: Int) -> Int { Int(b[i]) << 8 | Int(b[i + 1]) }
+        switch codec {
+        case .h264:
+            guard b.count >= 7, b[0] == 1 else { return [] }
+            var i = 6
+            for _ in 0..<Int(b[5] & 0x1F) {
+                guard i + 2 <= b.count else { return units }
+                let n = u16(i); i += 2
+                guard i + n <= b.count else { return units }
+                units.append(b[i..<(i + n)]); i += n
+            }
+            guard i < b.count else { return units }
+            let ppsCount = Int(b[i]); i += 1
+            for _ in 0..<ppsCount {
+                guard i + 2 <= b.count else { return units }
+                let n = u16(i); i += 2
+                guard i + n <= b.count else { return units }
+                units.append(b[i..<(i + n)]); i += n
+            }
+        case .hevc:
+            guard b.count >= 23, b[0] == 1 else { return [] }
+            var i = 23
+            for _ in 0..<Int(b[22]) {
+                guard i + 3 <= b.count else { return units }
+                let count = u16(i + 1); i += 3
+                for _ in 0..<count {
+                    guard i + 2 <= b.count else { return units }
+                    let n = u16(i); i += 2
+                    guard i + n <= b.count else { return units }
+                    units.append(b[i..<(i + n)]); i += n
+                }
+            }
+        }
+        return parameterSets(units, codec: codec)
+    }
+
+    /// Luma bit depth recorded in an hvcC record.
+    public static func hevcBitDepth(fromConfigurationRecord record: Data) -> Int? {
+        let b = [UInt8](record)
+        guard b.count >= 23, b[0] == 1 else { return nil }
+        return Int(b[17] & 0x07) + 8
+    }
+
     /// Removes Dolby Vision Profile 7 enhancement-layer NAL units (HEVC types 63) so the
     /// HDR10 base layer decodes as plain HEVC. RPU units (type 62) are dropped too when `dropRPU`.
     public static func stripDolbyVisionEL(_ units: [ArraySlice<UInt8>], dropRPU: Bool) -> [ArraySlice<UInt8>] {

@@ -32,7 +32,7 @@ final class EngineTests: XCTestCase {
         engine.play()
         // Fixtures are 6 s long: require 5 s of rendered playback.
         let advanced = await waitFor(10) { engine.currentTime >= 5.0 || engine.state == .ended }
-        XCTAssertTrue(advanced, "clock stuck at \(engine.currentTime) state \(engine.state)", file: file, line: line)
+        XCTAssertTrue(advanced, "stalled: \(engine.debugSummary)", file: file, line: line)
         XCTAssertNotEqual(engine.videoRenderer.status, .failed,
                           "video renderer: \(String(describing: engine.videoRenderer.error))", file: file, line: line)
         if case .failed(let message) = engine.state { XCTFail(message, file: file, line: line) }
@@ -105,7 +105,7 @@ final class EngineTests: XCTestCase {
         try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 4.5)
         engine.play()
         let ended = await waitFor(6) { engine.state == .ended }
-        XCTAssertTrue(ended, "state \(engine.state) at \(engine.currentTime)")
+        XCTAssertTrue(ended, "not ended: \(engine.debugSummary)")
     }
 
     func testCorruptSectionIsSkipped() async throws {
@@ -114,7 +114,7 @@ final class EngineTests: XCTestCase {
         try await engine.prepare(source: MediaSource(url: try Fixtures.url("corrupt.mkv")), startAt: 2)
         engine.play()
         let pastDamage = await waitFor(8) { engine.currentTime > 4.0 || engine.state == .ended }
-        XCTAssertTrue(pastDamage, "stuck at \(engine.currentTime) in state \(engine.state)")
+        XCTAssertTrue(pastDamage, "stuck: \(engine.debugSummary)")
         if case .failed(let message) = engine.state { XCTFail("corrupt data should not fail playback: \(message)") }
     }
 
@@ -194,7 +194,7 @@ final class EngineTests: XCTestCase {
         let samples = recorder.samples
         let states = recorder.states
 
-        XCTAssertFalse(states.contains(.buffering), "playback stalled during the switch")
+        XCTAssertFalse(states.contains(.buffering), "playback stalled during the switch: \(engine.debugSummary)")
         // The clock never stood still for more than 100 ms and never jumped.
         var longestStall = 0.0
         var stallStart: Date?

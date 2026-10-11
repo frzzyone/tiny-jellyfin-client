@@ -84,6 +84,13 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def server_bind(self):
+        # HTTPServer.server_bind calls socket.getfqdn(), a reverse DNS lookup that can stall
+        # for ~30 s on CI machines.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
+
 
 server = Server(("127.0.0.1", 0), Handler)
 print(server.server_address[1], flush=True)

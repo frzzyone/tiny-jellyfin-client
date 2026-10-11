@@ -136,6 +136,19 @@ final class BitstreamTests: XCTestCase {
         XCTAssertEqual(NALUnits.stripDolbyVisionEL([base, rpu, el], dropRPU: true).map(Array.init), [Array(base)])
     }
 
+    func testParameterSetsFromConfigurationRecords() throws {
+        let hevc = try openDemuxer(try Fixtures.url("hevc10_eac3.mkv"))
+        let hvcC = VideoStreamInfo(parameters: hevc.codecParameters(0)!).extradata
+        let sets = NALUnits.parameterSets(fromConfigurationRecord: hvcC, codec: .hevc)
+        XCTAssertEqual(sets.map { NALUnits.type(of: $0, codec: .hevc) }, [32, 33, 34])
+        XCTAssertEqual(NALUnits.hevcBitDepth(fromConfigurationRecord: hvcC), 10)
+
+        let h264 = try openDemuxer(try Fixtures.url("h264_aac.mp4"))
+        let avcC = VideoStreamInfo(parameters: h264.codecParameters(0)!).extradata
+        let avcSets = NALUnits.parameterSets(fromConfigurationRecord: avcC, codec: .h264)
+        XCTAssertEqual(avcSets.map { NALUnits.type(of: $0, codec: .h264) }, [7, 8])
+    }
+
     func testDolbyVisionBoxPayload() {
         // Profile 8, level 6, RPU + BL, compatibility id 1 (HDR10).
         let config = DolbyVisionConfig(versionMajor: 1, versionMinor: 0, profile: 8, level: 6, rpuPresent: true,

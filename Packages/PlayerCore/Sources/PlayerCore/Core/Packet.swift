@@ -33,4 +33,6 @@ final class Packet: @unchecked Sendable {
 
     /// Best-known time for ordering: pts, else dts.
     var time: Double { pts ?? dts ?? 0 }
+
+    var hasTimestamp: Bool { pts != nil || dts != nil }
 }

@@ -37,8 +37,12 @@ extension VideoStreamInfo {
         width = Int(p.width)
         height = Int(p.height)
         extradata = p.extradata.map { Data(bytes: $0, count: Int(p.extradata_size)) } ?? Data()
+        // Without a video decoder in the FFmpeg build the pixel format may be unknown;
+        // fall back to the hvcC record.
         if let descriptor = av_pix_fmt_desc_get(AVPixelFormat(p.format)) {
             bitDepth = Int(descriptor.pointee.comp.0.depth)
+        } else if p.codec_id == AV_CODEC_ID_HEVC, let depth = NALUnits.hevcBitDepth(fromConfigurationRecord: extradata) {
+            bitDepth = depth
         } else {
             bitDepth = 8
         }

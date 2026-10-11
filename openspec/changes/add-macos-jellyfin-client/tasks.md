@@ -2,8 +2,8 @@
 
 ## 1. Project scaffolding
 
-- [ ] 1.1 Create `Packages/JellyfinKit` Swift package (library + test target, Foundation only) and verify `swift build` and `swift test` succeed on Linux and macOS with a placeholder test
-- [ ] 1.2 Write `scripts/build-ffmpeg.sh` per design D2 (pinned release, LGPL-only, demux + audio/subtitle decoders, `http`/`tcp` protocols only, arm64 + x86_64 universal `libffmpeg.dylib` with headers in `Vendor/FFmpeg`) and verify the script builds on macOS and refuses GPL configurations
+- [x] 1.1 Create `Packages/JellyfinKit` Swift package (library + test target, Foundation only) and verify `swift build` and `swift test` succeed on Linux and macOS with a placeholder test
+- [x] 1.2 Write `scripts/build-ffmpeg.sh` per design D2 (pinned release, LGPL-only, demux + audio/subtitle decoders, `http`/`tcp` protocols only, arm64 + x86_64 universal `libffmpeg.dylib` with headers in `Vendor/FFmpeg`) and verify the script builds on macOS and refuses GPL configurations
 - [ ] 1.3 Create `Packages/PlayerCore` (macOS 14) with a `CFFmpeg` shim target linking `Vendor/FFmpeg` on macOS and the system FFmpeg on Linux, cache `Vendor/FFmpeg` in CI, and verify `swift test` passes on macOS and Linux
 - [ ] 1.4 Add `project.yml` (XcodeGen) for the `TinyJellyfin` app target depending on both packages, with Info.plist (ATS exception, bundle id placeholder) and an FFmpeg LGPL notice in the About panel; git-ignore the generated project and verify `xcodegen generate && xcodebuild build` succeeds with an empty SwiftUI window
 - [ ] 1.5 Add a GitHub Actions workflow: JellyfinKit `swift test` on Linux and macOS, PlayerCore tests and `xcodebuild test` on macOS, with test-fixture generation via the `ffmpeg` CLI; verify it passes on the branch
@@ -33,7 +33,7 @@
 ## 5. Playback engine core (PlayerCore)
 
 - [ ] 5.1 Define the public `PlaybackEngine` protocol, `EngineState`, `EngineEvent`, `EngineCapabilities` and track types (no FFmpeg types exposed) and verify the package builds and a fake engine conforms
-- [ ] 5.2 Implement `URLSessionIO` (AVIOContext read/seek via HTTP Range with read-ahead, `io_open`/`io_close2` for nested HLS opens, per-request `Authorization` header, interrupt on cancel, 3-try 1/2/4 s reconnect) and verify tests against a local HTTP fixture server including range seeks, an HLS playlist, and a dropped connection
+- [x] 5.2 Implement `URLSessionIO` (AVIOContext read/seek via HTTP Range with read-ahead, `io_open`/`io_close2` for nested HLS opens, per-request `Authorization` header, interrupt on cancel, 3-try 1/2/4 s reconnect) and verify tests against a local HTTP fixture server including range seeks, an HLS playlist, and a dropped connection
 - [ ] 5.3 Implement the demux thread and duration/byte-bounded packet queues with interrupt-based cancellation and verify tests that open MP4 and MKV fixtures, list streams/tracks, and stop promptly on close
 - [ ] 5.4 Implement video sample conversion (H.264 `avcC`, HEVC `hvcC`, AV1 `av1C` format descriptions, timing, sync attachments) feeding the display layer's renderer, and verify a headless test renders 5 s of each fixture with no renderer errors and advancing time
 - [ ] 5.5 Implement audio passthrough (AAC, AC-3, E-AC-3 with magic cookies) and decode path (DTS, TrueHD, FLAC, Opus, Vorbis, MP3, PCM → Float32 via libswresample keeping channel layout) feeding the audio renderer, and verify headless tests per codec fixture produce audio samples with the expected channel count
@@ -60,7 +60,7 @@
 
 ## 8. Subtitles
 
-- [ ] 8.1 Implement text subtitle decoding (SRT, ASS/SSA tag stripping, WebVTT, mov_text) into timed cues, and verify unit tests including ASS override tags and overlapping cues
+- [x] 8.1 Implement text subtitle decoding (SRT, ASS/SSA tag stripping, WebVTT, mov_text) into timed cues, and verify unit tests including ASS override tags and overlapping cues
 - [ ] 8.2 Add external subtitle download and parsing, plus the default-track choice from PlaybackInfo, and verify stubbed tests for a sidecar SRT and a forced-track default
 - [ ] 8.3 Build the subtitle overlay (time-synced, scaled with video, shadowed) and the subtitle menu (language/title + Off) in the player and the Playback menu; verify manually embedded SRT, ASS, external SRT and switching tracks without a position jump
 - [ ] 8.4 Route image-subtitle selection (PGS/VobSub/DVB) through the switch path with `SubtitleStreamIndex` and burn-in, and back on Off; verify manually that position is kept and the indicator shows Transcode
@@ -71,7 +71,7 @@
 - [ ] 9.2 Implement the second-pipeline prepare and splice-at-keyframe in the engine per design D7 (incl. flush-and-seek fallback and audio-only flush if needed), and verify a headless test that splices between two fixtures of different bitrates with no video gap > 100 ms and position continuity within 1 s
 - [ ] 9.3 Implement the switch flow in `PlaybackController` (no-op on same quality, cancel in-flight, 20 s timeout, failure keeps old session, old session stopped + encode deleted, preference persisted, subtitle selection preserved) and verify controller tests with a fake engine including the failure path
 - [ ] 9.4 Add the quality menu, "<quality> · <play method>" indicator, switching spinner and failure banner in the overlay and the Playback menu; verify manually switching from both places while playing and while paused
-- [ ] 9.5 Document quality presets, play methods and supported formats in README.md and verify the documented presets and codecs match `QualityPreset` and `DeviceProfileBuilder`
+- [x] 9.5 Document quality presets, play methods and supported formats in README.md and verify the documented presets and codecs match `QualityPreset` and `DeviceProfileBuilder`
 
 ## 10. Integration checks
 

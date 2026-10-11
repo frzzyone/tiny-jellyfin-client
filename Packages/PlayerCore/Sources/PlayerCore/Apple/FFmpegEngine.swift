@@ -378,7 +378,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         let source = videoSwitched ? (incoming ?? active) : active
         if lastVideoEnd > currentTime + feedAhead { return nil }
         while let packet = source.videoQueue.pop() {
-            guard let format = source.videoFormat else { continue }
+            guard let format = source.videoFormat, packet.hasTimestamp else { continue }
             let pts = packet.pts ?? packet.dts ?? 0
             var hidden = false
             if let target = preRollTarget, pts < target - 0.001 { hidden = true }
@@ -415,6 +415,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         let notBefore = max(preRollTarget ?? -1, (audioSwitched && source !== active) ? (spliceTime ?? -1) : -1)
 
         while let packet = source.audioQueue.pop() {
+            guard packet.hasTimestamp else { continue }
             if let cutoff, packet.time >= cutoff { continue }
             switch source.audioMode {
             case .passthrough(let format)?:
@@ -480,6 +481,25 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         return (ends.min() ?? now) - now
     }
 
+    private var videoSource: Pipeline? { videoSwitched ? (incoming ?? active) : active }
+    private var audioSource: Pipeline? { audioSwitched ? (incoming ?? active) : active }
+
+    /// The demuxer has nothing queued for a stream the renderers are waiting on.
+    private var sourceStarved: Bool {
+        guard let active, !active.reachedEnd else { return false }
+        if hasVideo, videoSource?.videoQueue.isEmpty ?? true { return true }
+        if hasAudio, pendingAudio.isEmpty, audioSource?.audioQueue.isEmpty ?? true { return true }
+        return false
+    }
+
+    /// Enough data is queued to (re)start the clock. Renderers stop accepting data while the
+    /// clock is stopped, so this looks at the demuxer's queues, not at what was enqueued.
+    private func readyToRun(_ active: Pipeline, drained: Bool) -> Bool {
+        if drained || active.reachedEnd { return true }
+        let rendererHasData = bufferedAhead > 0.05
+        return rendererHasData && (active.bufferedDuration >= startThreshold || !sourceStarved && bufferedAhead >= startThreshold)
+    }
+
     private func tick() {
         guard let active else { return }
         handleRendererFailures()
@@ -503,17 +523,31 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         }
         guard desiredRate > 0 else { return }
         if synchronizer.rate == 0 {
-            if bufferedAhead >= startThreshold || drained {
+            if readyToRun(active, drained: drained) {
                 synchronizer.setRate(desiredRate, time: synchronizer.currentTime())
                 setState(.playing)
             } else {
                 setState(.buffering)
             }
-        } else if bufferedAhead < stallThreshold && !drained {
+        } else if bufferedAhead < stallThreshold && sourceStarved {
             synchronizer.rate = 0
             setState(.buffering)
         } else if state != .playing {
             setState(.playing)
+        }
+    }
+
+    /// One-line internal state, for diagnosing stalls in tests and logs.
+    public var debugSummary: String {
+        queue.sync {
+            let a = active
+            return String(format: "t=%.3f rate=%.1f state=%@ vEnd=%.3f aEnd=%.3f vQ=%.2fs aQ=%.2fs pend=%d eof=%@ "
+                          + "vReady=%@ aReady=%@ vStatus=%d aStatus=%d audioUsable=%@ splice=%@",
+                          currentTime, synchronizer.rate, "\(state)", lastVideoEnd, lastAudioEnd,
+                          a?.videoQueue.duration ?? -1, a?.audioQueue.duration ?? -1, pendingAudio.count,
+                          "\(a?.reachedEnd ?? false)", "\(videoRenderer.isReadyForMoreMediaData)",
+                          "\(audioRenderer.isReadyForMoreMediaData)", videoRenderer.status.rawValue,
+                          audioRenderer.status.rawValue, "\(audioUsable)", spliceTime.map { "\($0)" } ?? "-")
         }
     }
 

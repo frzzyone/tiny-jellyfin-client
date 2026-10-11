@@ -33,6 +33,12 @@ struct VideoFormat {
         let stripEL = info.codec == .hevc && profile == 7
 
         var extensions = colorExtensions(info.color)
+        if info.hasConfigurationRecord, let nalCodec {
+            // Containers often omit colour info; CoreMedia reads it from the SPS VUI.
+            for (key, value) in inferredColorExtensions(info.extradata, codec: nalCodec) where extensions[key] == nil {
+                extensions[key] = value
+            }
+        }
         if info.hasConfigurationRecord {
             var atoms: [String: Any] = [:]
             switch info.codec {
@@ -98,6 +104,39 @@ struct VideoFormat {
         if stripEnhancementLayer { units = NALUnits.stripDolbyVisionEL(units, dropRPU: true) }
         _ = codec
         return NALUnits.joinLengthPrefixed(units)
+    }
+
+    static let colorKeys: [CFString] = [
+        kCMFormatDescriptionExtension_ColorPrimaries, kCMFormatDescriptionExtension_TransferFunction,
+        kCMFormatDescriptionExtension_YCbCrMatrix, kCMFormatDescriptionExtension_FullRangeVideo,
+    ]
+
+    /// Colour extensions CoreMedia derives from the parameter sets in an avcC/hvcC record.
+    static func inferredColorExtensions(_ record: Data, codec: NALUnits.Codec) -> [String: Any] {
+        let arrays = NALUnits.parameterSets(fromConfigurationRecord: record, codec: codec).map { Array($0) }
+        guard arrays.count == (codec == .h264 ? 2 : 3) else { return [:] }
+        var description: CMFormatDescription?
+        let status: OSStatus = withPointers(arrays) { pointers, sizes in
+            switch codec {
+            case .h264:
+                return CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                    allocator: kCFAllocatorDefault, parameterSetCount: arrays.count, parameterSetPointers: pointers,
+                    parameterSetSizes: sizes, nalUnitHeaderLength: 4, formatDescriptionOut: &description)
+            case .hevc:
+                return CMVideoFormatDescriptionCreateFromHEVCParameterSets(
+                    allocator: kCFAllocatorDefault, parameterSetCount: arrays.count, parameterSetPointers: pointers,
+                    parameterSetSizes: sizes, nalUnitHeaderLength: 4, extensions: nil,
+                    formatDescriptionOut: &description)
+            }
+        }
+        guard status == noErr, let description else { return [:] }
+        var result: [String: Any] = [:]
+        for key in colorKeys {
+            if let value = CMFormatDescriptionGetExtension(description, extensionKey: key) {
+                result[key as String] = value
+            }
+        }
+        return result
     }
 
     static func colorExtensions(_ color: VideoColorInfo) -> [String: Any] {
