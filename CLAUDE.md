@@ -2,8 +2,9 @@
 
 Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
 `AVSampleBuffer*` renderers decode and present. See `README.md` for the user-facing description and
-`openspec/specs/` for the requirements it meets (the first change is archived under
-`openspec/changes/archive/2026-10-12-add-macos-jellyfin-client/`). `BACKLOG.md` holds known gaps.
+`openspec/specs/` for the requirements it meets (finished changes are under
+`openspec/changes/archive/`, each with a `manual-checklist.md` of what still needs a person).
+`BACKLOG.md` holds known gaps.
 
 ## Layout
 

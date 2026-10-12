@@ -17,6 +17,18 @@ Things we know about and have chosen not to do yet. Each should become its own O
 5. **Library polish.** Standard grid and list, no poster hover state, no year/rating overlay, a
    left-aligned details block. Functional, but the least finished-looking part of the app.
 
+## Subtitles (from the 2026-10-12 subtitle-style change)
+
+- **Render image subtitles (PGS/VobSub) in the app.** The server burns them into the video at the
+  position the disc authored, which on a scope film is inside the 16:9 bar, and nothing on our side
+  can move burned-in pixels. Decoding the bitmaps with FFmpeg's `pgssub`/`dvdsub` decoders and
+  compositing them over the picture ourselves would put them where the text subtitles go, and end
+  the transcode those tracks currently force. A real feature: its own change.
+- **The first bar reading can step.** Bars encoded in the frames are applied after two looks (4 s);
+  a dark opening shot can place the text high for 2 s before a brighter frame narrows the bars.
+  Waiting for more agreeing looks, or easing the move, would hide it. Decide after seeing it.
+- **Verification owed:** `openspec/changes/archive/2026-10-12-subtitle-style/manual-checklist.md`.
+
 ## Playback engine
 
 - **Trim the HLS playlist before handing it to FFmpeg.** On a transcoded start FFmpeg fetches
