@@ -8,3 +8,4 @@ Vendor/
 Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/*
 !Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/.keep
 App/Resources/Info.plist
+build/
