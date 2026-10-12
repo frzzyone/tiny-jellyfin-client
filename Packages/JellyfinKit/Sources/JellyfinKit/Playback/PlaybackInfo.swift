@@ -129,13 +129,24 @@ extension JellyfinClient {
         guard let transcodingUrl = source.transcodingUrl, let url = resolve(serverRelative: transcodingUrl) else {
             throw JellyfinError.noPlayableStream(nil)
         }
-        // Jellyfin HLS playlists cover the whole item from 0, so the stream timeline matches
-        // the item timeline; progressive transcodes started at StartTimeTicks would not.
+        // Jellyfin HLS playlists cover the whole item from 0, so seeks are in item time, but the
+        // packets inside MPEG-TS segments are stamped late (see `hlsSegmentTimestampDelay`).
+        // Progressive transcodes started at StartTimeTicks begin their timeline at 0 instead.
         let isHLS = transcodingUrl.contains(".m3u8")
+        let mp4Segments = transcodingUrl.range(of: "SegmentContainer=mp4", options: .caseInsensitive) != nil
+        let offset = isHLS ? (mp4Segments ? 0 : -Self.hlsSegmentTimestampDelay) : startSeconds
         return ResolvedStream(url: url, playMethod: PlayMethodClassifier.classify(transcodingUrl: transcodingUrl),
                               mediaSource: source, mediaSourceId: sourceId, playSessionId: response.playSessionId,
-                              timelineOffset: isHLS ? 0 : startSeconds)
+                              timelineOffset: offset)
     }
+
+    /// Seconds by which packets in Jellyfin's MPEG-TS HLS segments are stamped later than the
+    /// item time they show. The server runs FFmpeg with `-max_delay 5000000` for every HLS job
+    /// (`DynamicHlsController.GetCommandLineArguments`), and FFmpeg's MPEG-TS muxer offsets every
+    /// timestamp by twice `max_delay`: the picture at 30 s carries the timestamp 40 s. Jellyfin's
+    /// own web player never notices because hls.js maps segments by index, not by timestamp. fMP4
+    /// segments are not affected. Verified against Jellyfin 12.2 and reproduced with FFmpeg 9.
+    public static let hlsSegmentTimestampDelay: Double = 10
 
     /// URL for an external (sidecar) text subtitle, converted by the server to SRT.
     public func externalSubtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int) -> URL {

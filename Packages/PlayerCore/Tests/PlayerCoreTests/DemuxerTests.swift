@@ -234,6 +234,33 @@ final class HTTPTests: XCTestCase {
         XCTAssertLessThan(first.time, 4.0 + 4.0, "within a segment or two of the target")
     }
 
+    /// Jellyfin writes its MPEG-TS segments with `-max_delay 5000000`, which makes FFmpeg stamp
+    /// every packet 10 s late. The fixture is made with the same flags; this pins the fact.
+    func testJellyfinSegmentsAreStampedTenSecondsLate() throws {
+        let server = try TestHTTPServer()
+        let demuxer = try openDemuxer(server.url("hls-jellyfin/main.m3u8"), headers: TestHTTPServer.authHeaders)
+        var packet = try demuxer.readPacket()
+        while let p = packet, p.streamIndex != 0 || !p.hasTimestamp { packet = try demuxer.readPacket() }
+        let first = try XCTUnwrap(packet)
+        XCTAssertEqual(first.time, 10, accuracy: 0.2, "first picture of the item carries the timestamp 10 s")
+    }
+
+    /// With `timelineOffset` undoing that delay, a seek must still be made in playlist time: FFmpeg
+    /// picks the segment from the playlist's durations, not from packet timestamps. Seeking at
+    /// `target - offset` would ask for a segment 10 s further on (here: past the end).
+    func testSegmentedSeekUsesPlaylistTime() throws {
+        let server = try TestHTTPServer()
+        let demuxer = Demuxer(url: server.url("hls-jellyfin/main.m3u8"), factory:
+                                DefaultByteSourceFactory(headers: TestHTTPServer.authHeaders))
+        demuxer.setTimelineOffset(-10)
+        try demuxer.open(seekBeforeProbe: 4.0)
+        var packet = try demuxer.readPacket()
+        while let p = packet, p.streamIndex != 0 || !p.hasTimestamp { packet = try demuxer.readPacket() }
+        let first = try XCTUnwrap(packet, "the segment containing 4 s was fetched")
+        XCTAssertEqual(first.time, 4.0, accuracy: 0.15, "item time: the 2 s segment that starts at 4 s")
+        XCTAssertEqual(demuxer.duration ?? 0, 6, accuracy: 0.5)
+    }
+
     /// An unsegmented input is repositioned after probing, so reading starts at the keyframe at or
     /// before the target rather than wherever probing stopped.
     func testPreProbeSeekRepositionsUnsegmentedInput() throws {

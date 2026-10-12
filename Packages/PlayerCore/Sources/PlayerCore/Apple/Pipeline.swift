@@ -38,8 +38,11 @@ final class Pipeline: @unchecked Sendable {
     private var seekWaiters: [CheckedContinuation<Void, Never>] = []
     private(set) var failure: String?
     private var consecutiveErrors = 0
-    /// Set at open: check the first packet's timestamp against this and shift the timeline if the
-    /// server restarted it (progressive transcodes do; HLS keeps item-absolute times).
+    /// Set at open: check the first packet's timestamp against this. Progressive transcodes start
+    /// their timeline at 0, so the offset is corrected from the first packet. Segmented streams
+    /// keep item time plus a known offset (`MediaSource.timelineOffset`), and the segment is
+    /// expected to begin at or before the target; a first packet far from that is logged, not
+    /// corrected, because the playlist — not the packets — decides where seeks land.
     private var timelineCheck: Double?
 
     let allowDolbyVision: Bool
@@ -59,7 +62,8 @@ final class Pipeline: @unchecked Sendable {
         try demuxer.open(seekBeforeProbe: startAt)
         let opened = Date()
         tracks = demuxer.tracks
-        duration = demuxer.duration.map { $0 + source.timelineOffset }
+        // A playlist's duration is already item time; a progressive transcode's is what remains.
+        duration = demuxer.duration.map { $0 + (demuxer.isSegmented ? 0 : source.timelineOffset) }
         videoStream = demuxer.bestStream(AVMEDIA_TYPE_VIDEO).flatMap { index in
             tracks.first { $0.id == index && $0.kind == .video }?.id
         }
@@ -195,7 +199,13 @@ final class Pipeline: @unchecked Sendable {
                 if let expected = timelineCheck {
                     timelineCheck = nil
                     let drift = expected - packet.time
-                    if abs(drift) > 10 {
+                    if demuxer.isSegmented {
+                        if drift < -1 || drift > 30 {
+                            PlayerLog.engine(String(format: "Segment starts at %.1f s for a seek to %.1f s:"
+                                                    + " timelineOffset %.1f s looks wrong for this server",
+                                                    packet.time, expected, demuxer.timelineOffset))
+                        }
+                    } else if abs(drift) > 10 {
                         // The stream's own timeline starts at 0 (or elsewhere); shift it so
                         // positions match the item, then start again from the target.
                         PlayerLog.engine(String(format: "Timeline starts at %.1f s, expected %.1f s: shifting %+.1f s",

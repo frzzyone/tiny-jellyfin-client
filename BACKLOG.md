@@ -26,6 +26,12 @@ Things we know about and have chosen not to do yet. Each should become its own O
 - **Atmos fallback.** If E-AC-3 passthrough ever fails on some output, decode to multichannel PCM
   instead. One-line change, not needed until someone sees it fail.
 
+## Tests
+
+- **`testClocksStayInSync` fails on a Bluetooth output device.** It measures the audio renderer's
+  clock against real time; Bluetooth adds ~0.2 s of latency and the clock lags accordingly. Either
+  skip it when the default output is Bluetooth, or route the test engine to a null device.
+
 ## Verification still owed
 
 The first change was archived with 15 of its 48 tasks unverified by a person (they need a screen,

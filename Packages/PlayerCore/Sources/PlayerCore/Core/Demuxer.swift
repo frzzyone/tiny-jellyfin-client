@@ -158,10 +158,17 @@ final class Demuxer {
         return Packet(taking: packet, timeBase: timeBase, offset: timelineOffset)
     }
 
-    /// Seeks to the keyframe at or before `time` (media timeline seconds).
+    /// Seeks to the keyframe at or before `time` (item timeline seconds).
+    ///
+    /// Segmented inputs seek in playlist time, not packet time: FFmpeg's HLS demuxer picks the
+    /// segment by adding up the playlist's durations from 0 (item time) and only afterwards compares
+    /// packet timestamps, so `timelineOffset` must not be applied to the target. When the packets
+    /// are stamped later than the playlist says (Jellyfin's are, by 10 s) the whole segment is
+    /// returned, including the part before the target; the engine hides that lead-in.
     func seek(to time: Double) throws {
         guard let ctx = context else { return }
-        let target = Int64(max(0, time - timelineOffset) * Double(AV_TIME_BASE))
+        let streamTime = isSegmented ? time : time - timelineOffset
+        let target = Int64(max(0, streamTime) * Double(AV_TIME_BASE))
         try check(av_seek_frame(ctx, -1, target, AVSEEK_FLAG_BACKWARD), "seek")
     }
 

@@ -186,6 +186,20 @@ final class EngineTests: XCTestCase {
 
     /// Prepare-then-splice: the clock keeps running through the switch.
     func testSeamlessSwitch() async throws {
+        try await assertSeamlessSwitch(to: MediaSource(url: try Fixtures.url("h264_aac_low.mp4")))
+    }
+
+    /// Switching into a Jellyfin transcode: its segments are stamped 10 s late, and the offset that
+    /// undoes it must apply to the packets but not to where the seek lands. With the wrong
+    /// timeline the splice point is 10 s ahead of the picture, the old stream runs out before
+    /// reaching it, and the clock stalls and then jumps — which is what this asserts against.
+    func testSwitchIntoJellyfinHLSKeepsTheClock() async throws {
+        let server = try TestHTTPServer()
+        try await assertSeamlessSwitch(to: MediaSource(url: server.url("hls-jellyfin/main.m3u8"),
+                                                       headers: TestHTTPServer.authHeaders, timelineOffset: -10))
+    }
+
+    func assertSeamlessSwitch(to target: MediaSource, file: StaticString = #filePath, line: UInt = #line) async throws {
         let engine = engine()
         defer { engine.stop() }
         try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
@@ -208,21 +222,20 @@ final class EngineTests: XCTestCase {
                 try? await Task.sleep(nanoseconds: 20_000_000)
             }
         }
-        try await engine.switchSource(MediaSource(url: try Fixtures.url("h264_aac_low.mp4")),
-                                      startAt: engine.currentTime + 1)
+        try await engine.switchSource(target, startAt: engine.currentTime + 1)
         try await Task.sleep(nanoseconds: 300_000_000)
         sampler.cancel()
         _ = await sampler.value
         let samples = recorder.samples
         let states = recorder.states
 
-        XCTAssertFalse(states.contains(.buffering), "playback stalled during the switch: \(engine.debugSummary)")
+        XCTAssertFalse(states.contains(.buffering), "playback stalled during the switch: \(engine.debugSummary)", file: file, line: line)
         // The clock never stood still for more than 100 ms and never jumped.
         var longestStall = 0.0
         var stallStart: Date?
         for (a, b) in zip(samples, samples.dropFirst()) {
-            XCTAssertGreaterThanOrEqual(b.1, a.1 - 0.001, "clock went backwards")
-            XCTAssertLessThan(b.1 - a.1, 0.5, "clock jumped")
+            XCTAssertGreaterThanOrEqual(b.1, a.1 - 0.001, "clock went backwards", file: file, line: line)
+            XCTAssertLessThan(b.1 - a.1, 0.5, "clock jumped", file: file, line: line)
             if b.1 - a.1 < 0.001 {
                 stallStart = stallStart ?? a.0
                 longestStall = max(longestStall, b.0.timeIntervalSince(stallStart!))
@@ -230,9 +243,11 @@ final class EngineTests: XCTestCase {
                 stallStart = nil
             }
         }
-        XCTAssertLessThan(longestStall, 0.1)
-        XCTAssertGreaterThan(engine.currentTime, before)
-        XCTAssertNotEqual(engine.videoRenderer.status, .failed)
+        XCTAssertLessThan(longestStall, 0.1, "clock stood still for \(longestStall) s", file: file, line: line)
+        XCTAssertGreaterThan(engine.currentTime, before, file: file, line: line)
+        XCTAssertNotEqual(engine.videoRenderer.status, .failed, file: file, line: line)
+        XCTAssertEqual(engine.duration ?? 0, 6, accuracy: 0.5, "duration is in item time after the switch",
+                       file: file, line: line)
     }
 
     func testFailedSwitchKeepsPlaying() async throws {

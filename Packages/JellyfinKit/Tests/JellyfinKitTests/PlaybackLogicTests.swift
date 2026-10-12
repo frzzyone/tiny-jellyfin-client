@@ -153,7 +153,16 @@ final class PlaybackInfoTests: XCTestCase {
         XCTAssertEqual(stream.playMethod, .transcode)
         XCTAssertEqual(stream.url.host, server.host)
         XCTAssertEqual(stream.url.path, "/videos/m1/master.m3u8")
-        XCTAssertEqual(stream.timelineOffset, 0, "HLS covers the whole item")
+        XCTAssertEqual(stream.timelineOffset, -10,
+                       "MPEG-TS segments are stamped 10 s late; the playlist still covers the whole item")
+    }
+
+    func testFMP4SegmentsKeepItemTime() throws {
+        let server = StubServer()
+        let url = "/videos/m1/master.m3u8?MediaSourceId=src&VideoCodec=hevc&AudioCodec=aac&SegmentContainer=mp4&PlaySessionId=ps1"
+        let response = fixture(#"{"Id":"src","SupportsDirectPlay":false,"SupportsTranscoding":true,"TranscodingUrl":"\#(url)"}"#)
+        let stream = try server.client().resolveStream(itemId: "m1", response: response, startSeconds: 120)
+        XCTAssertEqual(stream.timelineOffset, 0, "only the MPEG-TS muxer adds the delay")
     }
 
     func testAudioOnlyConversionIsDirectStream() {

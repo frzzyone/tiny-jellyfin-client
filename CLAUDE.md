@@ -59,6 +59,13 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   URLSession. Never let FFmpeg open a socket itself.
 - **Transcoding asks Jellyfin for MPEG-TS segments**, not fMP4: FFmpeg 7.1 cannot seek HLS with fMP4
   segments.
+- **Jellyfin's MPEG-TS segments are stamped 10 s late.** The server runs FFmpeg with
+  `-max_delay 5000000` and the MPEG-TS muxer adds twice that to every timestamp, so the picture at
+  30 s says 40 s. `JellyfinClient.hlsSegmentTimestampDelay` undoes it via `MediaSource.timelineOffset`.
+  Seeks on segmented input ignore the offset (`Demuxer.seek`): FFmpeg picks the segment from the
+  playlist, which runs from 0, and then returns the whole segment, so the engine hides the lead-in.
+  Symptom when this is wrong: a quality switch jumps the picture back 10 s while subtitles and the
+  progress bar carry on. `hls-jellyfin/` fixtures reproduce it.
 - **`EngineCapabilities` describes decoding, never the display.** It feeds the server's
   DeviceProfile, so anything display-dependent (`AVPlayer.eligibleForHDRPlayback` changes with the
   window) makes the server flip between direct play and a full transcode of the same file. macOS

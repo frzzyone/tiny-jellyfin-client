@@ -10,6 +10,8 @@ import SwiftUI
 ///     TJ_AUTOPLAY_ITEM=<item id>    play a specific item instead
 ///     TJ_AUTOPLAY_FROM_START=1      ignore the saved resume position
 ///     TJ_AUTOPLAY_QUALITY=<id>      force a quality (e.g. original, 720p-4)
+///     TJ_AUTOPLAY_SWITCH=<id>       switch to this quality once playing
+///     TJ_AUTOPLAY_SWITCH_AFTER=<s>  …after this many seconds of playback (default 8)
 enum DebugAutoplay {
     @MainActor
     static func runIfRequested(model: AppModel, openWindow: OpenWindowAction) async {
@@ -32,9 +34,26 @@ enum DebugAutoplay {
             PlayerLog.engine("Autoplay: \(item.displayName) [\(item.id)]")
             model.play(item, resume: env["TJ_AUTOPLAY_FROM_START"] == nil)
             openWindow(id: AppModel.playerWindowID)
+            if let target = env["TJ_AUTOPLAY_SWITCH"], let quality = QualityPreset.with(id: target) {
+                let delay = env["TJ_AUTOPLAY_SWITCH_AFTER"].flatMap(Double.init) ?? 8
+                _ = await waitUntil { model.player.status == .playing }
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                PlayerLog.engine("Autoplay: switching to \(quality.label) at \(String(format: "%.3f", model.player.position)) s")
+                model.player.selectQuality(quality)
+            }
         } catch {
             PlayerLog.engine("Autoplay failed: \(error)")
         }
+    }
+
+    @MainActor
+    private static func waitUntil(timeout: TimeInterval = 60, _ condition: () -> Bool) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            if Date() > deadline { return false }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return true
     }
 }
 #endif

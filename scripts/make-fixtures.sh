@@ -81,9 +81,15 @@ ASS
 "${FF[@]}" "${VIDEO[@]}" "${STEREO[@]}" "${H264[@]}" -c:a aac -shortest annexb.ts
 
 # HLS with MPEG-TS segments (what our transcoding profile asks Jellyfin for; FFmpeg 7.1 cannot
-# seek HLS with fMP4 segments).
-"${FF[@]}" -i h264_aac.mp4 -c copy -f hls -hls_time 2 -hls_playlist_type vod \
+# seek HLS with fMP4 segments). -max_delay 0 keeps the packet timestamps equal to item time.
+"${FF[@]}" -i h264_aac.mp4 -c copy -f hls -max_delay 0 -hls_time 2 -hls_playlist_type vod \
   -hls_segment_filename "hls/seg%d.ts" hls/main.m3u8
+
+# The same stream written the way Jellyfin writes it (DynamicHlsController): -max_delay 5000000
+# makes the MPEG-TS muxer stamp every packet 10 s late, while the playlist still runs from 0.
+mkdir -p hls-jellyfin
+"${FF[@]}" -i h264_aac.mp4 -c copy -copyts -avoid_negative_ts disabled -f hls -max_delay 5000000 \
+  -hls_time 2 -hls_playlist_type vod -hls_segment_filename "hls-jellyfin/seg%d.ts" hls-jellyfin/main.m3u8
 
 # Damaged files: garbage in the middle, and a truncated copy.
 cp hevc10_eac3.mkv corrupt.mkv

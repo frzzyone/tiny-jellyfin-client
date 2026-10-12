@@ -67,3 +67,4 @@ targets:
       base:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TinyJellyfin.app/Contents/MacOS/TinyJellyfin"
         BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES

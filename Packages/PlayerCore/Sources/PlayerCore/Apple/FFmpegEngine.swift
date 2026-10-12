@@ -254,6 +254,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
                     ? pipeline.audioQueue.first { $0.time >= bound }
                     : pipeline.videoQueue.first { $0.isKeyframe && $0.time >= bound }
                 if let keyframe {
+                    PlayerLog.engine(String(format: "Splice at %.3f s (clock %.3f s, new stream queued from %.3f s)",
+                                            keyframe.time, currentTime, pipeline.firstQueuedTime ?? -1))
                     cancelSplice()
                     incoming = pipeline
                     spliceTime = keyframe.time
