@@ -13,7 +13,7 @@ Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxe
 | `Packages/JellyfinKit` | API client, session, DeviceProfile, quality logic. Foundation only. | Linux + macOS |
 | `Packages/PlayerCore/Sources/PlayerCore/Core` | FFmpeg demuxing, byte sources, audio/subtitle decode. | Linux + macOS |
 | `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS |
-| `App/` | SwiftUI app, `PlaybackController`, player window. | macOS |
+| `App/` | SwiftUI app: `BrowserView` (tabs, keys, quick look) over `HomeModel`/`BrowserModel`/`LibraryGridModel` in `App/Sources/Library`, `PlaybackController`, player window. | macOS |
 
 Keep logic that can be portable in `Core/` — it is the only part CI can test on Linux, and it is
 much faster to iterate on.

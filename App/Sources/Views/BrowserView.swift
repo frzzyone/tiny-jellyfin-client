@@ -1,0 +1,263 @@
+import JellyfinKit
+import PlayerCore
+import SwiftUI
+
+/// The main window: a top bar with Home and one tab per library, the page for the selected tab
+/// (or search results while there is a search term), the quick look over it, and the keyboard.
+struct BrowserView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+    let session: SignedInSession
+    @State private var browser = BrowserModel()
+    @State private var home: HomeModel?
+    @State private var libraries: Loader<[BaseItem]>?
+    @State private var path: [BaseItem] = []
+    @State private var surpriseError: String?
+    @FocusState private var searchFocused: Bool
+    @FocusState private var pageFocused: Bool
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            ZStack {
+                BrowserStyle.ground.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topBar
+                    content
+                }
+                if let item = browser.quickLook {
+                    Color.black.opacity(0.45).ignoresSafeArea()
+                        .onTapGesture { browser.closeQuickLook() }
+                    QuickLookView(item: item, onPlay: play, onOpenSeries: open, onUpdate: update,
+                                  onClose: { browser.closeQuickLook() })
+                        .transition(.opacity)
+                }
+            }
+            .navigationDestination(for: BaseItem.self) { item in
+                destination(for: item)
+                    .background(BrowserStyle.ground)
+            }
+        }
+        .environment(browser)
+        .preferredColorScheme(.dark)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($pageFocused)
+        .onAppear { pageFocused = true }
+        .onKeyPress(phases: .down) { press in handle(press) }
+        .onChange(of: browser.tab) { _, _ in
+            path = []
+            browser.selection = nil
+            browser.closeQuickLook()
+        }
+        .task {
+            guard let client = model.client else { return }
+            let loader = Loader { try await client.libraries() }
+            libraries = loader
+            let home = HomeModel(service: client)
+            self.home = home
+            async let libs: Void = loader.load()
+            async let rows: Void = home.load()
+            _ = await (libs, rows)
+            PlayerLog.engine("Home: \(home.visibleRows.map { "\($0.id)=\($0.items.count)" }.joined(separator: " ")) hero=\(home.hero?.displayName ?? "-")")
+        }
+    }
+
+    // MARK: Top bar
+
+    private var topBar: some View {
+        HStack(spacing: 32) {
+            Text("Tiny Jellyfin")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(BrowserStyle.text)
+                .padding(.leading, 70) // room for the traffic lights
+            HStack(spacing: 26) {
+                tab("Home", .home)
+                ForEach(libraries?.state.value ?? []) { library in
+                    tab(library.displayName, .library(library.id))
+                }
+            }
+            Spacer()
+            searchField
+            Menu {
+                Text(session.userName)
+                Text(session.server.name)
+                Divider()
+                Button("Sign Out") { Task { await model.session.signOut() } }
+            } label: {
+                Text(String(session.userName.prefix(1)).uppercased())
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(BrowserStyle.text)
+                    .frame(width: 32, height: 32)
+                    .background(BrowserStyle.raised, in: Circle())
+                    .overlay(Circle().stroke(BrowserStyle.line))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Account")
+        }
+        .padding(.horizontal, BrowserStyle.sidePadding)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+
+    private func tab(_ title: String, _ tab: BrowserTab) -> some View {
+        let on = browser.tab == tab && browser.searchText.isEmpty
+        return Button {
+            browser.searchText = ""
+            browser.tab = tab
+        } label: {
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(on ? BrowserStyle.text : BrowserStyle.muted)
+                .padding(.vertical, 6)
+                .overlay(alignment: .bottom) { Rectangle().fill(on ? BrowserStyle.accent : .clear).frame(height: 2) }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold))
+            TextField("Just start typing", text: Bindable(browser).searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($searchFocused)
+                .onSubmit { pageFocused = true }
+                .onExitCommand { clearSearch() }
+                .frame(width: 150)
+            if !browser.searchText.isEmpty {
+                Button(action: clearSearch) { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+            }
+        }
+        .foregroundStyle(searchFocused || !browser.searchText.isEmpty ? BrowserStyle.text : BrowserStyle.muted)
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .background(searchFocused ? BrowserStyle.raised : .clear, in: Capsule())
+        .overlay(Capsule().stroke(BrowserStyle.line))
+    }
+
+    // MARK: Pages
+
+    @ViewBuilder
+    private var content: some View {
+        if !browser.searchText.isEmpty {
+            LibraryTabView(parentId: nil, title: "Search", searchTerm: browser.searchText)
+                .id("search")
+        } else {
+            switch browser.tab {
+            case .home:
+                if let home {
+                    HomeView(home: home, onPlay: play, onOpenSeries: open, onSurprise: surprise)
+                } else {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            case .library(let id):
+                let library = libraries?.state.value?.first { $0.id == id }
+                LibraryTabView(parentId: id, title: library?.displayName ?? "Library", searchTerm: "")
+                    .id(id)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for item: BaseItem) -> some View {
+        switch item.type {
+        case .series?: SeriesView(series: item)
+        case .season?: SeasonView(season: item)
+        default: SeriesView(series: item)
+        }
+    }
+
+    // MARK: Actions
+
+    private func play(_ item: BaseItem, resume: Bool) {
+        browser.closeQuickLook()
+        model.play(item, resume: resume)
+        openWindow(id: AppModel.playerWindowID)
+    }
+
+    /// A series or season opens its list; anything playable plays.
+    private func open(_ item: BaseItem) {
+        browser.closeQuickLook()
+        switch item.type {
+        case .series?, .season?: path.append(item)
+        default: play(item, resume: item.resumePositionSeconds != nil)
+        }
+    }
+
+    private func update(_ item: BaseItem) {
+        home?.update(item)
+        browser.update(item)
+    }
+
+    private func surprise() {
+        guard let home else { return }
+        Task {
+            do {
+                if let pick = try await home.surprise() {
+                    browser.openQuickLook(pick, in: [pick])
+                    surpriseError = nil
+                } else {
+                    surpriseError = "Nothing unwatched left to pick from."
+                }
+            } catch {
+                surpriseError = describe(error)
+            }
+        }
+    }
+
+    private func clearSearch() {
+        browser.searchText = ""
+        searchFocused = false
+        pageFocused = true
+    }
+
+    // MARK: Keyboard
+
+    private func handle(_ press: KeyPress) -> KeyPress.Result {
+        if browser.quickLook != nil {
+            switch press.key {
+            case .escape: browser.closeQuickLook(); return .handled
+            case .leftArrow: browser.stepQuickLook(forward: false); return .handled
+            case .rightArrow: browser.stepQuickLook(forward: true); return .handled
+            case .return:
+                if let item = browser.quickLook { open(item) }
+                return .handled
+            case .space: browser.closeQuickLook(); return .handled
+            default: return .ignored
+            }
+        }
+        if press.modifiers.contains(.command), press.characters == "f" {
+            searchFocused = true
+            return .handled
+        }
+        switch press.key {
+        case .upArrow: browser.move(.up); return .handled
+        case .downArrow: browser.move(.down); return .handled
+        case .leftArrow: browser.move(.left); return .handled
+        case .rightArrow: browser.move(.right); return .handled
+        case .escape:
+            if !browser.searchText.isEmpty { clearSearch() } else { browser.selection = nil }
+            return .handled
+        case .return:
+            if let selected = browser.selectedItem { open(selected.item) }
+            else if browser.tab == .home, browser.searchText.isEmpty, let hero = home?.hero { play(hero, resume: hero.resumePositionSeconds != nil) }
+            return .handled
+        case .space:
+            if let selected = browser.selectedItem { browser.openQuickLook(selected.item, in: selected.row) }
+            return .handled
+        default:
+            break
+        }
+        // Printable characters start a search.
+        guard press.modifiers.isSubset(of: [.shift]), let scalar = press.characters.unicodeScalars.first,
+              !CharacterSet.controlCharacters.contains(scalar) else { return .ignored }
+        if press.characters == "s", browser.searchText.isEmpty, browser.tab == .home { surprise(); return .handled }
+        browser.searchText += press.characters
+        searchFocused = true
+        return .handled
+    }
+}

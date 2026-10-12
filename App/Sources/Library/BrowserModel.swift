@@ -85,6 +85,30 @@ final class BrowserModel {
     private(set) var quickLook: BaseItem?
     /// The row the quick look was opened from, for ← and →.
     @ObservationIgnored private var quickLookRow: [BaseItem] = []
+    /// What is on screen, for the arrow keys: set by the page being shown.
+    private(set) var rows: [RowLayout] = []
+    @ObservationIgnored private var itemsByRow: [String: [BaseItem]] = [:]
+
+    func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])]) {
+        let layouts = rows.map(\.layout)
+        if layouts != self.rows { self.rows = layouts }
+        itemsByRow = Dictionary(uniqueKeysWithValues: rows.map { ($0.layout.id, $0.items) })
+        if let selection, !layouts.contains(where: { $0.id == selection.row && $0.count > selection.index }) {
+            self.selection = nil
+        }
+    }
+
+    func move(_ direction: MoveDirection) {
+        selection = SelectionMath.move(selection, direction, rows: rows)
+    }
+
+    /// The outlined title and the row it sits in.
+    var selectedItem: (item: BaseItem, row: [BaseItem])? {
+        guard let selection, let row = itemsByRow[selection.row], row.indices.contains(selection.index) else { return nil }
+        return (row[selection.index], row)
+    }
+
+    func items(inRow id: String) -> [BaseItem] { itemsByRow[id] ?? [] }
 
     func openQuickLook(_ item: BaseItem, in row: [BaseItem]) {
         quickLook = item

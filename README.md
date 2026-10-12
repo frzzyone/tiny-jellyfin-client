@@ -73,6 +73,15 @@ xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destinatio
 `JellyfinKit` and the portable part of `PlayerCore` also build and test on Linux against the system FFmpeg
 (see `.github/workflows/ci.yml`).
 
+## Finding something to watch
+
+No sidebar: Home and one tab per video library in the top bar. Home leads with where you left
+off (Enter resumes it), then Continue watching, Next up, Added this week, and rows that need no
+typing: Surprise me (a random unwatched film), Short tonight, Because you watched, Almost done,
+a genre of the day, the oldest unplayed titles, a decade of the day. Library tabs have one-click
+filters and a genre strip; typing anywhere searches. Space opens a quick look with Play, Start
+over and Mark watched; arrows move between rows and titles.
+
 ## Quality presets
 
 | Option | Max video bitrate | Max height |

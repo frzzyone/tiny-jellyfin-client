@@ -11,7 +11,7 @@ struct TinyJellyfinApp: App {
         WindowGroup("Tiny Jellyfin", id: "main") {
             RootView()
                 .environment(model)
-                .frame(minWidth: 760, minHeight: 480)
+                .frame(minWidth: 900, minHeight: 560)
                 .task {
                     // A test host must not ask the Keychain for the token: the debug binary's
                     // signature changes with every build, so each run would show an access prompt.
@@ -22,6 +22,7 @@ struct TinyJellyfinApp: App {
                     model.player.stopForTermination()
                 }
         }
+        .windowStyle(.hiddenTitleBar)
         .commands {
             PlaybackCommands(controller: model.player)
         }

@@ -18,7 +18,7 @@ struct RootView: View {
 
     @ViewBuilder
     private func signedIn(_ session: SignedInSession) -> some View {
-        let view = LibraryRootView(session: session)
+        let view = BrowserView(session: session)
         #if DEBUG
         view.task { await DebugAutoplay.runIfRequested(model: model, openWindow: openWindow) }
         #else
