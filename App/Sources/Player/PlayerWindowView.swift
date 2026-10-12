@@ -9,6 +9,7 @@ struct PlayerWindowView: View {
     @State private var controlsVisible = true
     @State private var lastActivity = Date()
     @State private var pip = PictureInPictureController()
+    @State private var window: NSWindow?
     @FocusState private var focused: Bool
 
     private var player: PlaybackController { model.player }
@@ -19,7 +20,7 @@ struct PlayerWindowView: View {
             if let engine = player.engine {
                 VideoLayerView(layer: engine.displayLayer, aspectRatio: player.videoSize)
                     .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
-                    .onTapGesture(count: 2) { NSApp.keyWindow?.toggleFullScreen(nil) }
+                    .onTapGesture(count: 2) { toggleFullScreen() }
             }
             SubtitleOverlay(text: player.subtitleText)
             if player.status == .loading || player.status == .buffering {
@@ -46,11 +47,12 @@ struct PlayerWindowView: View {
             if player.status == .idle && player.item == nil {
                 Text("Nothing is playing").foregroundStyle(.secondary)
             }
-            PlayerControls(player: player, pip: pip)
+            PlayerControls(player: player, pip: pip, toggleFullScreen: toggleFullScreen)
                 .opacity(controlsVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: controlsVisible)
         }
         .ignoresSafeArea()
+        .background(WindowReader(window: $window))
         .onContinuousHover { _ in noteActivity() }
         .focusable()
         .focusEffectDisabled()
@@ -90,11 +92,46 @@ struct PlayerWindowView: View {
         case .rightArrow: player.skip(by: 30)
         case .upArrow: player.volume = min(1, player.volume + 0.1)
         case .downArrow: player.volume = max(0, player.volume - 0.1)
-        case "f": NSApp.keyWindow?.toggleFullScreen(nil)
+        case "f": toggleFullScreen()
         case "m": player.isMuted.toggle()
         case .escape:
-            if let window = NSApp.keyWindow, window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) }
+            if let window = window ?? NSApp.keyWindow, window.styleMask.contains(.fullScreen) { toggleFullScreen() }
         default: break
+        }
+    }
+
+    /// Uses the window this view lives in. `NSApp.keyWindow` is not reliable from a button action
+    /// (it can be nil or another window), which left the full-screen button doing nothing.
+    private func toggleFullScreen() {
+        guard let window = window ?? NSApp.keyWindow else {
+            PlayerLog.engine("Full screen: no window")
+            return
+        }
+        PlayerLog.engine("Full screen: \(window.styleMask.contains(.fullScreen) ? "leaving" : "entering")")
+        window.toggleFullScreen(nil)
+    }
+}
+
+/// Reports the NSWindow a SwiftUI view ends up in, and makes sure it can go full screen.
+private struct WindowReader: NSViewRepresentable {
+    @Binding var window: NSWindow?
+
+    func makeNSView(context: Context) -> Reader {
+        let reader = Reader()
+        reader.onWindow = { window in
+            window?.collectionBehavior.insert(.fullScreenPrimary)
+            DispatchQueue.main.async { self.window = window }
+        }
+        return reader
+    }
+
+    func updateNSView(_ view: Reader, context: Context) {}
+
+    final class Reader: NSView {
+        var onWindow: ((NSWindow?) -> Void)?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            onWindow?(window)
         }
     }
 }
@@ -211,6 +248,7 @@ struct ErrorBanner: View {
 struct PlayerControls: View {
     @Bindable var player: PlaybackController
     let pip: PictureInPictureController
+    var toggleFullScreen: () -> Void = {}
     @State private var scrubbing: Double?
 
     var body: some View {
@@ -273,7 +311,7 @@ struct PlayerControls: View {
                         Image(systemName: player.isMuted || player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     }
                     Slider(value: $player.volume, in: 0...1).frame(width: 110)
-                    Button { NSApp.keyWindow?.toggleFullScreen(nil) } label: {
+                    Button(action: toggleFullScreen) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                     }
                     .help("Full Screen (F)")
