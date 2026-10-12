@@ -74,6 +74,10 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   target, so unsegmented inputs are repositioned afterwards (cheap) and segmented ones are not —
   the engine instead starts the clock at the first queued packet.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
+- **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
+  lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and
+  reading it that way segfaults. `LetterboxDetector` copies such frames through
+  `VTPixelTransferSession` into a plain small 4:2:0 buffer first.
 - **Threading:** all `FFmpegEngine` mutable state lives on its `queue`; each `Pipeline` owns a reader
   thread. `Pipeline.currentDemuxer` is replaced on the reader thread (HLS seeks reopen the stream).
 

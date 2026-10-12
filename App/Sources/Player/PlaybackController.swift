@@ -67,6 +67,7 @@ final class PlaybackController {
     @ObservationIgnored private var barSamples: (count: Int, unchanged: Int, bars: PictureBars, last: Date)?
     /// True once the bars have held long enough that the frames are no longer examined.
     @ObservationIgnored private(set) var barsSettled = false
+    @ObservationIgnored private let letterbox = LetterboxDetector()
     @ObservationIgnored private var barsExplained = false
 
     /// "720p 4 Mbps · Transcode"
@@ -507,10 +508,11 @@ final class PlaybackController {
             barsExplained = true
             return
         }
-        guard let seen = LetterboxDetector.bars(in: frame) else {
+        guard let seen = letterbox.bars(in: frame) else {
             if !barsExplained {
-                PlayerLog.engine("Picture bars: nothing found in a \(CVPixelBufferGetWidth(frame))×\(CVPixelBufferGetHeight(frame)) "
-                                 + "\(fourCC(CVPixelBufferGetPixelFormatType(frame))) frame (planes \(CVPixelBufferGetPlaneCount(frame)))")
+                let format = fourCC(CVPixelBufferGetPixelFormatType(frame))
+                PlayerLog.engine("Picture bars: \(LetterboxDetector.canRead(frame) ? "nothing found in" : "could not copy") a "
+                                 + "\(CVPixelBufferGetWidth(frame))×\(CVPixelBufferGetHeight(frame)) \(format) frame")
             }
             barsExplained = true
             return

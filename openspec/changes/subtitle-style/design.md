@@ -28,11 +28,16 @@ white pixels, so "the text is inside the picture" is asserted, not eyeballed.
 
 ### D2. Bars are measured from the displayed frame
 `PlaybackEngine.copyDisplayedFrame()` returns the renderer's current pixel buffer
-(`displayedPixelBuffer()`, macOS 14.4+; nil before). `LetterboxDetector.bars(in:)` locks the luma
-plane and finds the first and last rows with picture in them: a row counts when at least 2% of its
-sampled columns (every 8th) are above luma 32 on an 8-bit scale, at least two of them. 10-bit planes
-keep their bits at the top of 16-bit samples, so `>> 8` puts them on the same scale. A frame whose
-picture rows are under 30% of its height says nothing (a fade, a credits card).
+(`displayedPixelBuffer()`, macOS 14.4+; nil before). On Apple Silicon that buffer is in
+VideoToolbox's lossless-compressed layout (`&8v0`), whose memory is not rows of pixels: reading it
+as rows walked off the end of the mapping and crashed the app. So `LetterboxDetector` reads only a
+short list of plain bi-planar formats directly, and copies anything else into a 320-column plain
+4:2:0 buffer with `VTPixelTransferSession` first (VideoToolbox decompresses and scales; 180 rows
+give the bars to better than 1%). The scan locks the luma plane and finds the first and last rows
+with picture in them: a row counts when at least 2% of its sampled columns (every 8th), and at
+least two, are above luma 32 on an 8-bit scale. 10-bit planes keep their bits at the top of 16-bit
+samples, so `>> 8` puts them on the same scale. A frame whose picture rows are under 30% of its
+height says nothing (a fade, a credits card).
 
 ### D3. Bars only narrow, are used once two looks agree, and stop being measured once settled
 `PlaybackController` looks at the frame every 2 s while playing. Each result is combined with the
