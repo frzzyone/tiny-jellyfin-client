@@ -12,7 +12,8 @@ tell Claude. Everything here is implemented and unit-tested; what is missing is 
       unwatched film; pressing again picks another. The genre row switches in place.
 - [ ] **3.4** Movies tab: Unwatched / Recently added / A–Z / Longest unseen and the genre pills each
       take one click; typing anywhere opens the search results and shows the match count; scrolling
-      keeps loading.
+      keeps loading. (Typing "hel" from Home with posted keys gave "hel" and 8 results; ↓ → then "p"
+      gave "help" and 2 results. Pills and paging still need a click.)
 - [ ] **3.5** Space or a click opens the quick look with poster, facts, badges, overview, progress;
       Resume / Play / Start over / Mark watched work and the card updates at once; ← → move to the
       neighbouring title; Esc closes. Series open to seasons and episodes; an episode row opens the
