@@ -70,6 +70,10 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   DeviceProfile, so anything display-dependent (`AVPlayer.eligibleForHDRPlayback` changes with the
   window) makes the server flip between direct play and a full transcode of the same file. macOS
   tone-maps what the panel cannot show.
+- **Transcodes don't know their picture size at open.** MPEG-TS/HLS report 0×0 until the first
+  keyframe's parameter sets are parsed; `Pipeline.presentationSize` then reads the format
+  description and the engine tick refreshes `videoSize`. Anything that keys off the size (window
+  shape, subtitle layout) must cope with it arriving a second or two after `prepare`.
 - **Probing consumes packets.** After `Demuxer.open(seekBeforeProbe:)` the read position is past the
   target, so unsegmented inputs are repositioned afterwards (cheap) and segmented ones are not —
   the engine instead starts the clock at the first queued packet.
@@ -102,6 +106,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
   stops looking once the bars have held for ten looks (`Picture bars settled …`).
+- Running `xcodebuild` from a terminal while Xcode has the project open: pass `-derivedDataPath`
+  somewhere else. Sharing Xcode's DerivedData has produced stale test bundles, stale package
+  frameworks, and a code-sign failure while the app was running from Xcode.
 - Quit the app rather than killing it: `stopForTermination` tells the server to stop transcoding,
   and a killed process leaves the server encoding for nothing.
 

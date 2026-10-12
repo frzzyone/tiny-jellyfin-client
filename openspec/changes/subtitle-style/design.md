@@ -50,6 +50,19 @@ settle on bars slightly too wide, accepted. The cost of the narrowing rule is a 
 in a bar (a logo, a burned-in subtitle) shrinking that bar for the rest of the item; also accepted.
 The estimate is reset when playback stops and survives quality switches.
 
+### D4. Transcoded streams learn their picture size after open
+MPEG-TS and HLS have no header, so for a server transcode the container reports 0×0 and the format
+is "pending" until the first keyframe's parameter sets are parsed. The engine used to snapshot the
+size once at open, so the window never took the video's shape and the overlay was laid out against
+the window. `Pipeline.presentationSize` now falls back to the format description's presentation
+dimensions, the engine refreshes its snapshot on its tick until it has one, and the controller
+picks the size up from its 0.1 s refresh. Bars found in the frames are fractions of the frame, so
+they only mean anything once the picture rect is known; the overlay applies them to that rect.
+
+### D5. No bar sampling under burn-in
+When the server burns an image subtitle into the video there is nothing of ours to place, and the
+burned-in text in the bar would narrow the bottom bar to its own baseline. Sampling is skipped.
+
 ## Risks / Trade-offs
 
 - `displayedPixelBuffer()` can return nil for protected or unavailable frames; detection then

@@ -277,6 +277,16 @@ final class Pipeline: @unchecked Sendable {
 
     var hasFailed: String? { condition.lock(); defer { condition.unlock() }; return failure }
 
+    /// Size the picture is shown at. MPEG-TS and HLS have no header, so the container often says
+    /// 0×0 until the first keyframe's parameter sets are parsed; then the format description knows.
+    var presentationSize: CGSize? {
+        if let info = videoInfo, info.width > 0, info.height > 0 { return info.presentationSize }
+        guard let format = videoFormat else { return nil }
+        let size = CMVideoFormatDescriptionGetPresentationDimensions(format.description, usePixelAspectRatio: true,
+                                                                     useCleanAperture: true)
+        return size.width > 0 && size.height > 0 ? size : nil
+    }
+
     /// True once the reader reached the end and the queues are empty.
     var isDrained: Bool {
         (videoStream == nil || videoQueue.isDrained) && (audioStream == nil || audioQueue.isDrained)

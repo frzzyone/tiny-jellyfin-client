@@ -52,6 +52,25 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(controller.pictureBars)
     }
 
+    func testVideoSizeArrivesAfterOpenForTranscodes() async {
+        let controller = makeController()
+        let service = FakeService(item: movie())
+        let sizeLater = FakeEngine()
+        sizeLater.videoSize = nil
+        engines.append(sizeLater)
+        let transcoding = PlaybackController(engineFactory: { sizeLater }, preferences: prefs,
+                                             capabilities: PlaybackCapabilities(av1: false))
+        _ = controller
+        transcoding.start(item: movie(), resume: false, service: service)
+        let started = await eventually { transcoding.session != nil }
+        XCTAssertTrue(started)
+        XCTAssertNil(transcoding.videoSize)
+        sizeLater.videoSize = CGSize(width: 1280, height: 720)
+        let known = await eventually { transcoding.videoSize == CGSize(width: 1280, height: 720) }
+        XCTAssertTrue(known, "the controller picks the size up once the engine knows it")
+        transcoding.stop()
+    }
+
     func testPictureBarsStopBeingMeasuredOnceSettled() async {
         let (controller, _, engine) = await started()
         engine.send(.state(.playing))

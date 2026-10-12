@@ -152,7 +152,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             snapshotLock.lock()
             snapshotTracks = pipeline.tracks
             snapshotDuration = pipeline.duration
-            snapshotVideoSize = pipeline.videoInfo.map(\.presentationSize)
+            snapshotVideoSize = pipeline.presentationSize
             snapshotLock.unlock()
             startFeeding()
             startTimer()
@@ -560,6 +560,12 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     private func tick() {
         guard let active else { return }
+        if videoSize == nil, let size = active.presentationSize {
+            snapshotLock.lock()
+            snapshotVideoSize = size
+            snapshotLock.unlock()
+            PlayerLog.engine(String(format: "Video size known after open: %.0f×%.0f", size.width, size.height))
+        }
         handleRendererFailures()
         if case .failed = state { return }
 

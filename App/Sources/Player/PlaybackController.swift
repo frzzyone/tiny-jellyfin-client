@@ -161,7 +161,7 @@ final class PlaybackController {
             try Task.checkCancellation()
             loadingDetail = nil
             duration = engine.duration ?? Ticks.seconds(full.runTimeTicks ?? 0)
-            videoSize = engine.videoSize
+            videoSize = engine.videoSize.flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
                                       quality: quality)
@@ -491,8 +491,11 @@ final class PlaybackController {
             if currentTime > 0 { lastKnownPosition = currentTime }
         }
         if let d = engine.duration, d > 0 { duration = d }
+        // Transcoded streams learn their picture size from the first keyframe, after open.
+        if videoSize == nil, let size = engine.videoSize, size.width > 0, size.height > 0 { videoSize = size }
         subtitleText = engine.subtitleText(at: currentTime)
-        if status == .playing { sampleBars(engine) }
+        // Burned-in subtitles are the server's pixels; there is nothing of ours to place.
+        if status == .playing, session?.burnInSubtitle == nil { sampleBars(engine) }
     }
 
     /// Looks at the displayed frame now and then for letterbox bars baked into the picture. Each
