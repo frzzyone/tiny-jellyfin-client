@@ -18,7 +18,9 @@ tell Claude. Everything here is implemented and unit-tested; what is missing is 
       neighbouring title; Esc closes. Series open to seasons and episodes; an episode row opens the
       quick look.
 - [ ] **3.6** ↓ ↓ → Enter plays the third title of the second row; the outline follows the keys and
-      the row scrolls to keep it in view; ⌘F focuses the search field.
+      the row scrolls to keep it in view; ⌘F focuses the search field. (Posted ↓ ↓ → then Space to
+      the app with CGEvent on 2026-10-12: the outline moved hero → Next up → second title, and Space
+      opened its quick look. Enter and ⌘F still need a hand.)
 - [x] **3.7** Graphite chrome, off-white text, amber progress and Play (seen in screenshots of Home, the
       Movies tab, search results and the quick look); the player window is unchanged.
 

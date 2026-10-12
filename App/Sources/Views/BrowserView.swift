@@ -14,7 +14,6 @@ struct BrowserView: View {
     @State private var path: [BaseItem] = []
     @State private var surpriseError: String?
     @FocusState private var searchFocused: Bool
-    @FocusState private var pageFocused: Bool
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -39,11 +38,7 @@ struct BrowserView: View {
         }
         .environment(browser)
         .preferredColorScheme(.dark)
-        .focusable()
-        .focusEffectDisabled()
-        .focused($pageFocused)
-        .onAppear { pageFocused = true }
-        .onKeyPress(phases: .down) { press in handle(press) }
+        .background(KeyMonitor(handler: handle))
         .onChange(of: browser.tab) { _, _ in
             path = []
             browser.selection = nil
@@ -139,7 +134,7 @@ struct BrowserView: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($searchFocused)
-                .onSubmit { pageFocused = true }
+                .onSubmit { searchFocused = false }
                 .onExitCommand { clearSearch() }
                 .frame(width: 150)
             if !browser.searchText.isEmpty {
@@ -228,52 +223,53 @@ struct BrowserView: View {
     private func clearSearch() {
         browser.searchText = ""
         searchFocused = false
-        pageFocused = true
     }
 
     // MARK: Keyboard
 
-    private func handle(_ press: KeyPress) -> KeyPress.Result {
+    /// Every key in the window. True swallows it. While the search field holds text, it keeps its
+    /// keys (bar Escape); with the field empty, navigation keys are the page's even if the field
+    /// has focus, and typed characters fall through to the field.
+    private func handle(_ event: NSEvent, editing: Bool) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            if event.charactersIgnoringModifiers == "f" { searchFocused = true; return true }
+            return false
+        }
+        if editing {
+            if event.isEscape { clearSearch(); return true }
+            if !browser.searchText.isEmpty { return false }
+            if event.typedText != nil { return false }
+        }
         if browser.quickLook != nil {
-            switch press.key {
-            case .escape: browser.closeQuickLook(); return .handled
-            case .leftArrow: browser.stepQuickLook(forward: false); return .handled
-            case .rightArrow: browser.stepQuickLook(forward: true); return .handled
-            case .return:
-                if let item = browser.quickLook { open(item) }
-                return .handled
-            case .space: browser.closeQuickLook(); return .handled
-            default: return .ignored
-            }
+            if event.isEscape { browser.closeQuickLook(); return true }
+            if event.isLeftArrow { browser.stepQuickLook(forward: false); return true }
+            if event.isRightArrow { browser.stepQuickLook(forward: true); return true }
+            if event.isReturn { if let item = browser.quickLook { open(item) }; return true }
+            if event.isSpace { browser.closeQuickLook(); return true }
+            return false
         }
-        if press.modifiers.contains(.command), press.characters == "f" {
-            searchFocused = true
-            return .handled
-        }
-        switch press.key {
-        case .upArrow: browser.move(.up); return .handled
-        case .downArrow: browser.move(.down); return .handled
-        case .leftArrow: browser.move(.left); return .handled
-        case .rightArrow: browser.move(.right); return .handled
-        case .escape:
+        if event.isUpArrow { browser.move(.up); return true }
+        if event.isDownArrow { browser.move(.down); return true }
+        if event.isLeftArrow { browser.move(.left); return true }
+        if event.isRightArrow { browser.move(.right); return true }
+        if event.isEscape {
             if !browser.searchText.isEmpty { clearSearch() } else { browser.selection = nil }
-            return .handled
-        case .return:
+            return true
+        }
+        if event.isReturn {
             if let selected = browser.selectedItem { open(selected.item) }
             else if browser.tab == .home, browser.searchText.isEmpty, let hero = home?.hero { play(hero, resume: hero.resumePositionSeconds != nil) }
-            return .handled
-        case .space:
-            if let selected = browser.selectedItem { browser.openQuickLook(selected.item, in: selected.row) }
-            return .handled
-        default:
-            break
+            return true
         }
-        // Printable characters start a search.
-        guard press.modifiers.isSubset(of: [.shift]), let scalar = press.characters.unicodeScalars.first,
-              !CharacterSet.controlCharacters.contains(scalar) else { return .ignored }
-        if press.characters == "s", browser.searchText.isEmpty, browser.tab == .home { surprise(); return .handled }
-        browser.searchText += press.characters
+        if event.isSpace {
+            if let selected = browser.selectedItem { browser.openQuickLook(selected.item, in: selected.row) }
+            return true
+        }
+        // Printable characters start a search; S on Home is Surprise me.
+        guard let text = event.typedText else { return false }
+        if text == "s", browser.searchText.isEmpty, browser.tab == .home { surprise(); return true }
+        browser.searchText += text
         searchFocused = true
-        return .handled
+        return true
     }
 }
