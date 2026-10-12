@@ -213,6 +213,15 @@ final class HomeModel {
         return try await service.items(query).items
     }
 
+    /// After playback: the hero, Continue watching and Next up follow the server's new positions;
+    /// the other rows stay as they are so the page does not reshuffle.
+    func refreshProgress() async {
+        guard !rows.isEmpty else { return }
+        async let resume: Void = loadHeroAndContinue()
+        async let next: Void = load(rowID: Self.nextUpID)
+        _ = await (resume, next)
+    }
+
     /// Switches the genre row in place.
     func selectGenre(_ genreId: String) async {
         guard let index = rows.firstIndex(where: { $0.id == Self.genreID }) else { return }

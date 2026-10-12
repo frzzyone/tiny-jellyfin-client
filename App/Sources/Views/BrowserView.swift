@@ -13,6 +13,7 @@ struct BrowserView: View {
     @State private var libraries: Loader<[BaseItem]>?
     @State private var path: [BaseItem] = []
     @State private var surpriseError: String?
+    @State private var lastPlayedID: String?
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -43,6 +44,14 @@ struct BrowserView: View {
             path = []
             if browser.selection?.row != BrowserModel.tabsRow { browser.selection = nil }
             browser.closeQuickLook()
+        }
+        .onChange(of: model.player.status) { was, now in
+            // The player stopped: positions on the server changed, so the hero and the rows follow.
+            guard now == .idle || now == .ended, was != .idle, let playedID = lastPlayedID else { return }
+            Task {
+                await home?.refreshProgress()
+                if let client = model.client, let fresh = try? await client.item(id: playedID) { update(fresh) }
+            }
         }
         .onChange(of: libraries?.state.value?.map(\.id)) { _, ids in
             browser.tabs = [.home] + (ids ?? []).map { BrowserTab.library($0) }
@@ -205,6 +214,7 @@ struct BrowserView: View {
 
     private func play(_ item: BaseItem, resume: Bool) {
         browser.closeQuickLook()
+        lastPlayedID = item.id
         model.play(item, resume: resume)
         openWindow(id: AppModel.playerWindowID)
     }

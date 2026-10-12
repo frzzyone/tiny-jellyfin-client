@@ -85,6 +85,22 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25), "no longer looking at the frames")
     }
 
+    func testResumeUsesTheServersPositionNotTheCards() async {
+        let controller = makeController()
+        let service = FakeService(item: movie(resumeAt: 500))   // what the server says now
+        controller.start(item: movie(resumeAt: 100), resume: true, service: service) // a stale card
+        let ok = await eventually { controller.session != nil }
+        XCTAssertTrue(ok)
+        XCTAssertEqual(engines.last?.prepared.first?.1, 500)
+        XCTAssertEqual(controller.currentTime, 500)
+        controller.stop()
+        let fresh = FakeService(item: movie())   // watched to the end: no position any more
+        controller.start(item: movie(resumeAt: 100), resume: true, service: fresh)
+        let again = await eventually { controller.session != nil }
+        XCTAssertTrue(again)
+        XCTAssertEqual(engines.last?.prepared.first?.1, 0, "the server's answer wins even when it is 'start over'")
+    }
+
     func testStartPlaysFromBeginningAndReports() async {
         let (controller, service, engine) = await started()
         XCTAssertEqual(engine.prepared.first?.1, 0)

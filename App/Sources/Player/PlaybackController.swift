@@ -104,14 +104,18 @@ final class PlaybackController {
 
     // MARK: Start / stop
 
+    /// Where playback begins: from the server's saved position, from zero, or at a given time.
+    enum StartPosition: Equatable {
+        case resume, beginning, at(Double)
+    }
+
     func start(item: BaseItem, resume: Bool, service: PlaybackService) {
         stop()
         self.service = service
         self.item = item
         status = .loading
         startUITimer()
-        let start = resume ? (item.resumePositionSeconds ?? 0) : 0
-        startTask = Task { await begin(item: item, at: start, quality: nil) }
+        startTask = Task { await begin(item: item, from: resume ? .resume : .beginning, quality: nil) }
     }
 
     /// Retry after a playback error, from the last known position.
@@ -123,15 +127,22 @@ final class PlaybackController {
         status = .loading
         self.service = service
         startUITimer()
-        startTask = Task { await begin(item: item, at: position, quality: quality) }
+        startTask = Task { await begin(item: item, from: .at(position), quality: quality) }
     }
 
-    private func begin(item: BaseItem, at start: Double, quality requested: QualityPreset?) async {
+    private func begin(item: BaseItem, from position: StartPosition, quality requested: QualityPreset?) async {
         guard let service else { return }
         do {
-            var full = item
-            if full.mediaSources == nil { full = try await service.item(id: item.id) }
+            // Always ask the server for the item: a card can be minutes old, and its saved
+            // position is what Resume means.
+            let full = try await service.item(id: item.id)
             try Task.checkCancellation()
+            let start: Double
+            switch position {
+            case .resume: start = full.resumePositionSeconds ?? 0
+            case .beginning: start = 0
+            case .at(let time): start = time
+            }
             let sourceHeight = full.mediaSources?.first?.videoStream?.height
             qualityOptions = QualitySelection.visibleOptions(sourceHeight: sourceHeight)
             let quality = requested ?? QualitySelection.startingQuality(

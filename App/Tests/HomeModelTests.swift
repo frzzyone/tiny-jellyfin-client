@@ -155,6 +155,24 @@ final class HomeModelTests: XCTestCase {
         XCTAssertEqual(pick?.id, "lucky")
     }
 
+    func testRefreshProgressReloadsOnlyTheProgressRows() async {
+        service.resume = [item("troy", position: 100)]
+        service.nextUpItems = [item("e4", type: .episode)]
+        service.onItems = { query in query.sort == .dateCreated && query.filters == [.unplayed] ? [item("shelf1")] : [] }
+        let day = (0...6).first { DiscoveryKind.rotation(day: HomeRules.dayNumber(today) + $0).contains(.shelf) }!
+        let model = makeModel(day: today.addingTimeInterval(Double(day) * 86_400))
+        await model.load()
+        XCTAssertEqual(model.hero?.id, "troy")
+        service.resume = [item("sam", position: 50), item("troy", position: 100)]
+        service.nextUpItems = [item("e5", type: .episode)]
+        service.onItems = { _ in [item("shelf2")] }
+        await model.refreshProgress()
+        XCTAssertEqual(model.hero?.id, "sam")
+        XCTAssertEqual(model.rows.first { $0.id == "continue" }?.items.map(\.id), ["troy"])
+        XCTAssertEqual(model.rows.first { $0.id == "nextUp" }?.items.map(\.id), ["e5"])
+        XCTAssertEqual(model.rows.first { $0.id == "shelf" }?.items.map(\.id), ["shelf1"], "untouched")
+    }
+
     func testUpdateReplacesTheItemEverywhere() async {
         service.resume = [item("troy", position: 100), item("sam", position: 50)]
         let model = makeModel()
