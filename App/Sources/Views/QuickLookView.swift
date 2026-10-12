@@ -41,7 +41,10 @@ struct QuickLookView: View {
                             .lineLimit(2)
                     }
                     Spacer()
-                    KeyHint(keys: ["esc"], text: "closes")
+                    HStack(spacing: 14) {
+                        KeyHint(keys: ["←", "→"], text: "next title")
+                        KeyHint(keys: ["esc"], text: "closes")
+                    }
                 }
                 Text(facts).font(.system(size: 14)).foregroundStyle(BrowserStyle.dim)
                 if let overview = shown.overview, !overview.isEmpty {
@@ -49,8 +52,8 @@ struct QuickLookView: View {
                         .font(.system(size: 15))
                         .lineSpacing(3)
                         .foregroundStyle(Color(red: 0xd6 / 255, green: 0xd2 / 255, blue: 0xcb / 255))
-                        .lineLimit(6)
-                        .frame(maxWidth: 520, alignment: .leading)
+                        .lineLimit(5)
+                        .frame(maxWidth: 560, alignment: .leading)
                 } else if details == nil {
                     ProgressView().controlSize(.small)
                 }
@@ -76,13 +79,13 @@ struct QuickLookView: View {
                             .disabled(marking)
                     }
                     Spacer()
-                    KeyHint(keys: ["←", "→"], text: "next title")
                 }
+                .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(24)
-        .frame(width: 720, height: 318)
+        .frame(width: 820, height: 318)
         .background(BrowserStyle.raised, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(BrowserStyle.line))
         .shadow(color: .black.opacity(0.5), radius: 30, y: 20)

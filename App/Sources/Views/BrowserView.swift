@@ -59,6 +59,22 @@ struct BrowserView: View {
             async let rows: Void = home.load()
             _ = await (libs, rows)
             PlayerLog.engine("Home: \(home.visibleRows.map { "\($0.id)=\($0.items.count)" }.joined(separator: " ")) hero=\(home.hero?.displayName ?? "-")")
+            #if DEBUG
+            // Screenshot hooks: TJ_BROWSER_TAB=<library name> opens that tab, TJ_BROWSER_QUICKLOOK=hero|<item id>
+            // opens the quick look, TJ_BROWSER_SELECT=<row>,<index> outlines a title.
+            let env = ProcessInfo.processInfo.environment
+            if let name = env["TJ_BROWSER_TAB"], let library = loader.state.value?.first(where: { $0.displayName == name }) {
+                browser.tab = .library(library.id)
+            }
+            if let select = env["TJ_BROWSER_SELECT"]?.split(separator: ","), select.count == 2, let index = Int(select[1]) {
+                browser.selection = BrowserSelection(row: String(select[0]), index: index)
+            }
+            if let text = env["TJ_BROWSER_SEARCH"] { browser.searchText = text }
+            if let target = env["TJ_BROWSER_QUICKLOOK"] {
+                if target == "hero", let hero = home.hero { browser.openQuickLook(hero, in: [hero]) }
+                else if let item = try? await client.item(id: target) { browser.openQuickLook(item, in: [item]) }
+            }
+            #endif
         }
     }
 

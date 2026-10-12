@@ -78,8 +78,10 @@ struct HeroView: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             Artwork(url: model.client?.backdropImageURL(for: item, maxWidth: 1600), title: "", toneID: item.id)
-            LinearGradient(colors: [BrowserStyle.ground.opacity(0), BrowserStyle.ground.opacity(0.92)],
-                           startPoint: UnitPoint(x: 0.5, y: 0.35), endPoint: .bottom)
+            LinearGradient(stops: [.init(color: BrowserStyle.ground.opacity(0), location: 0),
+                                   .init(color: BrowserStyle.ground.opacity(0.55), location: 0.55),
+                                   .init(color: BrowserStyle.ground.opacity(0.96), location: 1)],
+                           startPoint: UnitPoint(x: 0.5, y: 0.2), endPoint: .bottom)
             VStack(alignment: .leading, spacing: 14) {
                 Text(inProgress ? "Where you left off" : (item.type == .episode ? "Next up" : "Just added"))
                     .font(.system(size: 13, weight: .medium))

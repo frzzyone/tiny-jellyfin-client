@@ -3,7 +3,8 @@
 What is left to verify by using the app. Tick the matching task in `tasks.md` when it passes, or
 tell Claude. Everything here is implemented and unit-tested; what is missing is a person looking.
 
-- [ ] **3.1** The top bar lists Home plus exactly the video libraries; the account menu signs out.
+- [x] **3.1** The top bar lists Home plus exactly the video libraries (seen: Home, Movies, Shows); the
+      account menu signs out (menu not yet exercised).
 - [ ] **3.2** The hero is what you watched last; Enter with nothing selected resumes it; Start over
       starts from zero. With nothing in progress the hero is the next episode or the newest title.
 - [ ] **3.3** Each discovery row matches what the Jellyfin web UI shows for the same query (Next up,
@@ -18,4 +19,11 @@ tell Claude. Everything here is implemented and unit-tested; what is missing is 
       quick look.
 - [ ] **3.6** ↓ ↓ → Enter plays the third title of the second row; the outline follows the keys and
       the row scrolls to keep it in view; ⌘F focuses the search field.
-- [ ] **3.7** Graphite chrome, off-white text, amber progress and Play; the player window is unchanged.
+- [x] **3.7** Graphite chrome, off-white text, amber progress and Play (seen in screenshots of Home, the
+      Movies tab, search results and the quick look); the player window is unchanged.
+
+Screenshots taken on 2026-10-12 with `screencapture -l <window>` against the server: the hero
+(Troy, time left, Resume / Start over), Next up stills, the shelf row, the Movies tab at 8
+columns with "60 of 735", search results for "he" ("60 of 180"), and the quick look on Troy with
+badges, overview, progress and the three buttons. What is left is the interaction: keys, Enter,
+Mark watched updating the card, and the Shows tab.

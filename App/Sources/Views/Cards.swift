@@ -8,22 +8,26 @@ struct Artwork: View {
     let toneID: String
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            BrowserStyle.placeholderTone(for: toneID)
-            Text(title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(BrowserStyle.text)
-                .lineLimit(3)
-                .padding(10)
-            if let url {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
+        // The colour is flexible, so the frame decides the size and the image fills it; an image
+        // laid out on its own would push the frame to its natural size.
+        BrowserStyle.placeholderTone(for: toneID)
+            .overlay(alignment: .bottomLeading) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(BrowserStyle.text)
+                    .lineLimit(3)
+                    .padding(10)
+            }
+            .overlay {
+                if let url {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        }
                     }
                 }
             }
-        }
-        .clipped()
+            .clipped()
     }
 }
 
@@ -137,6 +141,8 @@ struct ActionButton: View {
                 Text(title)
             }
             .font(.system(size: 15, weight: role == .primary ? .semibold : .regular))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(role == .primary ? BrowserStyle.ground : BrowserStyle.text)
             .padding(.horizontal, role == .primary ? 22 : 18)
             .frame(height: 44)

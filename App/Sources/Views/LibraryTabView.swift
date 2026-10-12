@@ -21,13 +21,10 @@ struct LibraryTabView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             if let grid {
+                GeometryReader { geo in
                 ScrollViewReader { proxy in
                     ScrollView {
-                        GeometryReader { geo in
-                            Color.clear.preference(key: WidthKey.self, value: geo.size.width)
-                        }
-                        .frame(height: 0)
-                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(cell), spacing: gap, alignment: .top), count: columns),
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: cell, maximum: cell), spacing: gap, alignment: .top)],
                                   alignment: .leading, spacing: 18) {
                             ForEach(Array(grid.items.enumerated()), id: \.element.id) { index, item in
                                 let selected = browser.selection == BrowserSelection(row: Self.gridID, index: index)
@@ -47,13 +44,15 @@ struct LibraryTabView: View {
                                 .foregroundStyle(BrowserStyle.muted).padding(40)
                         }
                     }
-                    .onPreferenceChange(WidthKey.self) { width in
-                        columns = max(1, Int((width + gap) / (cell + gap)))
+                    .onChange(of: geo.size.width, initial: true) { _, width in
+                        // The adaptive grid fits as many fixed cells as the width allows; the keys need the same count.
+                        columns = max(1, Int((width - 8 + gap) / (cell + gap)))
                     }
                     .onChange(of: browser.selection) { _, selection in
                         guard let selection, selection.row == Self.gridID, grid.items.indices.contains(selection.index) else { return }
                         withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(grid.items[selection.index].id, anchor: .center) }
                     }
+                }
                 }
                 .padding(.horizontal, BrowserStyle.sidePadding - 4)
                 .padding(.top, 22)
@@ -69,7 +68,7 @@ struct LibraryTabView: View {
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }
             self.grid = grid
             async let genreList = (try? client.genres(libraryId: parentId)) ?? []
-            await grid.apply(searchTerm: searchTerm)
+            if searchTerm.isEmpty { await grid.loadMore() } else { await grid.apply(searchTerm: searchTerm) }
             genres = await genreList
         }
         .task(id: searchTerm) {
@@ -112,9 +111,4 @@ struct LibraryTabView: View {
         guard let grid else { return }
         browser.setRows([(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)])
     }
-}
-
-private struct WidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
