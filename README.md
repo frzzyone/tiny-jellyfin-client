@@ -12,7 +12,7 @@ on-the-fly quality switching.
   playing while the new one loads, then it is spliced in at a keyframe.
 
 The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) in
-[`openspec/changes/add-macos-jellyfin-client`](openspec/changes/add-macos-jellyfin-client).
+[`openspec/specs`](openspec/specs) (built as the change archived in [`openspec/changes/archive`](openspec/changes/archive)).
 
 ## Requirements
 

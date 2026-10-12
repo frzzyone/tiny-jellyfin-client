@@ -2,7 +2,8 @@
 
 Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
 `AVSampleBuffer*` renderers decode and present. See `README.md` for the user-facing description and
-`openspec/changes/add-macos-jellyfin-client/` for the specs this was built against.
+`openspec/specs/` for the requirements it meets (the first change is archived under
+`openspec/changes/archive/2026-10-12-add-macos-jellyfin-client/`). `BACKLOG.md` holds known gaps.
 
 ## Layout
 
@@ -34,9 +35,9 @@ or switch globally with `sudo xcode-select -s /Applications/Xcode.app`.
 Run the app from Xcode, or `xcodebuild -scheme TinyJellyfin -configuration Debug build` then open the
 product. CI (`.github/workflows/ci.yml`) runs all of the above on Linux and macOS; it must be green.
 
-The change is at 33/48 tasks. The rest need a human looking at the screen or listening; they are
-listed, with what each one closes, in `openspec/changes/add-macos-jellyfin-client/manual-checklist.md`.
-Tasks 7.7 and 10.1 carry notes on which parts were already verified against a real server.
+The first change was archived with 33/48 tasks verified. The rest need a human looking at the screen
+or listening; they are listed in the archived change's `manual-checklist.md`. New work starts as its
+own change (`/opsx:new`), and the specs in `openspec/specs/` are the contract to keep green.
 
 ## Engine invariants
 

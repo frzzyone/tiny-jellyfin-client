@@ -53,4 +53,4 @@ Watch the logs while you go: `log stream --predicate 'subsystem == "app.tinyjell
       transcodes running. Subtitles stay in sync across a switch. If you have a VC-1 or MPEG-2
       file: "Original · Transcode" at the source resolution.
 
-When all of these pass, archive the change: `/opsx:archive add-macos-jellyfin-client`.
+The change was archived on 2026-10-12 with these still open; see `BACKLOG.md` at the repo root.
