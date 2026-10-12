@@ -53,6 +53,7 @@ struct ItemCard: View {
     let shape: RowShape
     let selected: Bool
     var width: CGFloat? = nil
+    @State private var hovering = false
 
     private var size: CGSize {
         let base = shape == .poster ? BrowserStyle.posterSize : BrowserStyle.stillSize
@@ -90,8 +91,14 @@ struct ItemCard: View {
                         RoundedRectangle(cornerRadius: BrowserStyle.corner + 3)
                             .stroke(BrowserStyle.text, lineWidth: 2)
                             .padding(-3)
+                    } else if hovering {
+                        RoundedRectangle(cornerRadius: BrowserStyle.corner)
+                            .stroke(.white.opacity(0.45), lineWidth: 1.5)
                     }
                 }
+                .shadow(color: .black.opacity(hovering ? 0.5 : 0), radius: 12, y: 6)
+                .scaleEffect(hovering ? 1.04 : 1)
+                .animation(.easeOut(duration: 0.15), value: hovering)
             Text(ItemLabels.title(item))
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(BrowserStyle.text)
@@ -103,6 +110,10 @@ struct ItemCard: View {
         }
         .frame(width: size.width, alignment: .leading)
         .contentShape(Rectangle())
+        .onHover { over in
+            hovering = over
+            if over { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
 
@@ -111,18 +122,20 @@ struct Pill: View {
     let title: String
     let on: Bool
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13))
-                .foregroundStyle(on ? BrowserStyle.ground : BrowserStyle.dim)
+                .foregroundStyle(on ? BrowserStyle.ground : (hovering ? BrowserStyle.text : BrowserStyle.dim))
                 .padding(.horizontal, 13)
                 .frame(height: 30)
-                .background(on ? BrowserStyle.text : .clear, in: Capsule())
+                .background(on ? BrowserStyle.text : (hovering ? BrowserStyle.raised : .clear), in: Capsule())
                 .overlay(Capsule().stroke(on ? BrowserStyle.text : BrowserStyle.line))
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -133,6 +146,7 @@ struct ActionButton: View {
     var icon: String? = nil
     var role: Role = .secondary
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
@@ -146,9 +160,11 @@ struct ActionButton: View {
             .foregroundStyle(role == .primary ? BrowserStyle.ground : BrowserStyle.text)
             .padding(.horizontal, role == .primary ? 22 : 18)
             .frame(height: 44)
-            .background(role == .primary ? BrowserStyle.accent : .clear, in: Capsule())
-            .overlay(Capsule().stroke(role == .primary ? .clear : .white.opacity(0.28)))
+            .background(role == .primary ? BrowserStyle.accent : (hovering ? .white.opacity(0.08) : .clear), in: Capsule())
+            .overlay(Capsule().stroke(role == .primary ? .clear : .white.opacity(hovering ? 0.5 : 0.28)))
+            .brightness(role == .primary && hovering ? 0.06 : 0)
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }

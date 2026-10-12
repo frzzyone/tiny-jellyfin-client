@@ -237,8 +237,14 @@ struct BrowserView: View {
         }
         if editing {
             if event.isEscape { clearSearch(); return true }
-            if !browser.searchText.isEmpty { return false }
             if event.typedText != nil { return false }
+            // ↑ ↓ leave the field for the results (or the page); the rest stays with the field.
+            if event.isUpArrow || event.isDownArrow {
+                searchFocused = false
+                browser.move(event.isDownArrow ? .down : .up)
+                return true
+            }
+            if !browser.searchText.isEmpty { return false }
         }
         if browser.quickLook != nil {
             if event.isEscape { browser.closeQuickLook(); return true }
@@ -268,8 +274,24 @@ struct BrowserView: View {
         // Printable characters start a search; S on Home is Surprise me.
         guard let text = event.typedText else { return false }
         if text == "s", browser.searchText.isEmpty, browser.tab == .home { surprise(); return true }
-        browser.searchText += text
-        searchFocused = true
+        typeIntoSearch(text)
         return true
+    }
+
+    /// Puts the field in focus, then types the character into it once it really is the first
+    /// responder. Taking focus selects the field's whole text, so appending the character to the
+    /// binding and focusing would let the next key replace it; inserting at the end does not.
+    private func typeIntoSearch(_ text: String, attempt: Int = 0) {
+        searchFocused = true
+        let editor = NSApp.windows.lazy.compactMap { $0.firstResponder as? NSTextView }.first
+        if let editor {
+            let end = (editor.string as NSString).length
+            editor.setSelectedRange(NSRange(location: end, length: 0))
+            editor.insertText(text, replacementRange: NSRange(location: end, length: 0))
+        } else if attempt < 25 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { typeIntoSearch(text, attempt: attempt + 1) }
+        } else {
+            browser.searchText += text
+        }
     }
 }

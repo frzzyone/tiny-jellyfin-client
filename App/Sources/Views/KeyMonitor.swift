@@ -52,8 +52,9 @@ extension NSEvent {
 
     /// The typed text when this is a plain character key (letters, digits, punctuation), else nil.
     var typedText: String? {
-        let flags = modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.shift, .capsLock])
-        guard flags.isEmpty, let text = characters, let scalar = text.unicodeScalars.first,
+        // Only the modifiers that change a key's meaning count; events carry other bits too.
+        let modifiers: NSEvent.ModifierFlags = [.control, .option, .command, .function, .help]
+        guard modifierFlags.isDisjoint(with: modifiers), let text = characters, let scalar = text.unicodeScalars.first,
               !CharacterSet.controlCharacters.contains(scalar), !CharacterSet.newlines.contains(scalar),
               scalar.value < 0xF700 else { return nil } // F700+ are the function keys and arrows
         return text
