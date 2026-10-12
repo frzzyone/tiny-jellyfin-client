@@ -79,10 +79,11 @@ system tint follows), poster placeholders as flat dark blocks with the title. Sy
 are a handful of constants in `BrowserStyle`; nothing else in the app changes colour.
 
 ### D7. Icon
-`App/Resources/AppIcon.svg` (the amber-on-graphite mark from the canvas) is rendered to the
-1024/512/256/128/64/32/16 PNGs of `AppIcon.appiconset` by `scripts/make-icon.sh` with `sips`
-(macOS can read SVG into NSImage; the script uses `swift` one-liner rendering). The asset catalog
-is checked in; the script is for regenerating after editing the SVG.
+The official Jellyfin icon shape (jellyfin-ux, CC BY-SA 4.0, credited in THIRD_PARTY_NOTICES.md)
+recoloured: an orange-to-pale-amber gradient in the official gradient's direction, on the app's
+graphite squircle. `App/Resources/AppIcon.svg` is rendered to the 16–1024 px PNGs of
+`AppIcon.appiconset` by `scripts/make-icon.sh` through AppKit's SVG support (no third-party
+tools). The asset catalog is checked in; the script is for regenerating after editing the SVG.
 
 ## Risks / Trade-offs
 

@@ -25,6 +25,7 @@ targets:
     platform: macOS
     sources:
       - path: App/Sources
+      - path: App/Resources/Assets.xcassets
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
     dependencies:
@@ -50,6 +51,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin
         PRODUCT_NAME: TinyJellyfin
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
     scheme:
       testTargets:

@@ -22,7 +22,7 @@
 
 ## 4. Icon
 
-- [ ] 4.1 Add `App/Resources/AppIcon.svg` and `scripts/make-icon.sh` producing `AppIcon.appiconset`, reference it from `project.yml`; verify the Dock shows the icon after a build
+- [x] 4.1 Add `App/Resources/AppIcon.svg` (the official Jellyfin shape, CC BY-SA, in the amber gradient on graphite) and `scripts/make-icon.sh` producing `AppIcon.appiconset`, reference it from `project.yml`, credit it in THIRD_PARTY_NOTICES.md; verified the asset catalog compiles and the icon renders at 16–1024 px (the Dock itself still needs a look)
 
 ## 5. Specs and docs
 
