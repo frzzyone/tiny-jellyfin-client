@@ -154,3 +154,59 @@ func letterboxedFrame(width: Int, height: Int, top: Int, bottom: Int) -> CVPixel
     CVPixelBufferUnlockBaseAddress(frame, [])
     return frame
 }
+
+/// Canned library answers. `onItems` decides what any `/Items` query returns.
+final class FakeLibraryService: LibraryService, @unchecked Sendable {
+    let lock = NSLock()
+    var libraryList: [BaseItem] = []
+    var resume: [BaseItem] = []
+    var nextUpItems: [BaseItem] = []
+    var nextUpBySeries: [String: [BaseItem]] = [:]
+    var latestItems: [BaseItem] = []
+    var similarItems: [BaseItem] = []
+    var genreList: [NameGuidPair] = []
+    var onItems: (ItemQuery) -> [BaseItem] = { _ in [] }
+    var errors: Set<String> = []
+    private(set) var queries: [ItemQuery] = []
+
+    func libraries() async throws -> [BaseItem] { libraryList }
+    func resumeItems() async throws -> [BaseItem] { try check("resume"); return resume }
+    func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] {
+        try check("nextUp")
+        if let seriesId { return nextUpBySeries[seriesId] ?? [] }
+        return Array(nextUpItems.prefix(limit))
+    }
+    func latest(limit: Int) async throws -> [BaseItem] { try check("latest"); return Array(latestItems.prefix(limit)) }
+    func items(_ query: ItemQuery) async throws -> ItemsResult {
+        try check("items")
+        lock.lock(); queries.append(query); lock.unlock()
+        let all = onItems(query)
+        let page = Array(all.dropFirst(query.startIndex).prefix(query.limit))
+        return ItemsResult(items: page, totalRecordCount: all.count, startIndex: query.startIndex)
+    }
+    func similar(to itemId: String, limit: Int) async throws -> [BaseItem] { similarItems }
+    func genres(libraryId: String?) async throws -> [NameGuidPair] { genreList }
+    func seasons(seriesId: String) async throws -> [BaseItem] { [] }
+    func episodes(seriesId: String, seasonId: String) async throws -> [BaseItem] { [] }
+    func item(id: String) async throws -> BaseItem { BaseItem(id: id) }
+    func markPlayed(_ itemId: String, played: Bool) async throws -> UserItemData { UserItemData(played: played) }
+    func primaryImageURL(for item: BaseItem, maxHeight: Int) -> URL? { nil }
+    func backdropImageURL(for item: BaseItem, maxWidth: Int) -> URL? { nil }
+
+    private func check(_ name: String) throws {
+        if errors.contains(name) { throw JellyfinError.network("\(name) failed") }
+    }
+}
+
+func item(_ id: String, type: ItemKind = .movie, minutes: Int? = nil, year: Int? = nil, created: String? = nil,
+          unplayed: Int? = nil, lastPlayed: String? = nil, position: Double? = nil) -> BaseItem {
+    var item = BaseItem(id: id, name: id.capitalized, type: type)
+    item.runTimeTicks = minutes.map { Int64($0) * 60 * 10_000_000 }
+    item.productionYear = year
+    item.dateCreated = created
+    if unplayed != nil || lastPlayed != nil || position != nil {
+        item.userData = UserItemData(playbackPositionTicks: position.map { Int64($0 * 10_000_000) },
+                                     unplayedItemCount: unplayed, lastPlayedDate: lastPlayed)
+    }
+    return item
+}

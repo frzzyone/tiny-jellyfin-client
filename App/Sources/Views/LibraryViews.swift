@@ -179,9 +179,7 @@ struct LibraryGridView: View {
         .navigationTitle(library.displayName)
         .task {
             guard grid == nil, let client = model.client else { return }
-            let model = LibraryGridModel { start, limit in
-                try await client.items(parentId: library.id, startIndex: start, limit: limit)
-            }
+            let model = LibraryGridModel(parentId: library.id, filter: .az) { try await client.items($0) }
             grid = model
             await model.loadMore()
         }

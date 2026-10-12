@@ -7,8 +7,8 @@
 
 ## 2. Models
 
-- [ ] 2.1 Add `HomeModel` with `HomeRow` values and loaders for Continue watching (hero + rest), Next up, Added this week, and the seven discovery rows with the daily rotation; verify unit tests with a fake client: row order, hidden-when-empty, the 100-minute cut, the 7-day cut, the 1–2-left rule, the daily rotation being stable within a day
-- [ ] 2.2 Add `BrowserModel` with tabs, `BrowserSelection`, quick-look state and neighbour lookup, and `LibraryGridModel` filters (Unwatched / Recently added / A–Z / Longest unseen, genre, search term with a 250 ms debounce) that reset paging; verify unit tests for selection movement across rows of different lengths, grid movement by column count, neighbour lookup at row ends, and that a filter change restarts paging
+- [x] 2.1 Add `HomeModel` with `HomeRow` values and loaders for Continue watching (hero + rest), Next up, Added this week, and the seven discovery rows with the daily rotation; verify unit tests with a fake client: row order, hidden-when-empty, the 100-minute cut, the 7-day cut, the 1–2-left rule, the daily rotation being stable within a day
+- [x] 2.2 Add `BrowserModel` with tabs, `BrowserSelection`, quick-look state and neighbour lookup, and `LibraryGridModel` filters (Unwatched / Recently added / A–Z / Longest unseen, genre, search term with a 250 ms debounce) that reset paging; verify unit tests for selection movement across rows of different lengths, grid movement by column count, neighbour lookup at row ends, and that a filter change restarts paging
 
 ## 3. Views
 

@@ -73,8 +73,9 @@ final class AppLogicTests: XCTestCase {
 
     func testGridPaging() async {
         let all = (0..<130).map { BaseItem(id: "i\($0)", name: "Item \($0)", type: .movie) }
-        let grid = LibraryGridModel { start, limit in
-            ItemsResult(items: Array(all[start..<min(all.count, start + limit)]), totalRecordCount: all.count, startIndex: start)
+        let grid = LibraryGridModel(parentId: "lib") { query in
+            let start = query.startIndex, limit = query.limit
+            return ItemsResult(items: Array(all[start..<min(all.count, start + limit)]), totalRecordCount: all.count, startIndex: start)
         }
         await grid.loadMore()
         XCTAssertEqual(grid.items.count, 60)
