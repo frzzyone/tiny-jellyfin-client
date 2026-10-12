@@ -57,6 +57,8 @@ final class PlaybackController {
 
     var volume: Float = 1 { didSet { engine?.volume = volume } }
     var isMuted = false { didSet { engine?.isMuted = isMuted } }
+    /// Subtitle font; remembered across launches.
+    var subtitleStyle: SubtitleStyle { didSet { if subtitleStyle != oldValue { subtitleStyle.save(to: preferences) } } }
 
     /// "720p 4 Mbps · Transcode"
     var qualityLabel: String? {
@@ -88,6 +90,7 @@ final class PlaybackController {
         self.engineFactory = engineFactory
         self.preferences = preferences
         self.capabilities = capabilities
+        self.subtitleStyle = SubtitleStyle(preferences)
     }
 
     // MARK: Start / stop

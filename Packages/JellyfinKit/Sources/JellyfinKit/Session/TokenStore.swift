@@ -34,7 +34,7 @@ public final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
     }
 }
 
-/// Non-secret preferences: server address, user, device id, preferred quality per server.
+/// Non-secret preferences: server address, user, device id, preferred quality per server, subtitle font.
 public final class AppPreferences: @unchecked Sendable {
     private let defaults: UserDefaults
 
@@ -48,6 +48,8 @@ public final class AppPreferences: @unchecked Sendable {
         static let userName = "userName"
         static let deviceId = "deviceId"
         static let qualityPrefix = "preferredQuality."
+        static let subtitleFontName = "subtitleFontName"
+        static let subtitleFontSize = "subtitleFontSize"
     }
 
     public var serverURL: URL? {
@@ -79,6 +81,18 @@ public final class AppPreferences: @unchecked Sendable {
 
     public func setPreferredQualityId(_ id: String, server: URL) {
         defaults.set(id, forKey: Key.qualityPrefix + server.absoluteString)
+    }
+
+    /// PostScript name of the subtitle font; nil means the app's default font.
+    public var subtitleFontName: String? {
+        get { defaults.string(forKey: Key.subtitleFontName) }
+        set { defaults.set(newValue, forKey: Key.subtitleFontName) }
+    }
+
+    /// Subtitle point size on a 1080-line picture; nil means the app's default size.
+    public var subtitleFontSize: Double? {
+        get { defaults.object(forKey: Key.subtitleFontSize) as? Double }
+        set { defaults.set(newValue, forKey: Key.subtitleFontSize) }
     }
 
     public func clearUser() {

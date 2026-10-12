@@ -34,6 +34,15 @@ final class PlaybackControllerTests: XCTestCase {
         return (controller, service, engines.last!)
     }
 
+    func testSubtitleStyleIsRememberedAcrossControllers() {
+        let controller = makeController()
+        XCTAssertEqual(controller.subtitleStyle, .default)
+        controller.subtitleStyle = SubtitleStyle(fontName: "Helvetica-Bold", size: 60)
+        XCTAssertEqual(makeController().subtitleStyle, SubtitleStyle(fontName: "Helvetica-Bold", size: 60))
+        controller.subtitleStyle = .default
+        XCTAssertEqual(makeController().subtitleStyle, .default)
+    }
+
     func testStartPlaysFromBeginningAndReports() async {
         let (controller, service, engine) = await started()
         XCTAssertEqual(engine.prepared.first?.1, 0)

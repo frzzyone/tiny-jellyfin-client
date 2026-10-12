@@ -102,7 +102,9 @@ Played locally, without server conversion:
 - **Containers:** MKV, WebM, MP4, M4V, MOV, MPEG-TS
 - **Video:** H.264, HEVC (8- and 10-bit), AV1 on Macs with an AV1 hardware decoder
 - **Audio:** AAC, MP3, AC-3, E-AC-3 (incl. Atmos), FLAC, ALAC, Opus, Vorbis, DTS, DTS-HD, TrueHD, PCM
-- **Subtitles:** SRT, WebVTT, MP4 timed text, SSA/ASS (shown as plain text); embedded or external
+- **Subtitles:** SRT, WebVTT, MP4 timed text, SSA/ASS (shown as plain text); embedded or external.
+  Drawn inside the picture; the font is yours to pick from the subtitle menu (Font…), sized for a
+  1080-line picture and scaled with the window
 
 Anything else (for example VC-1, MPEG-2 or VP9 video, or PGS/VobSub subtitles) is converted by the server,
 because the app only advertises what it can play.

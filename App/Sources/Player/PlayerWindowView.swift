@@ -22,7 +22,7 @@ struct PlayerWindowView: View {
                     .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
                     .onTapGesture(count: 2) { toggleFullScreen() }
             }
-            SubtitleOverlay(text: player.subtitleText)
+            SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, style: player.subtitleStyle)
             if player.status == .loading || player.status == .buffering {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.large).tint(.white)
@@ -223,21 +223,27 @@ struct VideoLayerView: NSViewRepresentable {
     }
 }
 
+/// Subtitle text over the bottom of the picture. Laid out against the aspect-fitted picture rather
+/// than the view, so in full screen the text sits inside the image, not in the bar under it.
 struct SubtitleOverlay: View {
     let text: String?
+    let videoSize: CGSize?
+    let style: SubtitleStyle
 
     var body: some View {
         GeometryReader { geo in
             if let text, !text.isEmpty {
+                let picture = SubtitleLayout.pictureRect(video: videoSize, in: geo.size)
                 Text(text)
-                    .font(.system(size: max(14, geo.size.height * 0.045), weight: .semibold))
+                    .font(Font(style.font(forPictureHeight: picture.height) as CTFont))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .shadow(color: .black, radius: 2, x: 0, y: 1)
                     .shadow(color: .black.opacity(0.8), radius: 6)
-                    .padding(.horizontal, geo.size.width * 0.08)
-                    .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
-                    .padding(.bottom, geo.size.height * 0.07)
+                    .padding(.horizontal, picture.width * 0.08)
+                    .padding(.bottom, picture.height * 0.07)
+                    .frame(width: picture.width, height: picture.height, alignment: .bottom)
+                    .offset(x: picture.minX, y: picture.minY)
             }
         }
         .allowsHitTesting(false)
@@ -382,6 +388,8 @@ struct SubtitleMenu: View {
                     if option.id == player.selectedSubtitle { Label(option.label, systemImage: "checkmark") } else { Text(option.label) }
                 }
             }
+            Divider()
+            SubtitleFontItems(player: player)
         } label: {
             Image(systemName: "captions.bubble")
         }
@@ -390,6 +398,22 @@ struct SubtitleMenu: View {
         .fixedSize()
         .help("Subtitles")
         .disabled(player.subtitleOptions.isEmpty)
+    }
+}
+
+/// "Font: Helvetica Bold 48…" opens the Font panel; "Default Font" appears once a font is chosen.
+struct SubtitleFontItems: View {
+    let player: PlaybackController
+
+    var body: some View {
+        Button("Font: \(player.subtitleStyle.label)…") {
+            SubtitleFontPanel.shared.show(current: player.subtitleStyle.referenceFont) { font in
+                player.subtitleStyle = SubtitleStyle(fontName: font.fontName, size: font.pointSize)
+            }
+        }
+        if !player.subtitleStyle.isDefault {
+            Button("Default Font") { player.subtitleStyle = .default }
+        }
     }
 }
 
@@ -420,6 +444,8 @@ struct PlaybackCommands: Commands {
                     Toggle(option.label, isOn: Binding(get: { controller.selectedSubtitle == option.id },
                                                        set: { if $0 { controller.selectSubtitle(option.id) } }))
                 }
+                Divider()
+                SubtitleFontItems(player: controller)
             }
             .disabled(controller.subtitleOptions.isEmpty)
         }

@@ -5,6 +5,56 @@ import XCTest
 
 @MainActor
 final class AppLogicTests: XCTestCase {
+    func testSubtitlePictureRectLetterboxAndPillarbox() {
+        let screen = CGSize(width: 1920, height: 1080)
+        let scope = SubtitleLayout.pictureRect(video: CGSize(width: 2390, height: 1000), in: screen)
+        XCTAssertEqual(scope.width, 1920, accuracy: 0.01)
+        XCTAssertEqual(scope.height, 803.35, accuracy: 0.01, "2.39:1 film fills the width")
+        XCTAssertEqual(scope.minY, 138.33, accuracy: 0.01, "centred between the bars")
+        XCTAssertEqual(scope.minX, 0, accuracy: 0.01)
+        let tv = SubtitleLayout.pictureRect(video: CGSize(width: 640, height: 480), in: screen)
+        XCTAssertEqual(tv.height, 1080, accuracy: 0.01, "4:3 fills the height")
+        XCTAssertEqual(tv.width, 1440, accuracy: 0.01)
+        XCTAssertEqual(tv.minX, 240, accuracy: 0.01)
+        XCTAssertEqual(SubtitleLayout.pictureRect(video: CGSize(width: 1920, height: 1080), in: screen),
+                       CGRect(origin: .zero, size: screen), "exact fit")
+        XCTAssertEqual(SubtitleLayout.pictureRect(video: nil, in: screen), CGRect(origin: .zero, size: screen),
+                       "unknown video size uses the whole view")
+        XCTAssertEqual(SubtitleLayout.pictureRect(video: .zero, in: screen), CGRect(origin: .zero, size: screen))
+    }
+
+    func testSubtitleStyleScalesWithThePicture() {
+        let style = SubtitleStyle.default
+        XCTAssertEqual(style.font(forPictureHeight: 1080).pointSize, 48)
+        XCTAssertEqual(style.font(forPictureHeight: 540).pointSize, 24)
+        XCTAssertEqual(style.font(forPictureHeight: 100).pointSize, 12, "never smaller than 12 pt")
+        XCTAssertEqual(style.label, "System 48")
+        XCTAssertTrue(style.isDefault)
+
+        let helvetica = SubtitleStyle(fontName: "Helvetica-Bold", size: 60)
+        XCTAssertEqual(helvetica.font(forPictureHeight: 1080).fontName, "Helvetica-Bold")
+        XCTAssertEqual(helvetica.font(forPictureHeight: 540).pointSize, 30)
+        XCTAssertEqual(helvetica.label, "Helvetica Bold 60")
+        XCTAssertFalse(helvetica.isDefault)
+
+        let missing = SubtitleStyle(fontName: "No-Such-Font-Here", size: 48)
+        XCTAssertEqual(missing.font(forPictureHeight: 1080), style.font(forPictureHeight: 1080),
+                       "an uninstalled font falls back to the default")
+        XCTAssertEqual(missing.label, "System 48")
+    }
+
+    func testSubtitleStylePersists() {
+        let defaults = UserDefaults(suiteName: "ss-\(UUID().uuidString)")!
+        let prefs = AppPreferences(defaults: defaults)
+        XCTAssertEqual(SubtitleStyle(prefs), .default)
+        SubtitleStyle(fontName: "Helvetica-Bold", size: 60).save(to: prefs)
+        XCTAssertEqual(SubtitleStyle(AppPreferences(defaults: defaults)), SubtitleStyle(fontName: "Helvetica-Bold", size: 60))
+        SubtitleStyle.default.save(to: prefs)
+        XCTAssertNil(prefs.subtitleFontName)
+        XCTAssertNil(prefs.subtitleFontSize)
+        XCTAssertEqual(SubtitleStyle(prefs), .default)
+    }
+
     func testPlaybackActionsForPartlyWatchedItem() {
         let actions = PlaybackActions.actions(for: movie(resumeAt: 2530))
         XCTAssertEqual(actions.map(\.title), ["Resume from 42:10", "Play from beginning"])
