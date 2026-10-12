@@ -30,3 +30,6 @@ Screenshots taken on 2026-10-12 with `screencapture -l <window>` against the ser
 columns with "60 of 735", search results for "he" ("60 of 180"), and the quick look on Troy with
 badges, overview, progress and the three buttons. What is left is the interaction: keys, Enter,
 Mark watched updating the card, and the Shows tab.
+
+Keyboard and tabs (2026-10-12, posted keys): ↓ ↑ → went hero → tabs → Movies and switched the
+page; ⌘1/⌘2/⌘3 jump to a tab. A card under the real cursor showed the hover outline.

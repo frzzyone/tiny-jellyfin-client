@@ -53,11 +53,12 @@ struct HomeView: View {
 
     private var footer: some View {
         HStack(spacing: 22) {
-            KeyHint(keys: ["↑", "↓"], text: "rows")
+            KeyHint(keys: ["↑", "↓"], text: "rows, up to the tabs")
             KeyHint(keys: ["←", "→"], text: "titles")
             KeyHint(keys: ["⏎"], text: "play")
             KeyHint(keys: ["space"], text: "quick look")
             KeyHint(keys: ["S"], text: "surprise me")
+            KeyHint(keys: ["⌘1", "⌘2"], text: "tabs")
             KeyHint(keys: ["⌘F"], text: "search")
         }
         .padding(.top, 6)

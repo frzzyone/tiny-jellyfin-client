@@ -85,21 +85,40 @@ final class BrowserModel {
     private(set) var quickLook: BaseItem?
     /// The row the quick look was opened from, for ← and →.
     @ObservationIgnored private var quickLookRow: [BaseItem] = []
-    /// What is on screen, for the arrow keys: set by the page being shown.
-    private(set) var rows: [RowLayout] = []
+    /// The tabs in the top bar, in order; they are the first keyboard row.
+    var tabs: [BrowserTab] = [.home]
+    static let tabsRow = "tabs"
+    /// What the page shows, for the arrow keys: set by the page being shown.
+    private(set) var pageRows: [RowLayout] = []
     @ObservationIgnored private var itemsByRow: [String: [BaseItem]] = [:]
+
+    /// Every keyboard row, the tabs first.
+    var rows: [RowLayout] { [RowLayout(id: Self.tabsRow, count: tabs.count)] + pageRows }
 
     func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])]) {
         let layouts = rows.map(\.layout)
-        if layouts != self.rows { self.rows = layouts }
+        if layouts != pageRows { pageRows = layouts }
         itemsByRow = Dictionary(uniqueKeysWithValues: rows.map { ($0.layout.id, $0.items) })
-        if let selection, !layouts.contains(where: { $0.id == selection.row && $0.count > selection.index }) {
+        if let selection, selection.row != Self.tabsRow,
+           !layouts.contains(where: { $0.id == selection.row && $0.count > selection.index }) {
             self.selection = nil
         }
     }
 
+    /// Arrow keys. From nothing, ↓ starts on the page, not the tabs; ↑ from the top row reaches
+    /// the tabs, and landing on the tabs row switches the tab at once.
     func move(_ direction: MoveDirection) {
-        selection = SelectionMath.move(selection, direction, rows: rows)
+        selection = SelectionMath.move(selection, direction, rows: selection == nil ? pageRows : rows)
+        if let selection, selection.row == Self.tabsRow, tabs.indices.contains(selection.index) {
+            tab = tabs[selection.index]
+        }
+    }
+
+    /// ⌘1, ⌘2, …
+    func selectTab(number: Int) {
+        guard tabs.indices.contains(number - 1) else { return }
+        tab = tabs[number - 1]
+        selection = BrowserSelection(row: Self.tabsRow, index: number - 1)
     }
 
     /// The outlined title and the row it sits in.

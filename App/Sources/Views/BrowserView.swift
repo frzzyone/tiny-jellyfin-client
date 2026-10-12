@@ -41,8 +41,11 @@ struct BrowserView: View {
         .background(KeyMonitor(handler: handle))
         .onChange(of: browser.tab) { _, _ in
             path = []
-            browser.selection = nil
+            if browser.selection?.row != BrowserModel.tabsRow { browser.selection = nil }
             browser.closeQuickLook()
+        }
+        .onChange(of: libraries?.state.value?.map(\.id)) { _, ids in
+            browser.tabs = [.home] + (ids ?? []).map { BrowserTab.library($0) }
         }
         .task {
             guard let client = model.client else { return }
@@ -77,14 +80,23 @@ struct BrowserView: View {
 
     private var topBar: some View {
         HStack(spacing: 32) {
-            Text("Tiny Jellyfin")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(BrowserStyle.text)
-                .padding(.leading, 70) // room for the traffic lights
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 28, height: 28)
+                    // The icon's own tile is the bar's colour; a faint edge keeps it a tile.
+                    .overlay(RoundedRectangle(cornerRadius: 6.5).stroke(.white.opacity(0.16)))
+                    .accessibilityHidden(true)
+                Text("Tiny Jellyfin")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(BrowserStyle.text)
+            }
+            .padding(.leading, 70) // room for the traffic lights
             HStack(spacing: 26) {
-                tab("Home", .home)
-                ForEach(libraries?.state.value ?? []) { library in
-                    tab(library.displayName, .library(library.id))
+                tab("Home", .home, index: 0)
+                ForEach(Array((libraries?.state.value ?? []).enumerated()), id: \.element.id) { index, library in
+                    tab(library.displayName, .library(library.id), index: index + 1)
                 }
             }
             Spacer()
@@ -112,17 +124,24 @@ struct BrowserView: View {
         .padding(.bottom, 6)
     }
 
-    private func tab(_ title: String, _ tab: BrowserTab) -> some View {
+    private func tab(_ title: String, _ tab: BrowserTab, index: Int) -> some View {
         let on = browser.tab == tab && browser.searchText.isEmpty
+        let keyed = browser.selection == BrowserSelection(row: BrowserModel.tabsRow, index: index)
         return Button {
             browser.searchText = ""
             browser.tab = tab
+            browser.selection = nil
         } label: {
             Text(title)
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(on ? BrowserStyle.text : BrowserStyle.muted)
                 .padding(.vertical, 6)
                 .overlay(alignment: .bottom) { Rectangle().fill(on ? BrowserStyle.accent : .clear).frame(height: 2) }
+                .padding(.horizontal, 8)
+                .overlay {
+                    if keyed { RoundedRectangle(cornerRadius: 6).stroke(BrowserStyle.text, lineWidth: 2) }
+                }
+                .padding(.horizontal, -8)
         }
         .buttonStyle(.plain)
     }
@@ -233,6 +252,11 @@ struct BrowserView: View {
     private func handle(_ event: NSEvent, editing: Bool) -> Bool {
         if event.modifierFlags.contains(.command) {
             if event.charactersIgnoringModifiers == "f" { searchFocused = true; return true }
+            if let digit = event.charactersIgnoringModifiers.flatMap(Int.init), (1...9).contains(digit) {
+                clearSearch()
+                browser.selectTab(number: digit)
+                return true
+            }
             return false
         }
         if editing {
@@ -263,6 +287,7 @@ struct BrowserView: View {
             return true
         }
         if event.isReturn {
+            if browser.selection?.row == BrowserModel.tabsRow { browser.move(.down); return true }
             if let selected = browser.selectedItem { open(selected.item) }
             else if browser.tab == .home, browser.searchText.isEmpty, let hero = home?.hero { play(hero, resume: hero.resumePositionSeconds != nil) }
             return true
