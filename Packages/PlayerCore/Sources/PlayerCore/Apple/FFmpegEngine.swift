@@ -81,6 +81,11 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public var state: EngineState { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotState }
     public var tracks: [MediaTrack] { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotTracks }
     public var duration: Double? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotDuration }
+    public func copyDisplayedFrame() -> CVPixelBuffer? {
+        if #available(macOS 14.4, *) { return videoRenderer.displayedPixelBuffer() }
+        return nil
+    }
+
     public var videoSize: CGSize? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotVideoSize }
     public var currentTime: Double {
         snapshotLock.lock()

@@ -92,6 +92,8 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
 - `screencapture` needs Screen Recording permission for the terminal running Claude; without it
   there is no way to see the window from a session, so ask the person to look.
+- `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
+  subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`) and only ever narrows.
 - Quit the app rather than killing it: `stopForTermination` tells the server to stop transcoding,
   and a killed process leaves the server encoding for nothing.
 

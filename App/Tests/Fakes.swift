@@ -50,6 +50,8 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     func selectEmbeddedSubtitle(trackId: Int?) { embeddedSubtitle = trackId }
     func setExternalSubtitles(_ cues: [SubtitleCue]?) { externalCues = cues }
     func subtitleText(at time: Double) -> String? { nil }
+    var displayedFrame: CVPixelBuffer?
+    func copyDisplayedFrame() -> CVPixelBuffer? { displayedFrame }
     func stop() { stopped = true; state = .idle }
     var debugSummary: String { "fake state=\(state)" }
 
@@ -135,4 +137,20 @@ func eventually(_ timeout: TimeInterval = 3, _ condition: @escaping () -> Bool) 
         try? await Task.sleep(nanoseconds: 10_000_000)
     }
     return condition()
+}
+
+/// An 8-bit 4:2:0 frame that is video black except for mid-grey picture rows between the bars.
+func letterboxedFrame(width: Int, height: Int, top: Int, bottom: Int) -> CVPixelBuffer {
+    var buffer: CVPixelBuffer?
+    CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, nil, &buffer)
+    let frame = buffer!
+    CVPixelBufferLockBaseAddress(frame, [])
+    let stride = CVPixelBufferGetBytesPerRowOfPlane(frame, 0)
+    let luma = CVPixelBufferGetBaseAddressOfPlane(frame, 0)!.assumingMemoryBound(to: UInt8.self)
+    for row in 0..<height {
+        let value: UInt8 = row >= top && row < height - bottom ? 128 : 16
+        for x in 0..<width { luma[row * stride + x] = value }
+    }
+    CVPixelBufferUnlockBaseAddress(frame, [])
+    return frame
 }

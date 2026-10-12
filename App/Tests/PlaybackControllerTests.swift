@@ -34,13 +34,22 @@ final class PlaybackControllerTests: XCTestCase {
         return (controller, service, engines.last!)
     }
 
-    func testSubtitleStyleIsRememberedAcrossControllers() {
-        let controller = makeController()
-        XCTAssertEqual(controller.subtitleStyle, .default)
-        controller.subtitleStyle = SubtitleStyle(fontName: "Helvetica-Bold", size: 60)
-        XCTAssertEqual(makeController().subtitleStyle, SubtitleStyle(fontName: "Helvetica-Bold", size: 60))
-        controller.subtitleStyle = .default
-        XCTAssertEqual(makeController().subtitleStyle, .default)
+    func testPictureBarsComeFromTwoAgreeingLooksAndOnlyNarrow() async {
+        let (controller, _, engine) = await started()
+        engine.send(.state(.playing))
+        controller.barSampleInterval = 0.05
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 50, bottom: 50)
+        let dark = await eventually(1) { controller.pictureBars != nil }
+        XCTAssertTrue(dark)
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25))
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 25, bottom: 30)
+        let narrowed = await eventually(1) { controller.pictureBars == PictureBars(top: 0.125, bottom: 0.15) }
+        XCTAssertTrue(narrowed, "\(String(describing: controller.pictureBars))")
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 90, bottom: 90)
+        try? await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.125, bottom: 0.15), "a darker frame never widens the bars")
+        controller.stop()
+        XCTAssertNil(controller.pictureBars)
     }
 
     func testStartPlaysFromBeginningAndReports() async {

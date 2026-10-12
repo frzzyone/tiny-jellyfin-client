@@ -23,36 +23,28 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(SubtitleLayout.pictureRect(video: .zero, in: screen), CGRect(origin: .zero, size: screen))
     }
 
-    func testSubtitleStyleScalesWithThePicture() {
-        let style = SubtitleStyle.default
-        XCTAssertEqual(style.font(forPictureHeight: 1080).pointSize, 48)
-        XCTAssertEqual(style.font(forPictureHeight: 540).pointSize, 24)
-        XCTAssertEqual(style.font(forPictureHeight: 100).pointSize, 12, "never smaller than 12 pt")
-        XCTAssertEqual(style.label, "System 48")
-        XCTAssertTrue(style.isDefault)
-
-        let helvetica = SubtitleStyle(fontName: "Helvetica-Bold", size: 60)
-        XCTAssertEqual(helvetica.font(forPictureHeight: 1080).fontName, "Helvetica-Bold")
-        XCTAssertEqual(helvetica.font(forPictureHeight: 540).pointSize, 30)
-        XCTAssertEqual(helvetica.label, "Helvetica Bold 60")
-        XCTAssertFalse(helvetica.isDefault)
-
-        let missing = SubtitleStyle(fontName: "No-Such-Font-Here", size: 48)
-        XCTAssertEqual(missing.font(forPictureHeight: 1080), style.font(forPictureHeight: 1080),
-                       "an uninstalled font falls back to the default")
-        XCTAssertEqual(missing.label, "System 48")
+    func testSubtitlePictureRectExcludesBarsInTheFrame() {
+        let screen = CGSize(width: 1920, height: 1080)
+        let bars = PictureBars(top: 0.128, bottom: 0.128)
+        let rect = SubtitleLayout.pictureRect(video: CGSize(width: 1920, height: 1080), in: screen, bars: bars)
+        XCTAssertEqual(rect.minY, 138.24, accuracy: 0.01)
+        XCTAssertEqual(rect.height, 803.52, accuracy: 0.01)
+        XCTAssertEqual(rect.width, 1920)
+        let windowed = SubtitleLayout.pictureRect(video: CGSize(width: 1920, height: 1080), in: CGSize(width: 1280, height: 720), bars: bars)
+        XCTAssertEqual(windowed.minY, 92.16, accuracy: 0.01, "bars scale with the picture")
+        XCTAssertEqual(windowed.maxY, 720 - 92.16, accuracy: 0.01)
     }
 
-    func testSubtitleStylePersists() {
-        let defaults = UserDefaults(suiteName: "ss-\(UUID().uuidString)")!
-        let prefs = AppPreferences(defaults: defaults)
-        XCTAssertEqual(SubtitleStyle(prefs), .default)
-        SubtitleStyle(fontName: "Helvetica-Bold", size: 60).save(to: prefs)
-        XCTAssertEqual(SubtitleStyle(AppPreferences(defaults: defaults)), SubtitleStyle(fontName: "Helvetica-Bold", size: 60))
-        SubtitleStyle.default.save(to: prefs)
-        XCTAssertNil(prefs.subtitleFontName)
-        XCTAssertNil(prefs.subtitleFontSize)
-        XCTAssertEqual(SubtitleStyle(prefs), .default)
+    func testStreamLogHidesTheToken() {
+        let url = URL(string: "https://j.test/videos/x/master.m3u8?DeviceId=d&ApiKey=secret&MediaSourceId=m&api_key=also")!
+        XCTAssertEqual(PlaybackController.redactedQuery(url), "DeviceId=d&ApiKey=…&MediaSourceId=m&api_key=…")
+    }
+
+    func testSubtitleFontScalesWithThePicture() {
+        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 1080).pointSize, 48)
+        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 1080).fontName, "HelveticaNeue")
+        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 540).pointSize, 24)
+        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 100).pointSize, 12, "never smaller than 12 pt")
     }
 
     func testPlaybackActionsForPartlyWatchedItem() {

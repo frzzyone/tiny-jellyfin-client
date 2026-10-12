@@ -93,6 +93,9 @@ public protocol PlaybackEngine: AnyObject {
     /// Shows externally loaded cues instead of an embedded track (nil clears them).
     func setExternalSubtitles(_ cues: [SubtitleCue]?)
     func subtitleText(at time: Double) -> String?
+    /// The frame on screen right now, for looking at its pixels (letterbox detection); nil when
+    /// nothing is displayed or the renderer cannot hand it out.
+    func copyDisplayedFrame() -> CVPixelBuffer?
     func stop()
     /// One-line internal state for diagnostics.
     var debugSummary: String { get }

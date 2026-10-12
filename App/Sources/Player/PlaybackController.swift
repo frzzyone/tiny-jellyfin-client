@@ -1,3 +1,4 @@
+import CoreVideo
 import Foundation
 import JellyfinKit
 import Observation
@@ -57,8 +58,12 @@ final class PlaybackController {
 
     var volume: Float = 1 { didSet { engine?.volume = volume } }
     var isMuted = false { didSet { engine?.isMuted = isMuted } }
-    /// Subtitle font; remembered across launches.
-    var subtitleStyle: SubtitleStyle { didSet { if subtitleStyle != oldValue { subtitleStyle.save(to: preferences) } } }
+    /// Black bars encoded into the frames, once two looks at the picture agree; subtitles sit above them.
+    private(set) var pictureBars: PictureBars?
+    /// How often the displayed frame is examined for bars while playing.
+    @ObservationIgnored var barSampleInterval: TimeInterval = 2
+    @ObservationIgnored private var barSamples: (count: Int, bars: PictureBars, last: Date)?
+    @ObservationIgnored private var barsExplained = false
 
     /// "720p 4 Mbps · Transcode"
     var qualityLabel: String? {
@@ -90,7 +95,6 @@ final class PlaybackController {
         self.engineFactory = engineFactory
         self.preferences = preferences
         self.capabilities = capabilities
-        self.subtitleStyle = SubtitleStyle(preferences)
     }
 
     // MARK: Start / stop
@@ -140,7 +144,7 @@ final class PlaybackController {
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
 
-            PlayerLog.engine("Controller: \(stream.playMethod.label) \(stream.url.path)?\(stream.url.query ?? "")")
+            PlayerLog.engine("Controller: \(stream.playMethod.label) \(stream.url.path)?\(Self.redactedQuery(stream.url))")
             loadingDetail = "Opening video (\(stream.playMethod.label))…"
             let engine = engineFactory()
             engine.volume = volume
@@ -209,6 +213,9 @@ final class PlaybackController {
         diagnostics = nil
         spinnerSince = nil
         videoSize = nil
+        pictureBars = nil
+        barSamples = nil
+        barsExplained = false
     }
 
     /// Stops and waits for the server to hear about it. Detached tasks do not survive process
@@ -479,6 +486,46 @@ final class PlaybackController {
         }
         if let d = engine.duration, d > 0 { duration = d }
         subtitleText = engine.subtitleText(at: currentTime)
+        if status == .playing { sampleBars(engine) }
+    }
+
+    /// Looks at the displayed frame now and then for letterbox bars baked into the picture. Each
+    /// look can only narrow the bars (a dark scene shows bigger ones, never smaller), and the
+    /// result is used once two looks agree so a single fade cannot move the subtitles.
+    private func sampleBars(_ engine: PlaybackEngine) {
+        let now = Date()
+        if let last = barSamples?.last, now.timeIntervalSince(last) < barSampleInterval { return }
+        guard let frame = engine.copyDisplayedFrame() else {
+            if !barsExplained { PlayerLog.engine("Picture bars: the renderer has no displayed frame to look at") }
+            barsExplained = true
+            return
+        }
+        guard let seen = LetterboxDetector.bars(in: frame) else {
+            if !barsExplained {
+                PlayerLog.engine("Picture bars: nothing found in a \(CVPixelBufferGetWidth(frame))×\(CVPixelBufferGetHeight(frame)) "
+                                 + "\(fourCC(CVPixelBufferGetPixelFormatType(frame))) frame (planes \(CVPixelBufferGetPlaneCount(frame)))")
+            }
+            barsExplained = true
+            return
+        }
+        let bars = barSamples.map { $0.bars.narrowed(by: seen) } ?? seen
+        let count = (barSamples?.count ?? 0) + 1
+        barSamples = (count, bars, now)
+        guard count >= 2, pictureBars != bars else { return }
+        pictureBars = bars
+        PlayerLog.engine(String(format: "Picture bars: %.1f%% top, %.1f%% bottom", bars.top * 100, bars.bottom * 100))
+    }
+
+    private func fourCC(_ type: OSType) -> String {
+        String((0..<4).map { Character(UnicodeScalar(UInt8(truncatingIfNeeded: type >> (8 * (3 - $0))))) })
+    }
+
+    /// The query string with the access token blanked, for the log.
+    static func redactedQuery(_ url: URL) -> String {
+        (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { item in
+            let secret = ["apikey", "api_key"].contains(item.name.lowercased())
+            return "\(item.name)=\(secret ? "…" : item.value ?? "")"
+        }.joined(separator: "&")
     }
 
     // MARK: Reporting
