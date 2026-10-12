@@ -10,6 +10,7 @@ import SwiftUI
 ///     TJ_AUTOPLAY_ITEM=<item id>    play a specific item instead
 ///     TJ_AUTOPLAY_FROM_START=1      ignore the saved resume position
 ///     TJ_AUTOPLAY_QUALITY=<id>      force a quality (e.g. original, 720p-4)
+///     TJ_AUTOPLAY_FULLSCREEN=1      toggle full screen 3 s after playback starts, and log the result
 ///     TJ_AUTOPLAY_SWITCH=<id>       switch to this quality once playing
 ///     TJ_AUTOPLAY_SWITCH_AFTER=<s>  …after this many seconds of playback (default 8)
 enum DebugAutoplay {
@@ -34,6 +35,22 @@ enum DebugAutoplay {
             PlayerLog.engine("Autoplay: \(item.displayName) [\(item.id)]")
             model.play(item, resume: env["TJ_AUTOPLAY_FROM_START"] == nil)
             openWindow(id: AppModel.playerWindowID)
+            if env["TJ_AUTOPLAY_FULLSCREEN"] != nil {
+                _ = await waitUntil { model.player.status == .playing }
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+                guard let window = NSApp.windows.first(where: { $0.title == "Player" }) else {
+                    PlayerLog.engine("Autoplay: no window titled Player among \(NSApp.windows.map { "'\($0.title)' \(type(of: $0))" })")
+                    return
+                }
+                func describe(_ tag: String) {
+                    PlayerLog.engine("Autoplay fullscreen \(tag): fullScreen=\(window.styleMask.contains(.fullScreen))"
+                                     + " behavior=\(window.collectionBehavior.rawValue) frame=\(window.frame)")
+                }
+                describe("before")
+                window.toggleFullScreen(nil)
+                try await Task.sleep(nanoseconds: 4_000_000_000)
+                describe("after")
+            }
             if let target = env["TJ_AUTOPLAY_SWITCH"], let quality = QualityPreset.with(id: target) {
                 let delay = env["TJ_AUTOPLAY_SWITCH_AFTER"].flatMap(Double.init) ?? 8
                 _ = await waitUntil { model.player.status == .playing }

@@ -107,7 +107,9 @@ struct PlayerWindowView: View {
             PlayerLog.engine("Full screen: no window")
             return
         }
-        PlayerLog.engine("Full screen: \(window.styleMask.contains(.fullScreen) ? "leaving" : "entering")")
+        WindowReader.allowFullScreen(window)
+        PlayerLog.engine("Full screen: \(window.styleMask.contains(.fullScreen) ? "leaving" : "entering")"
+                         + " (behavior \(window.collectionBehavior.rawValue))")
         window.toggleFullScreen(nil)
     }
 }
@@ -116,10 +118,21 @@ struct PlayerWindowView: View {
 private struct WindowReader: NSViewRepresentable {
     @Binding var window: NSWindow?
 
+    /// A SwiftUI `Window` scene marks its NSWindow `fullScreenNone`, and AppKit then ignores
+    /// `toggleFullScreen` (a conflicting `fullScreenPrimary` added alongside changes nothing).
+    static func allowFullScreen(_ window: NSWindow) {
+        var behavior = window.collectionBehavior
+        guard behavior.contains(.fullScreenNone) || !behavior.contains(.fullScreenPrimary) else { return }
+        behavior.remove(.fullScreenNone)
+        behavior.remove(.fullScreenAuxiliary)
+        behavior.insert(.fullScreenPrimary)
+        window.collectionBehavior = behavior
+    }
+
     func makeNSView(context: Context) -> Reader {
         let reader = Reader()
         reader.onWindow = { window in
-            window?.collectionBehavior.insert(.fullScreenPrimary)
+            if let window { Self.allowFullScreen(window) }
             DispatchQueue.main.async { self.window = window }
         }
         return reader
