@@ -9,6 +9,7 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     var state: EngineState = .idle
     var currentTime: Double = 0
     var duration: Double? = 600
+    var videoSize: CGSize? = CGSize(width: 1920, height: 800)
     var tracks: [MediaTrack] = []
     var isPlaying = false
     var volume: Float = 1

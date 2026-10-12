@@ -39,6 +39,8 @@ final class PlaybackController {
     private(set) var status: PlayerStatus = .idle
     private(set) var currentTime: Double = 0
     private(set) var duration: Double = 0
+    /// Presentation size of the video, so the window can take its shape.
+    private(set) var videoSize: CGSize?
     private(set) var session: PlaybackSession?
     private(set) var qualityOptions: [QualityPreset] = QualityPreset.all
     private(set) var isSwitching = false
@@ -147,6 +149,7 @@ final class PlaybackController {
             try Task.checkCancellation()
             loadingDetail = nil
             duration = engine.duration ?? Ticks.seconds(full.runTimeTicks ?? 0)
+            videoSize = engine.videoSize
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
                                       quality: quality)
@@ -202,6 +205,7 @@ final class PlaybackController {
         loadingDetail = nil
         diagnostics = nil
         spinnerSince = nil
+        videoSize = nil
     }
 
     /// Stops and waits for the server to hear about it. Detached tasks do not survive process

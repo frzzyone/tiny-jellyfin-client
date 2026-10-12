@@ -82,6 +82,8 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   a real server: `TJ_AUTOPLAY=1` (plus `TJ_AUTOPLAY_ITEM`, `TJ_AUTOPLAY_FROM_START`,
   `TJ_AUTOPLAY_QUALITY`) — see `DebugAutoplay`. Run the binary directly to pass them, and watch with
   `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
+- `screencapture` needs Screen Recording permission for the terminal running Claude; without it
+  there is no way to see the window from a session, so ask the person to look.
 - Quit the app rather than killing it: `stopForTermination` tells the server to stop transcoding,
   and a killed process leaves the server encoding for nothing.
 

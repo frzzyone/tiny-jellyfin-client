@@ -72,6 +72,8 @@ public protocol PlaybackEngine: AnyObject {
     var state: EngineState { get }
     var currentTime: Double { get }
     var duration: Double? { get }
+    /// Size the picture should be displayed at, once the stream is open.
+    var videoSize: CGSize? { get }
     var tracks: [MediaTrack] { get }
     var isPlaying: Bool { get }
     var volume: Float { get set }

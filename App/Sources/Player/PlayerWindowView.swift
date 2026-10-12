@@ -17,8 +17,9 @@ struct PlayerWindowView: View {
         ZStack {
             Color.black
             if let engine = player.engine {
-                VideoLayerView(layer: engine.displayLayer)
+                VideoLayerView(layer: engine.displayLayer, aspectRatio: player.videoSize)
                     .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
+                    .onTapGesture(count: 2) { NSApp.keyWindow?.toggleFullScreen(nil) }
             }
             SubtitleOverlay(text: player.subtitleText)
             if player.status == .loading || player.status == .buffering {
@@ -27,6 +28,7 @@ struct PlayerWindowView: View {
                     if let detail = player.loadingDetail {
                         Text(detail).font(.callout).foregroundStyle(.white.opacity(0.8))
                     }
+                    #if DEBUG
                     if let diagnostics = player.diagnostics {
                         Text(diagnostics)
                             .font(.caption2.monospaced())
@@ -35,6 +37,7 @@ struct PlayerWindowView: View {
                             .textSelection(.enabled)
                             .frame(maxWidth: 520)
                     }
+                    #endif
                 }
             }
             if case .failed(let message) = player.status {
@@ -99,18 +102,49 @@ struct PlayerWindowView: View {
 /// Hosts the engine's AVSampleBufferDisplayLayer in a layer-backed view.
 struct VideoLayerView: NSViewRepresentable {
     let layer: AVSampleBufferDisplayLayer
+    /// Presentation size of the video; the window takes this shape so nothing is letterboxed.
+    let aspectRatio: CGSize?
 
     func makeNSView(context: Context) -> HostView {
         let view = HostView()
         view.videoLayer = layer
+        view.aspectRatio = aspectRatio
         return view
     }
 
     func updateNSView(_ view: HostView, context: Context) {
         if view.videoLayer !== layer { view.videoLayer = layer }
+        if view.aspectRatio != aspectRatio { view.aspectRatio = aspectRatio }
     }
 
     final class HostView: NSView {
+        var aspectRatio: CGSize? {
+            didSet { if aspectRatio != oldValue { applyAspectRatio() } }
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            applyAspectRatio()
+        }
+
+        /// Resizes the window to the video's shape (keeping its width and top edge) and locks the
+        /// resize handles to that shape, the way QuickTime and IINA do. Not in full screen.
+        private func applyAspectRatio() {
+            guard let window, let aspect = aspectRatio, aspect.width > 0, aspect.height > 0 else { return }
+            window.contentAspectRatio = aspect
+            guard !window.styleMask.contains(.fullScreen) else { return }
+            let content = window.contentRect(forFrameRect: window.frame)
+            let height = (content.width * aspect.height / aspect.width).rounded()
+            PlayerLog.engine(String(format: "Window %.0f×%.0f, video %.0f×%.0f: %@", content.width, content.height,
+                                    aspect.width, aspect.height,
+                                    abs(height - content.height) > 1 ? "resizing to \(Int(content.width))×\(Int(height))" : "already fits"))
+            guard abs(height - content.height) > 1 else { return }
+            let resized = NSRect(x: content.minX, y: content.maxY - height, width: content.width, height: height)
+            var frame = window.frameRect(forContentRect: resized)
+            if let screen = window.screen { frame = window.constrainFrameRect(frame, to: screen) }
+            window.setFrame(frame, display: true, animate: true)
+        }
+
         var videoLayer: AVSampleBufferDisplayLayer? {
             didSet {
                 oldValue?.removeFromSuperlayer()
@@ -181,7 +215,7 @@ struct PlayerControls: View {
 
     var body: some View {
         VStack {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Spacer()
                 if let error = player.switchError {
                     Text(error)
@@ -197,13 +231,19 @@ struct PlayerControls: View {
                 if let label = player.qualityLabel {
                     Text(label).font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
                 }
-                QualityMenu(player: player)
-                SubtitleMenu(player: player)
-                Button { pip.toggle() } label: { Image(systemName: "pip.enter") }
-                    .help("Picture in Picture")
+                HStack(spacing: 14) {
+                    QualityMenu(player: player)
+                    SubtitleMenu(player: player)
+                    Button { pip.toggle() } label: { Image(systemName: "pip.enter") }
+                        .help("Picture in Picture")
+                }
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(.black.opacity(0.45), in: Capsule())
             }
-            .padding(14)
-            .background(LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom))
+            .padding(.horizontal, 12).padding(.top, 10)
+            // Just enough shade for the traffic lights and the pill to read on a bright scene.
+            .background(LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 70), alignment: .top)
 
             Spacer()
 
@@ -240,8 +280,8 @@ struct PlayerControls: View {
                 }
                 .font(.title3)
             }
-            .padding(16)
-            .background(LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .top, endPoint: .bottom))
+            .padding(.horizontal, 16).padding(.top, 24).padding(.bottom, 12)
+            .background(LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .top, endPoint: .bottom))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)

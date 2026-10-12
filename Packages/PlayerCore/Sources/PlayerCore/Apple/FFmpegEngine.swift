@@ -57,6 +57,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var snapshotState: EngineState = .idle
     private var snapshotTracks: [MediaTrack] = []
     private var snapshotDuration: Double?
+    private var snapshotVideoSize: CGSize?
     /// Position set by a seek while the clock is stopped. The synchronizer applies a new paused
     /// time slightly late, so report this until the clock runs again.
     private var heldTime: Double?
@@ -80,6 +81,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public var state: EngineState { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotState }
     public var tracks: [MediaTrack] { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotTracks }
     public var duration: Double? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotDuration }
+    public var videoSize: CGSize? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotVideoSize }
     public var currentTime: Double {
         snapshotLock.lock()
         let held = heldTime
@@ -145,6 +147,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             snapshotLock.lock()
             snapshotTracks = pipeline.tracks
             snapshotDuration = pipeline.duration
+            snapshotVideoSize = pipeline.videoInfo.map(\.presentationSize)
             snapshotLock.unlock()
             startFeeding()
             startTimer()

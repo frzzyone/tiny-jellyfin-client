@@ -33,6 +33,14 @@ struct VideoFormat {
         let stripEL = info.codec == .hevc && profile == 7
 
         var extensions = colorExtensions(info.color)
+        if abs(info.sampleAspectRatio - 1) > 0.001 {
+            // Anamorphic content: the renderer stretches to the right shape instead of the UI.
+            let (h, v) = pixelAspectRatio(info.sampleAspectRatio)
+            extensions[kCMFormatDescriptionExtension_PixelAspectRatio as String] = [
+                kCMFormatDescriptionKey_PixelAspectRatioHorizontalSpacing as String: h,
+                kCMFormatDescriptionKey_PixelAspectRatioVerticalSpacing as String: v,
+            ]
+        }
         if info.hasConfigurationRecord, let nalCodec {
             // Containers often omit colour info; CoreMedia reads it from the SPS VUI.
             for (key, value) in inferredColorExtensions(info.extradata, codec: nalCodec) where extensions[key] == nil {
@@ -137,6 +145,13 @@ struct VideoFormat {
             }
         }
         return result
+    }
+
+    /// Integer horizontal/vertical spacing for a pixel aspect ratio.
+    static func pixelAspectRatio(_ ratio: Double) -> (Int, Int) {
+        for (h, v) in [(4, 3), (16, 11), (40, 33), (12, 11), (10, 11), (64, 45), (32, 27)]
+        where abs(Double(h) / Double(v) - ratio) < 0.01 { return (h, v) }
+        return (Int((ratio * 1000).rounded()), 1000)
     }
 
     static func colorExtensions(_ color: VideoColorInfo) -> [String: Any] {

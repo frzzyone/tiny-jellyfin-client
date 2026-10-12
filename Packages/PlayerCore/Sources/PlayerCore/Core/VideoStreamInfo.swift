@@ -13,6 +13,13 @@ public struct VideoStreamInfo: Sendable, Equatable {
     public var color: VideoColorInfo
     public var dolbyVision: DolbyVisionConfig?
     public var bitDepth: Int
+    /// Pixel aspect ratio (width/height of one pixel); 1 for square pixels, ≠ 1 for anamorphic.
+    public var sampleAspectRatio: Double = 1
+
+    /// The size the picture should be shown at, with non-square pixels accounted for.
+    public var presentationSize: CGSize {
+        CGSize(width: Double(width) * sampleAspectRatio, height: Double(height))
+    }
 
     /// True when extradata is a configuration record rather than Annex B parameter sets.
     public var hasConfigurationRecord: Bool {
@@ -36,6 +43,8 @@ extension VideoStreamInfo {
         }
         width = Int(p.width)
         height = Int(p.height)
+        let sar = p.sample_aspect_ratio
+        sampleAspectRatio = sar.num > 0 && sar.den > 0 ? Double(sar.num) / Double(sar.den) : 1
         extradata = p.extradata.map { Data(bytes: $0, count: Int(p.extradata_size)) } ?? Data()
         // Without a video decoder in the FFmpeg build the pixel format may be unknown;
         // fall back to the hvcC record.
