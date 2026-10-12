@@ -102,8 +102,10 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
 - The test host skips session restore (`XCTestConfigurationFilePath` is set): the debug binary is
   ad-hoc signed, so every build is a new app to the Keychain and reading the token would put an
   access prompt on the screen and hang the test runner ("hung before establishing connection").
-- `screencapture` needs Screen Recording permission for the terminal running Claude; without it
-  there is no way to see the window from a session, so ask the person to look.
+- `screencapture` works once the terminal running Claude has Screen Recording permission (it does
+  on this Mac). Capture just the app with `screencapture -x -l <windowID>` (window id from
+  `CGWindowListCopyWindowInfo`), and pose the browser with the DEBUG hooks `TJ_BROWSER_TAB`,
+  `TJ_BROWSER_SEARCH`, `TJ_BROWSER_QUICKLOOK=hero|<id>`, `TJ_BROWSER_SELECT=<row>,<index>`.
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
   stops looking once the bars have held for ten looks (`Picture bars settled …`).
