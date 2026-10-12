@@ -90,10 +90,14 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   a real server: `TJ_AUTOPLAY=1` (plus `TJ_AUTOPLAY_ITEM`, `TJ_AUTOPLAY_FROM_START`,
   `TJ_AUTOPLAY_QUALITY`) — see `DebugAutoplay`. Run the binary directly to pass them, and watch with
   `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
+- The test host skips session restore (`XCTestConfigurationFilePath` is set): the debug binary is
+  ad-hoc signed, so every build is a new app to the Keychain and reading the token would put an
+  access prompt on the screen and hang the test runner ("hung before establishing connection").
 - `screencapture` needs Screen Recording permission for the terminal running Claude; without it
   there is no way to see the window from a session, so ask the person to look.
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
-  subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`) and only ever narrows.
+  subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
+  stops looking once the bars have held for ten looks (`Picture bars settled …`).
 - Quit the app rather than killing it: `stopForTermination` tells the server to stop transcoding,
   and a killed process leaves the server encoding for nothing.
 

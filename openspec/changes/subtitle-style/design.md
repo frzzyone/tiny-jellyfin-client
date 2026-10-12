@@ -34,13 +34,16 @@ sampled columns (every 8th) are above luma 32 on an 8-bit scale, at least two of
 keep their bits at the top of 16-bit samples, so `>> 8` puts them on the same scale. A frame whose
 picture rows are under 30% of its height says nothing (a fade, a credits card).
 
-### D3. Bars only narrow, and are used once two looks agree
+### D3. Bars only narrow, are used once two looks agree, and stop being measured once settled
 `PlaybackController` looks at the frame every 2 s while playing. Each result is combined with the
 running estimate by taking the smaller bar on each edge: a dark scene can only make bars look
 bigger, never smaller, so the minimum converges on the true bars. The estimate is published after
 the second look, so one dark frame at the start cannot place the subtitles halfway up the screen.
-The cost is a stray bright pixel in a bar (a logo, a burned-in subtitle) shrinking that bar for the
-rest of the item; accepted. The estimate is reset when playback stops and survives quality switches.
+The bars never change within a file, so once ten looks in a row (20 s) leave the estimate alone the
+controller stops looking for the rest of the item; a film that opens with a long dim scene can
+settle on bars slightly too wide, accepted. The cost of the narrowing rule is a stray bright pixel
+in a bar (a logo, a burned-in subtitle) shrinking that bar for the rest of the item; also accepted.
+The estimate is reset when playback stops and survives quality switches.
 
 ## Risks / Trade-offs
 

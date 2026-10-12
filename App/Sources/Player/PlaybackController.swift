@@ -62,7 +62,11 @@ final class PlaybackController {
     private(set) var pictureBars: PictureBars?
     /// How often the displayed frame is examined for bars while playing.
     @ObservationIgnored var barSampleInterval: TimeInterval = 2
-    @ObservationIgnored private var barSamples: (count: Int, bars: PictureBars, last: Date)?
+    /// Looks in a row that leave the bars unchanged before the app stops looking for the rest of the item.
+    @ObservationIgnored var barSettledLooks = 10
+    @ObservationIgnored private var barSamples: (count: Int, unchanged: Int, bars: PictureBars, last: Date)?
+    /// True once the bars have held long enough that the frames are no longer examined.
+    @ObservationIgnored private(set) var barsSettled = false
     @ObservationIgnored private var barsExplained = false
 
     /// "720p 4 Mbps · Transcode"
@@ -215,6 +219,7 @@ final class PlaybackController {
         videoSize = nil
         pictureBars = nil
         barSamples = nil
+        barsSettled = false
         barsExplained = false
     }
 
@@ -490,10 +495,12 @@ final class PlaybackController {
     }
 
     /// Looks at the displayed frame now and then for letterbox bars baked into the picture. Each
-    /// look can only narrow the bars (a dark scene shows bigger ones, never smaller), and the
-    /// result is used once two looks agree so a single fade cannot move the subtitles.
+    /// look can only narrow the bars (a dark scene shows bigger ones, never smaller), the result
+    /// is used once two looks agree so a single fade cannot move the subtitles, and once the bars
+    /// have held for `barSettledLooks` looks in a row the frames are left alone.
     private func sampleBars(_ engine: PlaybackEngine) {
         let now = Date()
+        guard !barsSettled else { return }
         if let last = barSamples?.last, now.timeIntervalSince(last) < barSampleInterval { return }
         guard let frame = engine.copyDisplayedFrame() else {
             if !barsExplained { PlayerLog.engine("Picture bars: the renderer has no displayed frame to look at") }
@@ -510,7 +517,12 @@ final class PlaybackController {
         }
         let bars = barSamples.map { $0.bars.narrowed(by: seen) } ?? seen
         let count = (barSamples?.count ?? 0) + 1
-        barSamples = (count, bars, now)
+        let unchanged = bars == barSamples?.bars ? (barSamples?.unchanged ?? 0) + 1 : 0
+        barSamples = (count, unchanged, bars, now)
+        if unchanged >= barSettledLooks {
+            barsSettled = true
+            PlayerLog.engine(String(format: "Picture bars settled at %.1f%% top, %.1f%% bottom after %d looks", bars.top * 100, bars.bottom * 100, count))
+        }
         guard count >= 2, pictureBars != bars else { return }
         pictureBars = bars
         PlayerLog.engine(String(format: "Picture bars: %.1f%% top, %.1f%% bottom", bars.top * 100, bars.bottom * 100))

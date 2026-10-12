@@ -52,6 +52,20 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(controller.pictureBars)
     }
 
+    func testPictureBarsStopBeingMeasuredOnceSettled() async {
+        let (controller, _, engine) = await started()
+        engine.send(.state(.playing))
+        controller.barSampleInterval = 0.02
+        controller.barSettledLooks = 5
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 50, bottom: 50)
+        let settled = await eventually(3) { controller.barsSettled }
+        XCTAssertTrue(settled)
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25))
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 10, bottom: 10)
+        try? await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25), "no longer looking at the frames")
+    }
+
     func testStartPlaysFromBeginningAndReports() async {
         let (controller, service, engine) = await started()
         XCTAssertEqual(engine.prepared.first?.1, 0)

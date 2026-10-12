@@ -12,7 +12,11 @@ struct TinyJellyfinApp: App {
             RootView()
                 .environment(model)
                 .frame(minWidth: 760, minHeight: 480)
-                .task { model.session.restore() }
+                .task {
+                    // A test host must not ask the Keychain for the token: the debug binary's
+                    // signature changes with every build, so each run would show an access prompt.
+                    if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil { model.session.restore() }
+                }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     // Tell the server before we go, so it stops transcoding for us.
                     model.player.stopForTermination()
