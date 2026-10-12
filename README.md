@@ -24,18 +24,42 @@ The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpe
 
 ## Build and run
 
+First time only:
+
 ```sh
-scripts/build-ffmpeg.sh      # builds Vendor/FFmpeg (LGPL, ~5 min the first time, then cached)
-xcodegen generate            # creates TinyJellyfin.xcodeproj
-open TinyJellyfin.xcodeproj  # then Product ▸ Run
+brew install xcodegen ffmpeg   # XcodeGen makes the project; ffmpeg generates test fixtures
+scripts/build-ffmpeg.sh        # builds Vendor/FFmpeg (LGPL, ~5 min the first time, then cached)
+```
+
+Then, from Xcode:
+
+```sh
+xcodegen generate              # creates TinyJellyfin.xcodeproj (rerun whenever project.yml changes)
+open TinyJellyfin.xcodeproj    # then press ⌘R
 ```
 
 Or from the command line:
 
 ```sh
-xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Release build
-open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Release/TinyJellyfin.app
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Debug build
+open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/TinyJellyfin.app
 ```
+
+Use `-configuration Release` and the `Release` folder for an optimised build.
+
+A few things worth knowing:
+
+- **Quit with ⌘Q rather than force-quitting.** On the way out the app tells your server to stop
+  transcoding; a killed process leaves the server encoding for nobody.
+- **Logs** appear in Xcode's console, or from Terminal:
+  `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
+  They show every request with the server's response time, how each file was opened, and each
+  player state change. If the spinner stays up for more than 5 s, the player shows its internal
+  state underneath it.
+- If `swift` or `xcodebuild` complain about a missing `XCTest` or SDK, `xcode-select -p` is pointing
+  at the Command Line Tools: either export `DEVELOPER_DIR` as above or run
+  `sudo xcode-select -s /Applications/Xcode.app`.
 
 ## Tests
 
