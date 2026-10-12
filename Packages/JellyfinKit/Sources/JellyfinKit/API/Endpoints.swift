@@ -1,6 +1,6 @@
 import Foundation
 
-private let itemFields = "Overview,MediaSources,MediaStreams,PrimaryImageAspectRatio,PremiereDate,ProductionYear"
+private let itemFields = "Overview,MediaSources,MediaStreams,PrimaryImageAspectRatio,PremiereDate,ProductionYear,DateCreated,Genres"
 
 extension JellyfinClient {
     // MARK: Server & auth
@@ -51,13 +51,56 @@ extension JellyfinClient {
 
     /// One page of a library's top-level items, sorted by name.
     public func items(parentId: String, startIndex: Int, limit: Int) async throws -> ItemsResult {
-        try await get("/Items", query: [
-            "userId": try requireUserId(), "parentId": parentId,
-            "sortBy": "SortName", "sortOrder": "Ascending",
-            "includeItemTypes": "Movie,Series", "recursive": "true",
-            "startIndex": String(startIndex), "limit": String(limit),
-            "fields": "PrimaryImageAspectRatio,ProductionYear", "enableUserData": "true",
+        var query = ItemQuery(parentId: parentId)
+        query.startIndex = startIndex
+        query.limit = limit
+        return try await items(query)
+    }
+
+    /// One page of items matching the query (see `ItemQuery`).
+    public func items(_ query: ItemQuery) async throws -> ItemsResult {
+        try await get("/Items", query: query.parameters(userId: try requireUserId()))
+    }
+
+    /// The next unwatched episode of every series the user has started, most recently watched first.
+    public func nextUp(limit: Int = 24, seriesId: String? = nil) async throws -> [BaseItem] {
+        let result: ItemsResult = try await get("/Shows/NextUp", query: [
+            "userId": try requireUserId(), "limit": String(limit), "seriesId": seriesId,
+            "fields": itemFields, "enableUserData": "true",
         ])
+        return result.items
+    }
+
+    /// Newest additions, newest first; new episodes are grouped into their series.
+    public func latest(limit: Int = 24) async throws -> [BaseItem] {
+        try await get("/Items/Latest", query: [
+            "userId": try requireUserId(), "limit": String(limit),
+            "includeItemTypes": "Movie,Series,Episode", "fields": itemFields, "enableUserData": "true",
+        ])
+    }
+
+    /// What the server thinks is like this item.
+    public func similar(to itemId: String, limit: Int = 24) async throws -> [BaseItem] {
+        let result: ItemsResult = try await get("/Items/\(itemId)/Similar", query: [
+            "userId": try requireUserId(), "limit": String(limit), "fields": itemFields, "enableUserData": "true",
+        ])
+        return result.items
+    }
+
+    /// Genres present in the video libraries (or one library), by name.
+    public func genres(libraryId: String? = nil) async throws -> [NameGuidPair] {
+        let result: ItemsResult = try await get("/Genres", query: [
+            "userId": try requireUserId(), "parentId": libraryId, "includeItemTypes": "Movie,Series",
+            "sortBy": "SortName", "sortOrder": "Ascending",
+        ])
+        return result.items.map { NameGuidPair(id: $0.id, name: $0.name) }
+    }
+
+    /// Marks the item watched (or not) and returns its new user data.
+    public func markPlayed(_ itemId: String, played: Bool) async throws -> UserItemData {
+        let request = makeRequest(played ? "POST" : "DELETE", "/UserPlayedItems/\(itemId)",
+                                  query: ["userId": try requireUserId()])
+        return try decode(await send(request))
     }
 
     public func seasons(seriesId: String) async throws -> [BaseItem] {
@@ -82,5 +125,59 @@ extension JellyfinClient {
     public func primaryImageURL(for item: BaseItem, maxHeight: Int = 450) -> URL? {
         guard let tag = item.imageTags?["Primary"] else { return nil }
         return url("/Items/\(item.id)/Images/Primary", query: ["maxHeight": String(maxHeight), "tag": tag, "quality": "90"])
+    }
+
+    /// Backdrop (wide artwork) of the item, or of its series for an episode.
+    public func backdropImageURL(for item: BaseItem, maxWidth: Int = 1600) -> URL? {
+        if let tag = item.backdropImageTags?.first {
+            return url("/Items/\(item.id)/Images/Backdrop", query: ["maxWidth": String(maxWidth), "tag": tag, "quality": "90"])
+        }
+        if let parent = item.parentBackdropItemId, let tag = item.parentBackdropImageTags?.first {
+            return url("/Items/\(parent)/Images/Backdrop", query: ["maxWidth": String(maxWidth), "tag": tag, "quality": "90"])
+        }
+        return nil
+    }
+}
+
+/// A `/Items` query: which items, filtered and sorted how, one page at a time.
+public struct ItemQuery: Equatable, Sendable {
+    public enum Sort: String, Sendable { case name = "SortName", dateCreated = "DateCreated", datePlayed = "DatePlayed",
+                                        random = "Random", premiereDate = "PremiereDate" }
+    public enum Filter: String, Sendable { case unplayed = "IsUnplayed", played = "IsPlayed", resumable = "IsResumable" }
+
+    public var parentId: String?
+    public var types: [ItemKind] = [.movie, .series]
+    public var filters: [Filter] = []
+    public var sort: Sort = .name
+    public var descending = false
+    public var genreIds: [String] = []
+    public var years: [Int] = []
+    public var searchTerm: String?
+    public var startIndex = 0
+    public var limit = 60
+
+    public init(parentId: String? = nil, types: [ItemKind] = [.movie, .series], filters: [Filter] = [],
+                sort: Sort = .name, descending: Bool = false, limit: Int = 60) {
+        self.parentId = parentId
+        self.types = types
+        self.filters = filters
+        self.sort = sort
+        self.descending = descending
+        self.limit = limit
+    }
+
+    func parameters(userId: String) -> [String: String?] {
+        let term = searchTerm?.trimmingCharacters(in: .whitespaces)
+        return [
+            "userId": userId, "parentId": parentId, "recursive": "true",
+            "includeItemTypes": types.map(\.rawValue).joined(separator: ","),
+            "filters": filters.isEmpty ? nil : filters.map(\.rawValue).joined(separator: ","),
+            "sortBy": sort.rawValue, "sortOrder": descending ? "Descending" : "Ascending",
+            "genreIds": genreIds.isEmpty ? nil : genreIds.joined(separator: ","),
+            "years": years.isEmpty ? nil : years.map(String.init).joined(separator: ","),
+            "searchTerm": (term?.isEmpty ?? true) ? nil : term,
+            "startIndex": String(startIndex), "limit": String(limit),
+            "fields": itemFields, "enableUserData": "true",
+        ]
     }
 }

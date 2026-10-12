@@ -24,6 +24,28 @@ public struct UserItemData: Codable, Sendable, Equatable {
     public var playedPercentage: Double?
     public var played: Bool?
     public var unplayedItemCount: Int?
+    /// ISO 8601, set once the user has played any of the item.
+    public var lastPlayedDate: String?
+
+    public init(playbackPositionTicks: Int64? = nil, playedPercentage: Double? = nil, played: Bool? = nil,
+                unplayedItemCount: Int? = nil, lastPlayedDate: String? = nil) {
+        self.playbackPositionTicks = playbackPositionTicks
+        self.playedPercentage = playedPercentage
+        self.played = played
+        self.unplayedItemCount = unplayedItemCount
+        self.lastPlayedDate = lastPlayedDate
+    }
+}
+
+/// A genre, studio or person reference on an item.
+public struct NameGuidPair: Codable, Sendable, Equatable, Identifiable {
+    public var id: String
+    public var name: String?
+
+    public init(id: String, name: String?) {
+        self.id = id
+        self.name = name
+    }
 }
 
 public enum ItemKind: String, Codable, Sendable {
@@ -62,6 +84,13 @@ public struct BaseItem: Codable, Sendable, Identifiable, Equatable {
     public var seasonId: String?
     public var userData: UserItemData?
     public var imageTags: [String: String]?
+    public var backdropImageTags: [String]?
+    public var parentBackdropItemId: String?
+    public var parentBackdropImageTags: [String]?
+    /// ISO 8601; when the item was added to the library.
+    public var dateCreated: String?
+    public var genres: [String]?
+    public var genreItems: [NameGuidPair]?
     public var mediaSources: [MediaSourceInfo]?
     public var mediaStreams: [MediaStream]?
 
@@ -70,6 +99,20 @@ public struct BaseItem: Codable, Sendable, Identifiable, Equatable {
         self.name = name
         self.type = type
     }
+
+    /// Runtime in whole minutes.
+    public var runtimeMinutes: Int? {
+        runTimeTicks.map { Int((Ticks.seconds($0) / 60).rounded()) }
+    }
+
+    /// Seconds still to watch for a partly watched item.
+    public var remainingSeconds: Double? {
+        guard let ticks = runTimeTicks, let position = resumePositionSeconds else { return nil }
+        return max(0, Ticks.seconds(ticks) - position)
+    }
+
+    /// "4K", "HDR10", "Dolby Vision", "Atmos", "7.1": what the file is, from its media streams.
+    public var formatBadges: [String] { FormatBadges.badges(for: mediaStreams ?? mediaSources?.first?.mediaStreams ?? []) }
 
     public var displayName: String { name ?? "Untitled" }
     public var hasPrimaryImage: Bool { imageTags?["Primary"] != nil }
@@ -133,6 +176,8 @@ public struct MediaStream: Codable, Sendable, Equatable {
     public var bitRate: Int?
     public var videoRange: String?
     public var videoRangeType: String?
+    public var profile: String?
+    public var channels: Int?
 
     public init(type: MediaStreamType, index: Int, codec: String? = nil) {
         self.type = type
@@ -170,4 +215,26 @@ public struct PlaybackInfoResponse: Codable, Sendable {
     public var mediaSources: [MediaSourceInfo]
     public var playSessionId: String?
     public var errorCode: String?
+}
+
+public enum FormatBadges {
+    public static func badges(for streams: [MediaStream]) -> [String] {
+        var badges: [String] = []
+        if let video = streams.first(where: { $0.type == .video }) {
+            if let width = video.width, width >= 3200 { badges.append("4K") }
+            else if let height = video.height, height >= 1080 { badges.append("1080p") }
+            let range = (video.videoRangeType ?? video.videoRange ?? "").uppercased()
+            if range.hasPrefix("DOVI") { badges.append("Dolby Vision") }
+            else if range.contains("HDR10+") { badges.append("HDR10+") }
+            else if range.contains("HDR10") { badges.append("HDR10") }
+            else if range.contains("HLG") { badges.append("HLG") }
+            else if range.contains("HDR") { badges.append("HDR") }
+        }
+        if let audio = streams.first(where: { $0.type == .audio }) {
+            let text = [audio.profile, audio.displayTitle, audio.title].compactMap { $0 }.joined(separator: " ").lowercased()
+            if text.contains("atmos") { badges.append("Atmos") }
+            else if let channels = audio.channels, channels >= 6 { badges.append(channels >= 8 ? "7.1" : "5.1") }
+        }
+        return badges
+    }
 }

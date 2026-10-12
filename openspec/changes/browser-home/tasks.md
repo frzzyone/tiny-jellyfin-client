@@ -2,8 +2,8 @@
 
 ## 1. JellyfinKit queries
 
-- [ ] 1.1 Add `nextUp(limit:seriesId:)`, `latest(limit:)` with `DateCreated` in the fields, `similar(to:limit:)`, `genres()`, `markPlayed(id:)` / `markUnplayed(id:)`, `backdropImageURL(for:)`, and an `ItemQuery` builder (`parentId`, `types`, `filters`, `sort`, `genreIds`, `years`, `searchTerm`, `limit`, `startIndex`) used by `items(_:)`; verify stubbed unit tests for each URL and for the `years` and `filters` encodings
-- [ ] 1.2 Add `BaseItem.dateCreated`, `backdropImageTags`, `parentBackdropItemId`, `genreItems`, `userData.lastPlayedDate`, and `MediaStream`-based format badges (`4K`, `HDR`, `Atmos`); verify decoding tests
+- [x] 1.1 Add `nextUp(limit:seriesId:)`, `latest(limit:)` with `DateCreated` in the fields, `similar(to:limit:)`, `genres()`, `markPlayed(id:)` / `markUnplayed(id:)`, `backdropImageURL(for:)`, and an `ItemQuery` builder (`parentId`, `types`, `filters`, `sort`, `genreIds`, `years`, `searchTerm`, `limit`, `startIndex`) used by `items(_:)`; verify stubbed unit tests for each URL and for the `years` and `filters` encodings
+- [x] 1.2 Add `BaseItem.dateCreated`, `backdropImageTags`, `parentBackdropItemId`, `genreItems`, `userData.lastPlayedDate`, and `MediaStream`-based format badges (`4K`, `HDR`, `Atmos`); verify decoding tests
 
 ## 2. Models
 

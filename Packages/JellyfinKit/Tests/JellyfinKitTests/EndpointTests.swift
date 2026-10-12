@@ -145,3 +145,130 @@ final class BrowsingEndpointTests: XCTestCase {
         XCTAssertEqual(url?.query?.contains("maxHeight=300"), true)
     }
 }
+
+final class DiscoveryEndpointTests: XCTestCase {
+    func testItemQueryEncodesFiltersSortGenresYearsAndSearch() async throws {
+        let server = StubServer()
+        server.on("GET", "/Items", json: #"{"Items":[],"TotalRecordCount":0}"#)
+        var query = ItemQuery(parentId: "lib", types: [.movie], filters: [.unplayed], sort: .dateCreated, descending: true, limit: 24)
+        query.genreIds = ["g1", "g2"]
+        query.years = [1990, 1991]
+        query.searchTerm = "  he "
+        query.startIndex = 48
+        _ = try await server.client().items(query)
+        let request = server.lastRequest(path: "/Items")
+        XCTAssertEqual(queryValue(request, "includeItemTypes"), "Movie")
+        XCTAssertEqual(queryValue(request, "filters"), "IsUnplayed")
+        XCTAssertEqual(queryValue(request, "sortBy"), "DateCreated")
+        XCTAssertEqual(queryValue(request, "sortOrder"), "Descending")
+        XCTAssertEqual(queryValue(request, "genreIds"), "g1,g2")
+        XCTAssertEqual(queryValue(request, "years"), "1990,1991")
+        XCTAssertEqual(queryValue(request, "searchTerm"), "he")
+        XCTAssertEqual(queryValue(request, "startIndex"), "48")
+        XCTAssertEqual(queryValue(request, "limit"), "24")
+        XCTAssertEqual(queryValue(request, "recursive"), "true")
+        XCTAssertTrue(queryValue(request, "fields")?.contains("DateCreated") == true)
+    }
+
+    func testItemQueryOmitsEmptyParts() async throws {
+        let server = StubServer()
+        server.on("GET", "/Items", json: #"{"Items":[]}"#)
+        var query = ItemQuery()
+        query.searchTerm = "   "
+        _ = try await server.client().items(query)
+        let request = server.lastRequest(path: "/Items")
+        XCTAssertNil(queryValue(request, "filters"))
+        XCTAssertNil(queryValue(request, "genreIds"))
+        XCTAssertNil(queryValue(request, "years"))
+        XCTAssertNil(queryValue(request, "searchTerm"))
+        XCTAssertNil(queryValue(request, "parentId"))
+        XCTAssertEqual(queryValue(request, "includeItemTypes"), "Movie,Series")
+    }
+
+    func testNextUp() async throws {
+        let server = StubServer()
+        server.on("GET", "/Shows/NextUp", json: """
+        {"Items":[{"Id":"e4","Name":"Woe's Hollow","Type":"Episode","SeriesName":"Severance","IndexNumber":4,"ParentIndexNumber":2,
+                   "ParentBackdropItemId":"s1","ParentBackdropImageTags":["bt"]}]}
+        """)
+        let items = try await server.client().nextUp(limit: 10, seriesId: "s1")
+        XCTAssertEqual(items.first?.episodeLabel, "S2 · E4")
+        let request = server.lastRequest(path: "/Shows/NextUp")
+        XCTAssertEqual(queryValue(request, "seriesId"), "s1")
+        XCTAssertEqual(queryValue(request, "limit"), "10")
+        XCTAssertEqual(queryValue(request, "userId"), "user1")
+        let backdrop = server.client().backdropImageURL(for: items[0])
+        XCTAssertEqual(backdrop?.path, "/Items/s1/Images/Backdrop")
+        XCTAssertEqual(queryValue(backdrop.map { URLRequest(url: $0) }, "tag"), "bt")
+    }
+
+    func testLatestIsAPlainArray() async throws {
+        let server = StubServer()
+        server.on("GET", "/Items/Latest", json: #"[{"Id":"n","Name":"New","Type":"Movie","DateCreated":"2026-10-10T08:00:00.0000000Z"}]"#)
+        let items = try await server.client().latest(limit: 5)
+        XCTAssertEqual(items.map(\.id), ["n"])
+        XCTAssertEqual(items[0].dateCreated, "2026-10-10T08:00:00.0000000Z")
+        XCTAssertEqual(queryValue(server.lastRequest(path: "/Items/Latest"), "includeItemTypes"), "Movie,Series,Episode")
+    }
+
+    func testSimilarAndGenres() async throws {
+        let server = StubServer()
+        server.on("GET", "/Items/heat/Similar", json: #"{"Items":[{"Id":"c","Name":"Collateral","Type":"Movie"}]}"#)
+        server.on("GET", "/Genres", json: #"{"Items":[{"Id":"g1","Name":"Thriller","Type":"Genre"},{"Id":"g2","Name":"Comedy","Type":"Genre"}]}"#)
+        let client = server.client()
+        let similar = try await client.similar(to: "heat")
+        XCTAssertEqual(similar.map(\.name), ["Collateral"])
+        let genres = try await client.genres(libraryId: "lib")
+        XCTAssertEqual(genres.map(\.name), ["Thriller", "Comedy"])
+        XCTAssertEqual(queryValue(server.lastRequest(path: "/Genres"), "parentId"), "lib")
+    }
+
+    func testMarkPlayedAndUnplayed() async throws {
+        let server = StubServer()
+        server.on("POST", "/UserPlayedItems/m", json: #"{"Played":true,"PlayedPercentage":100}"#)
+        server.on("DELETE", "/UserPlayedItems/m", json: #"{"Played":false}"#)
+        let client = server.client()
+        let played = try await client.markPlayed("m", played: true)
+        XCTAssertEqual(played.played, true)
+        let unplayed = try await client.markPlayed("m", played: false)
+        XCTAssertEqual(unplayed.played, false)
+        XCTAssertEqual(server.lastRequest(path: "/UserPlayedItems/m")?.httpMethod, "DELETE")
+    }
+
+    func testBackdropFallsBackToParentOrNothing() {
+        let server = StubServer()
+        var own = BaseItem(id: "x")
+        own.backdropImageTags = ["t1"]
+        XCTAssertEqual(server.client().backdropImageURL(for: own)?.path, "/Items/x/Images/Backdrop")
+        XCTAssertNil(server.client().backdropImageURL(for: BaseItem(id: "y")))
+    }
+}
+
+final class FormatBadgeTests: XCTestCase {
+    private func stream(_ type: MediaStreamType, width: Int? = nil, height: Int? = nil, range: String? = nil,
+                        profile: String? = nil, channels: Int? = nil) -> MediaStream {
+        var s = MediaStream(type: type, index: 0)
+        s.width = width; s.height = height; s.videoRangeType = range; s.profile = profile; s.channels = channels
+        return s
+    }
+
+    func testBadges() {
+        XCTAssertEqual(FormatBadges.badges(for: [stream(.video, width: 3840, height: 2160, range: "DOVIWithHDR10"),
+                                                  stream(.audio, profile: "Dolby Atmos", channels: 8)]),
+                       ["4K", "Dolby Vision", "Atmos"])
+        XCTAssertEqual(FormatBadges.badges(for: [stream(.video, width: 1920, height: 1080, range: "SDR"),
+                                                  stream(.audio, channels: 6)]), ["1080p", "5.1"])
+        XCTAssertEqual(FormatBadges.badges(for: [stream(.video, width: 1280, height: 720, range: "HDR10"),
+                                                  stream(.audio, channels: 2)]), ["HDR10"])
+        XCTAssertEqual(FormatBadges.badges(for: []), [])
+    }
+
+    func testItemConveniences() {
+        var item = BaseItem(id: "i")
+        item.runTimeTicks = 6_000_000_000 // 10 min
+        item.userData = UserItemData(playbackPositionTicks: 1_200_000_000)
+        XCTAssertEqual(item.runtimeMinutes, 10)
+        XCTAssertEqual(item.remainingSeconds, 480)
+        XCTAssertNil(BaseItem(id: "j").remainingSeconds)
+    }
+}
