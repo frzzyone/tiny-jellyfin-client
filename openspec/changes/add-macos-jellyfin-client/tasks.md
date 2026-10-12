@@ -18,7 +18,7 @@
 ## 3. Server connection
 
 - [x] 3.1 Add endpoints `publicSystemInfo()`, `authenticate(username:password:)`, `logout()` with Codable models and verify stubbed-response unit tests including wrong-credentials (401)
-- [ ] 3.2 Implement `KeychainStore` (protocol + Keychain implementation + in-memory fake) storing only the token, and a persistent device ID in UserDefaults; verify unit tests with the fake and a manual check that the password is absent from Keychain and preferences
+- [x] 3.2 Implement `KeychainStore` (protocol + Keychain implementation + in-memory fake) storing only the token, and a persistent device ID in UserDefaults; verify unit tests with the fake and a manual check that the password is absent from Keychain and preferences
 - [x] 3.3 Implement `SessionModel` (server step → sign-in step → signed-in; restore on launch; 401 anywhere → sign-in with server pre-filled; sign out clears token even offline) and verify view-model unit tests for each server-connection scenario
 - [ ] 3.4 Build the server-address and sign-in SwiftUI screens with error states and verify manually against a real server: valid/invalid address, wrong password clears field, relaunch restores session, sign out
 
@@ -57,6 +57,10 @@
 - [ ] 7.5 Build the player window: display layer host view, SwiftUI control overlay (play/pause, scrubber, skip −10/+30, volume/mute, full screen, auto-hide after 3 s, buffering spinner, error banner) and keyboard shortcuts; verify manually each media-playback controls/shortcuts scenario
 - [ ] 7.6 Add Picture in Picture and Now Playing / remote commands per design D9 and verify manually: PiP enter/leave keeps position, media key pauses, Control Center shows title and progress
 - [ ] 7.7 Verify end-to-end against a real server: Play and Resume (within 2 s), progress visible on Jellyfin web after closing, watched state after finishing, MKV/HEVC/DTS file plays as Direct Play with no server transcode
+  Verified 2026-10-12 against jellyfin.dcm.wtf (Dolby Vision P8 HEVC/E-AC-3 MKV): Resume lands at the
+  requested position, ~1.9 s to picture; progress is reported (the server's stored resume position
+  advanced between runs); Direct Play with no server transcode. Still to check: watched state after
+  playing to the end, and a DTS file.
 
 ## 8. Subtitles
 
@@ -76,6 +80,10 @@
 ## 10. Integration checks
 
 - [ ] 10.1 Run the end-to-end checklist against a real Jellyfin 10.9+ server: MKV/HEVC Original → Direct Play; VC-1 → video transcoded at source resolution; 1080p → 480p mid-movie with no gap > 1 s; switch while paused stays paused; HDR10 and DV P8 clips present in HDR/DV; Atmos track presents as Atmos (or recorded fallback); subtitles stay in sync across a switch; no leftover transcodes on the server dashboard after switches and after closing; preference persists after relaunch
+  Verified 2026-10-12: MKV/HEVC Original → Direct Play; no leftover transcode after closing (quit
+  cleanup fires); the quality preference survives relaunch. Still to check: VC-1 file, mid-movie
+  switch with no gap > 1 s, switch while paused, HDR10/DV presentation, Atmos, subtitles across a
+  switch, no leftover transcodes after switches.
 - [x] 10.2 Run `openspec validate add-macos-jellyfin-client --strict` and confirm CI is green on the final commit
 
 ## Workflow follow-up

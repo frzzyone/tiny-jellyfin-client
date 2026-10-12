@@ -34,8 +34,9 @@ or switch globally with `sudo xcode-select -s /Applications/Xcode.app`.
 Run the app from Xcode, or `xcodebuild -scheme TinyJellyfin -configuration Debug build` then open the
 product. CI (`.github/workflows/ci.yml`) runs all of the above on Linux and macOS; it must be green.
 
-`openspec` is not installed here (`npm i -g @fission-ai/openspec` if you need it). The change is at
-32/48 tasks; the rest need a real server, real hardware, or a human looking at the screen.
+The change is at 33/48 tasks. The rest need a human looking at the screen or listening; they are
+listed, with what each one closes, in `openspec/changes/add-macos-jellyfin-client/manual-checklist.md`.
+Tasks 7.7 and 10.1 carry notes on which parts were already verified against a real server.
 
 ## Engine invariants
 
