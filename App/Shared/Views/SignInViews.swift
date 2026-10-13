@@ -57,15 +57,15 @@ struct SignInView: View {
             }
         }
         .onAppear { if name.isEmpty { name = username } }
-        .onChange(of: error) { _, newError in
-            // A failed attempt clears the password field.
-            if newError != nil { password = "" }
-        }
     }
 
     private func signIn() {
         let password = self.password
-        Task { await model.session.signIn(username: name, password: password) }
+        Task {
+            await model.session.signIn(username: name, password: password)
+            // Every failed attempt clears the field, even when the message is the same as last time.
+            if case .signIn(_, _, _?) = model.session.state { self.password = "" }
+        }
     }
 }
 

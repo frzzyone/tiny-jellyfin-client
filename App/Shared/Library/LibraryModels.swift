@@ -57,7 +57,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class LibraryGridModel {
-    static let pageSize = 60
+    nonisolated static let pageSize = 60
     let parentId: String?
     private(set) var items: [BaseItem] = []
     private(set) var total: Int?
@@ -218,21 +218,5 @@ enum ItemLabels {
     /// "1 h 05 min left" for the hero; nil when the item is not partly watched.
     static func timeLeft(_ item: BaseItem) -> String? {
         item.remainingSeconds.map { "\(minutes(Int(($0 / 60).rounded(.up)))) left" }
-    }
-}
-
-/// Text for the details view's actions.
-enum PlaybackActions {
-    struct Action: Equatable {
-        let title: String
-        let resume: Bool
-    }
-
-    static func actions(for item: BaseItem) -> [Action] {
-        if let position = item.resumePositionSeconds, position > 5 {
-            return [Action(title: "Resume from \(TimeFormat.clock(position))", resume: true),
-                    Action(title: "Play from beginning", resume: false)]
-        }
-        return [Action(title: "Play", resume: false)]
     }
 }

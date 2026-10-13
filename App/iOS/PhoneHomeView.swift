@@ -27,6 +27,8 @@ struct PhoneHomeView: View {
                     InlineError(message: error) { Task { await home.load() } }
                 } else if home.isLoading {
                     ProgressView().frame(maxWidth: .infinity).frame(height: 300)
+                } else if home.isEmpty {
+                    Text(HomeModel.emptyMessage).foregroundStyle(BrowserStyle.muted).padding(PhoneStyle.side)
                 }
                 ForEach(home.visibleRows) { row in
                     if let error = row.error {

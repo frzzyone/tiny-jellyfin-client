@@ -5,17 +5,8 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## Player UI (from the 2026-10-12 UX review)
 
-1. **Controls hide while the pointer rests on them.** The 3 s auto-hide timer resets only on mouse
-   movement, so a cursor parked on the play button loses the controls underneath it. Keep them
-   visible while the pointer is over the control bar.
-2. **Player window title.** `.hiddenTitleBar` leaves the title empty, so the Window menu and Mission
-   Control show "Player". Set the item's name as the window title anyway.
-3. **Single click on the video toggles play/pause.** Infuse and IINA do this; we deliberately don't,
-   because a click that focuses the window would also pause. Decide, then do it or document why not.
-4. **An "ended" state.** When a film finishes the last frame stays up with a play button that restarts
-   from zero. Show something like "Watched · Play again", or close the window.
-5. **Library polish.** Standard grid and list, no poster hover state, no year/rating overlay, a
-   left-aligned details block. Functional, but the least finished-looking part of the app.
+- **Library polish.** Standard grid and list, no poster hover state, no year/rating overlay, a
+  left-aligned details block. Functional, but the least finished-looking part of the app.
 
 ## Subtitles (from the 2026-10-12 subtitle-style change)
 
@@ -31,9 +22,11 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## iPhone
 
-- **From the production review (2026-10-13), not yet decided:** horizontal swipe to scrub, pinch
-  for fit/fill, a skip-interval setting, playback speed / audio track / chapters, Dynamic Type for
-  the browser text, PiP restore-to-app.
+- **From the production review (2026-10-13), not yet decided:** a skip-interval setting, playback
+  speed / audio track / chapters, long-press fast-forward and touch lock, Dynamic Type for the
+  browser text, PiP restore-to-app, the server's name after relaunch (shows the host).
+- **The Subtitles and Quality menus close by themselves** when the controls auto-hide after 3 s;
+  they should close only when the user closes them.
 - **iPad** would want a layout closer to the Mac's; the phone layout only stretches today.
 - **App Store** distribution: LGPL FFmpeg under code signing is unresolved; the app is for your own
   devices.

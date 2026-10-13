@@ -81,11 +81,11 @@ final class FakeService: PlaybackService, @unchecked Sendable {
 
     func resolveStream(itemId: String, quality: QualityPreset, capabilities: PlaybackCapabilities, startSeconds: Double,
                        mediaSourceId: String?, subtitleStreamIndex: Int?) async throws -> ResolvedStream {
-        lock.lock()
-        resolveCalls.append((quality, startSeconds, subtitleStreamIndex))
-        counter += 1
-        let n = counter
-        lock.unlock()
+        let n = lock.withLock {
+            resolveCalls.append((quality, startSeconds, subtitleStreamIndex))
+            counter += 1
+            return counter
+        }
         if let resolveError { throw resolveError }
         let method: PlayMethod = subtitleStreamIndex != nil ? .transcode : (quality.isOriginal ? nextMethod : .transcode)
         return ResolvedStream(url: URL(string: "https://jf.test/stream\(n)")!, playMethod: method,
@@ -183,7 +183,7 @@ final class FakeLibraryService: LibraryService, @unchecked Sendable {
     func latest(limit: Int) async throws -> [BaseItem] { try check("latest"); return Array(latestItems.prefix(limit)) }
     func items(_ query: ItemQuery) async throws -> ItemsResult {
         try check("items")
-        lock.lock(); queries.append(query); lock.unlock()
+        lock.withLock { queries.append(query) }
         let all = onItems(query)
         let page = Array(all.dropFirst(query.startIndex).prefix(query.limit))
         return ItemsResult(items: page, totalRecordCount: all.count, startIndex: query.startIndex)

@@ -1,7 +1,8 @@
 import JellyfinKit
 import SwiftUI
 
-/// A library tab: filter pills, genres, and a three-column poster grid that pages as it scrolls.
+/// A library tab: today's discovery rows for the library, filter pills, genres, and a
+/// three-column poster grid that pages as it scrolls.
 struct PhoneLibraryView: View {
     @Environment(AppModel.self) private var model
     let parentId: String?
@@ -9,8 +10,11 @@ struct PhoneLibraryView: View {
     var searchTerm = ""
     /// Search draws its own header (with the field) above the results.
     var showsHeader = true
+    /// The library itself, for its discovery rows (none in search results).
+    var library: BaseItem?
     let onPlay: (BaseItem, Bool) -> Void
     @State private var grid: LibraryGridModel?
+    @State private var discovery: HomeModel?
     @State private var genres: [NameGuidPair] = []
 
     var body: some View {
@@ -22,6 +26,16 @@ struct PhoneLibraryView: View {
                         Text(grid.items.count < total ? "\(grid.items.count) of \(total)" : "\(total)")
                             .font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
                             .padding(.horizontal, PhoneStyle.side).padding(.top, showsHeader ? -6 : 0)
+                    }
+                    if let discovery {
+                        ForEach(discovery.visibleRows) { row in
+                            if let error = row.error {
+                                InlineError(message: error) { Task { await discovery.load() } }
+                            } else {
+                                PhoneRow(title: row.title, subtitle: row.subtitle, items: row.items, shape: row.shape)
+                                    .padding(.bottom, 14)
+                            }
+                        }
                     }
                     filters(grid)
                     PhoneGrid(grid: grid)
@@ -38,9 +52,13 @@ struct PhoneLibraryView: View {
             guard grid == nil, let client = model.client else { return }
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }
             self.grid = grid
+            let discovery = library.map { HomeModel(service: client, library: $0) }
+            self.discovery = discovery
             async let genreList = (try? client.genres(libraryId: parentId)) ?? []
+            async let rows: Void = discovery?.load() ?? ()
             if searchTerm.isEmpty { await grid.loadMore() } else { await grid.apply(searchTerm: searchTerm) }
             genres = await genreList
+            await rows
         }
         .task(id: searchTerm) {
             try? await Task.sleep(for: .milliseconds(250))

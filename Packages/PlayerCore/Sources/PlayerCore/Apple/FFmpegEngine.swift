@@ -303,13 +303,25 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
         if spliced {
             let deadline = Date().addingTimeInterval(30)
-            while queue.sync(execute: { incoming === pipeline }) {
-                if Date() > deadline {
-                    // The old stream never reached the splice point (stalled); swap now.
-                    queue.sync { if incoming === pipeline { hardSwap(to: pipeline, at: currentTime) } }
-                    break
+            waiting: while true {
+                let cancelled = Task.isCancelled
+                let backedOut: Bool? = queue.sync {
+                    guard incoming === pipeline else { return false }
+                    // The caller gave up (the controller's timeout): keep the old stream rather than
+                    // finish the switch after it has said the switch failed.
+                    if cancelled { cancelSplice(); return true }
+                    if Date() > deadline {
+                        // The old stream never reached the splice point (stalled); swap now.
+                        hardSwap(to: pipeline, at: currentTime)
+                        return false
+                    }
+                    return nil
                 }
-                try? await Task.sleep(nanoseconds: 50_000_000)
+                switch backedOut {
+                case true?: throw CancellationError()
+                case false?: break waiting
+                case nil: try? await Task.sleep(nanoseconds: 50_000_000)
+                }
             }
         }
         emit(.switched)

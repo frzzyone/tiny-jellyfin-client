@@ -29,7 +29,7 @@ struct PhoneTabsView: View {
 
             ForEach(libraries) { library in
                 NavigationStack {
-                    PhoneLibraryView(parentId: library.id, title: library.displayName, onPlay: play)
+                    PhoneLibraryView(parentId: library.id, title: library.displayName, library: library, onPlay: play)
                 }
                 .tabItem { Label(library.displayName, systemImage: library.collectionType == "tvshows" ? "tv" : "film") }
                 .tag(library.id)

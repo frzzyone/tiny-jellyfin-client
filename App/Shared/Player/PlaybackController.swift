@@ -311,6 +311,12 @@ final class PlaybackController {
         Task { await seek(to: position + seconds) }
     }
 
+    /// The Mac's digit keys: 0 is the start, 9 is nine tenths through.
+    func jump(toTenth tenth: Int) {
+        guard duration > 0 else { return }
+        Task { await seek(to: duration * Double(min(max(tenth, 0), 9)) / 10) }
+    }
+
     // MARK: Quality
 
     func selectQuality(_ quality: QualityPreset) {
@@ -384,6 +390,18 @@ final class PlaybackController {
     }
 
     /// nil turns subtitles off.
+    /// The Mac's S key: each text subtitle in turn, then Off. Image tracks are left out, since each
+    /// would make the server start a new transcode to burn it in.
+    func cycleSubtitle() {
+        let text = subtitleOptions.filter { !$0.isImage }.map(\.id)
+        guard !text.isEmpty else { return }
+        if let current = selectedSubtitle, let index = text.firstIndex(of: current) {
+            selectSubtitle(index + 1 < text.count ? text[index + 1] : nil)
+        } else {
+            selectSubtitle(text[0])
+        }
+    }
+
     func selectSubtitle(_ index: Int?) {
         guard let session else { return }
         let option = subtitleOptions.first { $0.id == index }

@@ -1,10 +1,6 @@
 import JellyfinKit
 import SwiftUI
 
-extension BaseItem: Hashable {
-    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
-}
-
 /// A series: its seasons, with how much of each is left.
 struct SeriesView: View {
     @Environment(AppModel.self) private var model

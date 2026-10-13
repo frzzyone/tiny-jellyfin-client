@@ -65,7 +65,6 @@ struct BrowserView: View {
             async let libs: Void = loader.load()
             async let rows: Void = home.load()
             _ = await (libs, rows)
-            PlayerLog.engine("Home: \(home.visibleRows.map { "\($0.id)=\($0.items.count)" }.joined(separator: " ")) hero=\(home.hero?.displayName ?? "-")")
             #if DEBUG
             // Screenshot hooks: TJ_BROWSER_TAB=<library name> opens that tab, TJ_BROWSER_QUICKLOOK=hero|<item id>
             // opens the quick look, TJ_BROWSER_SELECT=<row>,<index> outlines a title.
@@ -194,13 +193,13 @@ struct BrowserView: View {
             switch browser.tab {
             case .home:
                 if let home {
-                    HomeView(home: home, onPlay: play, onOpenSeries: open, onSurprise: surprise)
+                    HomeView(home: home, surpriseError: surpriseError, onPlay: play, onOpenSeries: open, onSurprise: surprise)
                 } else {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             case .library(let id):
                 let library = libraries?.state.value?.first { $0.id == id }
-                LibraryTabView(parentId: id, title: library?.displayName ?? "Library", searchTerm: "")
+                LibraryTabView(parentId: id, title: library?.displayName ?? "Library", searchTerm: "", library: library)
                     .id(id)
             }
         }

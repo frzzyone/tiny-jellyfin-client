@@ -25,6 +25,8 @@ final class AudioDecoder {
     private var outLayout = AVChannelLayout()
     private var configured: (rate: Int32, format: Int32, channels: Int32)?
     private var nextPTS: Double?
+    /// `decode` runs on the engine's queue and `flush` on the reader thread after a seek.
+    private let lock = NSLock()
 
     init(parameters: UnsafePointer<AVCodecParameters>, timeBase: AVRational, timelineOffset: Double) throws {
         self.timeBase = timeBase
@@ -48,6 +50,7 @@ final class AudioDecoder {
 
     /// Decodes one packet into zero or more frames. Corrupt packets are skipped.
     func decode(_ packet: Packet) -> [AudioFrame] {
+        lock.lock(); defer { lock.unlock() }
         guard let codec, let frame else { return [] }
         if avcodec_send_packet(codec, packet.pointer) < 0 { return [] }
         var output: [AudioFrame] = []
@@ -59,6 +62,7 @@ final class AudioDecoder {
     }
 
     func flush() {
+        lock.lock(); defer { lock.unlock() }
         if let codec { avcodec_flush_buffers(codec) }
         nextPTS = nil
     }

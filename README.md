@@ -72,7 +72,8 @@ A few things worth knowing:
 The iPhone app is the `TinyJellyfinPhone` scheme in the same project. It shares the engine, the
 browser models and the sign-in with the Mac app; the screens and the player are its own: tabs for
 Home, each library and Search, a detail sheet, and a landscape player (tap for controls, double-tap
-the sides to skip, swipe up and down for brightness on the left and volume on the right, fit or fill).
+the sides to skip, swipe sideways to scrub, swipe up and down for brightness on the left and volume
+on the right, pinch or the button to fill or fit).
 
 To run it on your phone, put your team in `App/Signing.local.xcconfig` (git-ignored):
 
@@ -125,9 +126,14 @@ xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destinatio
 No sidebar: Home and one tab per video library in the top bar. Home leads with where you left
 off (Enter resumes it), then Continue watching, Next up, Added this week, and rows that need no
 typing: Surprise me (a random unwatched film), Short tonight, Because you watched, Almost done,
-a genre of the day, the oldest unplayed titles, a decade of the day. Library tabs have one-click
-filters and a genre strip; typing anywhere searches. Space opens a quick look with Play, Start
+a genre of the day, the oldest unplayed titles, a decade of the day. Library tabs open with two of
+the day's rows for that library (the ones Home isn't showing first), then one-click filters, a
+genre strip and the grid; typing anywhere searches. Space opens a quick look with Play, Start
 over and Mark watched; arrows move between rows and titles.
+
+In the Mac player: click to pause, double-click for full screen, swipe sideways with two fingers on a
+trackpad to scrub. Keys: Space play/pause, ← → −10 s / +30 s, ↑ ↓ volume, F full screen, M mute,
+S next subtitle (then off), 0–9 jump to that tenth of the film.
 
 ## Quality presets
 

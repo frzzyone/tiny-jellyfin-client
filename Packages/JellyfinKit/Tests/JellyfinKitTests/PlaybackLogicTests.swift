@@ -35,21 +35,6 @@ final class QualityTests: XCTestCase {
         XCTAssertEqual(QualitySelection.startingQuality(preferredId: "2160p-40", sourceHeight: 1080), .original)
     }
 
-    func testSubtitleFontPreferenceRoundTrip() {
-        let defaults = UserDefaults(suiteName: "sf-\(UUID().uuidString)")!
-        let prefs = AppPreferences(defaults: defaults)
-        XCTAssertNil(prefs.subtitleFontName)
-        XCTAssertNil(prefs.subtitleFontSize)
-        prefs.subtitleFontName = "Helvetica-Bold"
-        prefs.subtitleFontSize = 60
-        XCTAssertEqual(AppPreferences(defaults: defaults).subtitleFontName, "Helvetica-Bold")
-        XCTAssertEqual(AppPreferences(defaults: defaults).subtitleFontSize, 60)
-        prefs.subtitleFontName = nil
-        prefs.subtitleFontSize = nil
-        XCTAssertNil(AppPreferences(defaults: defaults).subtitleFontName)
-        XCTAssertNil(AppPreferences(defaults: defaults).subtitleFontSize)
-    }
-
     func testPreferenceStoredPerServerAndUntouchedByFallback() {
         let prefs = AppPreferences(defaults: UserDefaults(suiteName: "q-\(UUID().uuidString)")!)
         let a = URL(string: "https://a.test")!, b = URL(string: "https://b.test")!

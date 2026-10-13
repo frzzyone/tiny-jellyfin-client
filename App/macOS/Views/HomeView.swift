@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(BrowserModel.self) private var browser
     let home: HomeModel
+    var surpriseError: String?
     let onPlay: (BaseItem, Bool) -> Void
     let onOpenSeries: (BaseItem) -> Void
     let onSurprise: () -> Void
@@ -20,13 +21,15 @@ struct HomeView: View {
                         InlineError(message: error) { Task { await home.load() } }
                     } else if home.isLoading {
                         ProgressView().frame(maxWidth: .infinity).frame(height: 200)
+                    } else if home.isEmpty {
+                        Text(HomeModel.emptyMessage).foregroundStyle(BrowserStyle.muted).padding(.vertical, 40)
                     }
                     ForEach(home.visibleRows) { row in
                         RowView(row: row, onOpen: onOpenSeries, onGenre: { id in Task { await home.selectGenre(id) } },
                                 onRetry: { Task { await home.load() } })
                             .id(row.id)
                     }
-                    SurpriseView(onSurprise: onSurprise)
+                    SurpriseView(error: surpriseError, onSurprise: onSurprise)
                     footer
                 }
                 .padding(.horizontal, BrowserStyle.sidePadding)
@@ -198,6 +201,7 @@ struct GenreStrip: View {
 
 /// One random unwatched film, straight into the quick look.
 struct SurpriseView: View {
+    var error: String?
     let onSurprise: () -> Void
 
     var body: some View {
@@ -206,7 +210,11 @@ struct SurpriseView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("One random film you haven't seen, straight into the quick look")
                     .font(.system(size: 15, weight: .medium)).foregroundStyle(BrowserStyle.text)
-                Text("Press again for another.").font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                if let error {
+                    Label(error, systemImage: "exclamationmark.triangle").font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                } else {
+                    Text("Press again for another.").font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                }
             }
             Spacer()
             KeyCap(label: "S")

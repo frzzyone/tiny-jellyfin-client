@@ -87,7 +87,9 @@ final class BrowsingEndpointTests: XCTestCase {
     func testItemsPaging() async throws {
         let server = StubServer()
         server.on("GET", "/Items", json: #"{"Items":[{"Id":"a","Name":"Alien","Type":"Movie"}],"TotalRecordCount":321,"StartIndex":100}"#)
-        let page = try await server.client().items(parentId: "lib", startIndex: 100, limit: 50)
+        var query = ItemQuery(parentId: "lib", limit: 50)
+        query.startIndex = 100
+        let page = try await server.client().items(query)
         XCTAssertEqual(page.totalRecordCount, 321)
         let request = server.lastRequest(path: "/Items")
         XCTAssertEqual(queryValue(request, "parentId"), "lib")

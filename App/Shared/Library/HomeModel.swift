@@ -26,9 +26,22 @@ enum DiscoveryKind: String, CaseIterable {
 
     /// Three of the five, rotating daily so the page changes without becoming random.
     static func rotation(day: Int) -> [DiscoveryKind] {
+        Array(order(day: day).prefix(3))
+    }
+
+    /// Today's rows for one library tab: two that suit it (films or series), the ones Home isn't
+    /// showing today first, so the tab adds to Home rather than repeating it.
+    static func forLibrary(day: Int, shows: Bool) -> [DiscoveryKind] {
+        let suits: Set<DiscoveryKind> = shows ? [.almostDone, .shelf, .decade] : [.shortTonight, .becauseYouWatched, .shelf, .decade]
+        let today = order(day: day)
+        let onHome = Set(rotation(day: day))
+        return Array((today.filter { !onHome.contains($0) } + today.filter(onHome.contains)).filter(suits.contains).prefix(2))
+    }
+
+    private static func order(day: Int) -> [DiscoveryKind] {
         let all = allCases
         let offset = ((day % all.count) + all.count) % all.count
-        return (0..<3).map { all[(offset + $0) % all.count] }
+        return (0..<all.count).map { all[(offset + $0) % all.count] }
     }
 }
 
@@ -73,7 +86,8 @@ enum HomeRules {
     }
 }
 
-/// Home: the hero, the fixed rows, and today's discovery rows, each loaded on its own.
+/// Home: the hero, the fixed rows, and today's discovery rows, each loaded on its own. Given a
+/// library, it is that tab's discovery rows instead (`DiscoveryKind.forLibrary`), drawn from it alone.
 @MainActor
 @Observable
 final class HomeModel {
@@ -83,37 +97,42 @@ final class HomeModel {
     private(set) var isLoading = false
     @ObservationIgnored private let service: LibraryService
     @ObservationIgnored private let now: () -> Date
+    /// A library tab's rows rather than Home's.
+    @ObservationIgnored private let library: (id: String, shows: Bool)?
 
     static let continueID = "continue", nextUpID = "nextUp", latestID = "latest", genreID = "genre"
 
-    init(service: LibraryService, now: @escaping () -> Date = Date.init) {
+    init(service: LibraryService, library: BaseItem? = nil, now: @escaping () -> Date = Date.init) {
         self.service = service
+        self.library = library.map { ($0.id, $0.collectionType?.lowercased() == "tvshows") }
         self.now = now
     }
 
     /// Rows this page shows, in order, before anything is loaded.
     var plannedRows: [HomeRow] {
-        var rows = [
+        let day = HomeRules.dayNumber(now())
+        if let library { return DiscoveryKind.forLibrary(day: day, shows: library.shows).map(Self.row) }
+        return [
             HomeRow(id: Self.continueID, title: "Continue watching", shape: .still),
             HomeRow(id: Self.nextUpID, title: "Next up", subtitle: "the next episode of every series you're into", shape: .still),
             HomeRow(id: Self.latestID, title: "Added this week", shape: .poster),
-        ]
-        for kind in DiscoveryKind.rotation(day: HomeRules.dayNumber(now())) {
-            switch kind {
-            case .shortTonight:
-                rows.append(HomeRow(id: kind.rawValue, title: "Short tonight", subtitle: "unwatched, under \(HomeRules.shortMinutes) minutes", shape: .poster))
-            case .becauseYouWatched:
-                rows.append(HomeRow(id: kind.rawValue, title: "Because you watched", shape: .poster))
-            case .almostDone:
-                rows.append(HomeRow(id: kind.rawValue, title: "Almost done", subtitle: "series with one or two episodes left", shape: .still))
-            case .shelf:
-                rows.append(HomeRow(id: kind.rawValue, title: "Been on the shelf a while", subtitle: "the oldest things you added and never played", shape: .poster))
-            case .decade:
-                rows.append(HomeRow(id: kind.rawValue, title: "From the decade", subtitle: "a different decade each day", shape: .poster))
-            }
+        ] + DiscoveryKind.rotation(day: day).map(Self.row)
+            + [HomeRow(id: Self.genreID, title: "Tonight, a genre", subtitle: "unwatched only", shape: .poster)]
+    }
+
+    private static func row(_ kind: DiscoveryKind) -> HomeRow {
+        switch kind {
+        case .shortTonight:
+            HomeRow(id: kind.rawValue, title: "Short tonight", subtitle: "unwatched, under \(HomeRules.shortMinutes) minutes", shape: .poster)
+        case .becauseYouWatched:
+            HomeRow(id: kind.rawValue, title: "Because you watched", shape: .poster)
+        case .almostDone:
+            HomeRow(id: kind.rawValue, title: "Almost done", subtitle: "series with one or two episodes left", shape: .still)
+        case .shelf:
+            HomeRow(id: kind.rawValue, title: "Been on the shelf a while", subtitle: "the oldest things you added and never played", shape: .poster)
+        case .decade:
+            HomeRow(id: kind.rawValue, title: "From the decade", subtitle: "a different decade each day", shape: .poster)
         }
-        rows.append(HomeRow(id: Self.genreID, title: "Tonight, a genre", subtitle: "unwatched only", shape: .poster))
-        return rows
     }
 
     /// Rows with something in them (or an error to show), in planned order, without the hero:
@@ -127,11 +146,16 @@ final class HomeModel {
         .filter { !$0.isEmpty }
     }
 
+    /// Loaded, and the server had nothing for any row: an empty or unreadable library.
+    var isEmpty: Bool { !isLoading && !rows.isEmpty && hero == nil && heroError == nil && visibleRows.isEmpty }
+
+    static let emptyMessage = "Nothing to show yet. Add films or series to a Jellyfin library this account can see."
+
     func load() async {
         isLoading = true
         rows = plannedRows
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.loadHeroAndContinue() }
+            if library == nil { group.addTask { await self.loadHeroAndContinue() } }
             for row in rows where row.id != Self.continueID {
                 group.addTask { await self.load(rowID: row.id) }
             }
@@ -171,6 +195,9 @@ final class HomeModel {
     }
 
     private func fetch(rowID: String) async throws -> ([BaseItem], String?) {
+        // In a library tab every query stays inside it, and asks for what that library holds.
+        let parentId = library?.id
+        let titles: [ItemKind] = library.map { $0.shows ? [.series] : [.movie] } ?? [.movie]
         switch rowID {
         case Self.nextUpID:
             return (try await service.nextUp(limit: 24, seriesId: nil), nil)
@@ -178,17 +205,16 @@ final class HomeModel {
             let now = now()
             return (try await service.latest(limit: 24).filter { HomeRules.isRecent($0, now: now) }, nil)
         case DiscoveryKind.shortTonight.rawValue:
-            var query = ItemQuery(types: [.movie], filters: [.unplayed], sort: .random, limit: 60)
-            query.limit = 60
+            let query = ItemQuery(parentId: parentId, types: [.movie], filters: [.unplayed], sort: .random, limit: 60)
             let items = try await service.items(query).items.filter(HomeRules.isShort)
             return (Array(items.prefix(24)), nil)
         case DiscoveryKind.becauseYouWatched.rawValue:
-            let last = ItemQuery(types: [.movie], filters: [.played], sort: .datePlayed, descending: true, limit: 1)
+            let last = ItemQuery(parentId: parentId, types: [.movie], filters: [.played], sort: .datePlayed, descending: true, limit: 1)
             guard let watched = try await service.items(last).items.first else { return ([], nil) }
             let similar = try await service.similar(to: watched.id, limit: 24)
             return (similar, "because you watched \(watched.displayName)")
         case DiscoveryKind.almostDone.rawValue:
-            let recent = ItemQuery(types: [.series], sort: .datePlayed, descending: true, limit: 50)
+            let recent = ItemQuery(parentId: parentId, types: [.series], sort: .datePlayed, descending: true, limit: 50)
             let series = try await service.items(recent).items.filter(HomeRules.isAlmostDone).prefix(8)
             var episodes: [BaseItem] = []
             for show in series {
@@ -196,13 +222,14 @@ final class HomeModel {
             }
             return (episodes, nil)
         case DiscoveryKind.shelf.rawValue:
-            let query = ItemQuery(types: [.movie, .series], filters: [.unplayed], sort: .dateCreated, limit: 24)
+            let query = ItemQuery(parentId: parentId, types: library == nil ? [.movie, .series] : titles,
+                                  filters: [.unplayed], sort: .dateCreated, limit: 24)
             return (try await service.items(query).items, nil)
         case DiscoveryKind.decade.rawValue:
-            let oldest = ItemQuery(types: [.movie], sort: .premiereDate, limit: 1)
+            let oldest = ItemQuery(parentId: parentId, types: titles, sort: .premiereDate, limit: 1)
             guard let earliest = try await service.items(oldest).items.first?.productionYear else { return ([], nil) }
             let decade = HomeRules.decade(day: HomeRules.dayNumber(now()), earliestYear: earliest, now: now())
-            var query = ItemQuery(types: [.movie], sort: .random, limit: 24)
+            var query = ItemQuery(parentId: parentId, types: titles, sort: .random, limit: 24)
             query.years = Array(decade...(decade + 9))
             return (try await service.items(query).items, "From the \(decade)s")
         case Self.genreID:
@@ -224,7 +251,7 @@ final class HomeModel {
     /// After playback: the hero, Continue watching and Next up follow the server's new positions;
     /// the other rows stay as they are so the page does not reshuffle.
     func refreshProgress() async {
-        guard !rows.isEmpty else { return }
+        guard !rows.isEmpty, library == nil else { return }
         async let resume: Void = loadHeroAndContinue()
         async let next: Void = load(rowID: Self.nextUpID)
         _ = await (resume, next)

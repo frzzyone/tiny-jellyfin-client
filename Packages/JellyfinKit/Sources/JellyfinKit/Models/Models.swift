@@ -121,7 +121,6 @@ public struct BaseItem: Codable, Sendable, Identifiable, Equatable {
     public var formatBadges: [String] { FormatBadges.badges(for: mediaStreams ?? mediaSources?.first?.mediaStreams ?? []) }
 
     public var displayName: String { name ?? "Untitled" }
-    public var hasPrimaryImage: Bool { imageTags?["Primary"] != nil }
 
     /// Saved resume position, if the item is partly watched.
     public var resumePositionSeconds: Double? {
@@ -243,4 +242,9 @@ public enum FormatBadges {
         }
         return badges
     }
+}
+
+/// Navigation values (a title's page) are items; equal items have equal ids, so hashing the id is enough.
+extension BaseItem: Hashable {
+    public func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

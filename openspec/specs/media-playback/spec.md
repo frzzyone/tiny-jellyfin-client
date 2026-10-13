@@ -21,7 +21,8 @@ stream for this app's playback capabilities.
 
 ### Requirement: Player controls
 The player SHALL provide play/pause, a scrubber showing elapsed and remaining time, skip back 10 s and forward
-30 s, volume and mute, and full screen. Controls SHALL hide after 3 seconds without mouse movement while playing.
+30 s, volume and mute, and full screen. Controls SHALL hide after 3 seconds without mouse movement while playing,
+and stay up while the pointer rests on them.
 
 #### Scenario: Scrub to a position
 - **WHEN** the user drags the scrubber to 1:10:00 and releases it
@@ -35,13 +36,22 @@ The player SHALL provide play/pause, a scrubber showing elapsed and remaining ti
 - **WHEN** playback is paused
 - **THEN** the controls remain visible
 
+#### Scenario: Pointer on the controls
+- **WHEN** the pointer rests on the play button for 5 seconds during playback
+- **THEN** the controls stay visible
+
 ### Requirement: Keyboard shortcuts
 The player SHALL support Space (play/pause), Left/Right arrows (skip back 10 s / forward 30 s), Up/Down arrows
-(volume), F (toggle full screen), M (mute), and Escape (exit full screen).
+(volume), F (toggle full screen), M (mute), Escape (exit full screen), S (next text subtitle, then off) and
+0–9 (jump to that tenth of the film).
 
 #### Scenario: Pause with the keyboard
 - **WHEN** the player window is focused and the user presses Space during playback
 - **THEN** playback pauses, and pressing Space again resumes it
+
+#### Scenario: Jump by tenths
+- **WHEN** the user presses 5 during a two-hour film
+- **THEN** playback continues from one hour in
 
 ### Requirement: Buffering indicator
 The player SHALL show a loading indicator whenever playback is waiting for data, and hide it as soon as playback
@@ -110,3 +120,16 @@ the user retry from that position.
 #### Scenario: Corrupt data in the file
 - **WHEN** the file contains a damaged section that cannot be decoded
 - **THEN** playback skips past the damaged section and continues, rather than freezing or crashing the app
+
+### Requirement: Mouse, trackpad and the end of a film
+On the Mac, a single click on the picture SHALL toggle play and pause (except the click that brings the
+window forward), a sideways two-finger trackpad swipe SHALL scrub and seek when the fingers lift, the
+window SHALL carry the film's title, and a finished film SHALL show Watched with Play Again and Close.
+
+#### Scenario: Click to pause
+- **WHEN** the user clicks once on the playing picture
+- **THEN** playback pauses, and a double-click still toggles full screen
+
+#### Scenario: End of a film
+- **WHEN** a film plays to its end
+- **THEN** the player shows Watched with Play Again and Close

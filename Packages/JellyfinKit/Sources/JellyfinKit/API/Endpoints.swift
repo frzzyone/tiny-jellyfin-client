@@ -74,14 +74,6 @@ extension JellyfinClient {
         return result.items
     }
 
-    /// One page of a library's top-level items, sorted by name.
-    public func items(parentId: String, startIndex: Int, limit: Int) async throws -> ItemsResult {
-        var query = ItemQuery(parentId: parentId)
-        query.startIndex = startIndex
-        query.limit = limit
-        return try await items(query)
-    }
-
     /// One page of items matching the query (see `ItemQuery`).
     public func items(_ query: ItemQuery) async throws -> ItemsResult {
         try await get("/Items", query: query.parameters(userId: try requireUserId()))

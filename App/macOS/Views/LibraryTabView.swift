@@ -2,14 +2,17 @@ import JellyfinKit
 import SwiftUI
 
 /// A library tab (or the search results when `parentId` is nil and there is a search term):
-/// one-click filters, the genre strip, and the paged poster grid.
+/// one-click filters, the genre strip, today's discovery rows for the library, and the paged grid.
 struct LibraryTabView: View {
     @Environment(AppModel.self) private var model
     @Environment(BrowserModel.self) private var browser
     let parentId: String?
     let title: String
     let searchTerm: String
+    /// The library itself, for its discovery rows (none in search results).
+    var library: BaseItem?
     @State private var grid: LibraryGridModel?
+    @State private var discovery: HomeModel?
     @State private var genres: [NameGuidPair] = []
     @State private var columns = 6
 
@@ -24,6 +27,17 @@ struct LibraryTabView: View {
                 GeometryReader { geo in
                 ScrollViewReader { proxy in
                     ScrollView {
+                        if let discovery {
+                            VStack(alignment: .leading, spacing: 30) {
+                                ForEach(discovery.visibleRows) { row in
+                                    RowView(row: row, onOpen: { browser.openQuickLook($0, in: row.items) },
+                                            onGenre: { _ in }, onRetry: { Task { await discovery.load() } })
+                                        .id(row.id)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.bottom, discovery.visibleRows.isEmpty ? 0 : 30)
+                        }
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: cell, maximum: cell), spacing: gap, alignment: .top)],
                                   alignment: .leading, spacing: 18) {
                             ForEach(Array(grid.items.enumerated()), id: \.element.id) { index, item in
@@ -50,7 +64,12 @@ struct LibraryTabView: View {
                         columns = max(1, Int((width - 8 + gap) / (cell + gap)))
                     }
                     .onChange(of: browser.selection) { _, selection in
-                        guard let selection, selection.row == Self.gridID, grid.items.indices.contains(selection.index) else { return }
+                        guard let selection else { return }
+                        if selection.row != Self.gridID {
+                            withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(selection.row, anchor: .center) }
+                            return
+                        }
+                        guard grid.items.indices.contains(selection.index) else { return }
                         withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(grid.items[selection.index].id, anchor: .center) }
                     }
                 }
@@ -58,6 +77,7 @@ struct LibraryTabView: View {
                 .padding(.horizontal, BrowserStyle.sidePadding - 4)
                 .padding(.top, 22)
                 .onChange(of: grid.items) { _, _ in publishRows() }
+                .onChange(of: discovery?.visibleRows) { _, _ in publishRows() }
                 .onChange(of: columns) { _, _ in publishRows() }
                 .onAppear(perform: publishRows)
             } else {
@@ -68,9 +88,13 @@ struct LibraryTabView: View {
             guard grid == nil, let client = model.client else { return }
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }
             self.grid = grid
+            let discovery = library.map { HomeModel(service: client, library: $0) }
+            self.discovery = discovery
             async let genreList = (try? client.genres(libraryId: parentId)) ?? []
+            async let rows: Void = discovery?.load() ?? ()
             if searchTerm.isEmpty { await grid.loadMore() } else { await grid.apply(searchTerm: searchTerm) }
             genres = await genreList
+            await rows
         }
         .task(id: searchTerm) {
             // Typing: wait for a pause before asking the server.
@@ -110,6 +134,7 @@ struct LibraryTabView: View {
 
     private func publishRows() {
         guard let grid else { return }
-        browser.setRows([(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)])
+        let rows = (discovery?.visibleRows ?? []).map { (RowLayout(id: $0.id, count: $0.items.count), $0.items) }
+        browser.setRows(rows + [(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)])
     }
 }

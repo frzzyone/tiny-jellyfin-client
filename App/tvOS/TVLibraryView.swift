@@ -1,14 +1,17 @@
 import JellyfinKit
 import SwiftUI
 
-/// A library tab: title and count, filter pills, genres, and a poster grid that pages as focus
-/// moves down it.
+/// A library tab: title and count, today's discovery rows for the library, filter pills, genres,
+/// and a poster grid that pages as focus moves down it.
 struct TVLibraryView: View {
     @Environment(AppModel.self) private var model
     let parentId: String?
     let title: String
     var searchTerm = ""
+    /// The library itself, for its discovery rows (none in search results).
+    var library: BaseItem?
     @State private var grid: LibraryGridModel?
+    @State private var discovery: HomeModel?
     @State private var genres: [NameGuidPair] = []
 
     private let columns = Array(repeating: GridItem(.fixed(TVStyle.posterWidth), spacing: 30, alignment: .top), count: 7)
@@ -24,6 +27,15 @@ struct TVLibraryView: View {
                         }
                     }
                     .padding(.horizontal, TVStyle.side)
+                }
+                if let discovery {
+                    ForEach(discovery.visibleRows) { row in
+                        if let error = row.error {
+                            InlineError(message: "\(row.title): \(error)") { Task { await discovery.load() } }
+                        } else {
+                            TVShelf(title: row.title, items: row.items, shape: row.shape).padding(.bottom, 24)
+                        }
+                    }
                 }
                 if let grid {
                     filters(grid)
@@ -53,9 +65,13 @@ struct TVLibraryView: View {
             guard grid == nil, let client = model.client else { return }
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }
             self.grid = grid
+            let discovery = library.map { HomeModel(service: client, library: $0) }
+            self.discovery = discovery
             async let genreList = (try? client.genres(libraryId: parentId)) ?? []
+            async let rows: Void = discovery?.load() ?? ()
             if searchTerm.isEmpty { await grid.loadMore() } else { await grid.apply(searchTerm: searchTerm) }
             genres = await genreList
+            await rows
         }
         .task(id: searchTerm) {
             try? await Task.sleep(for: .milliseconds(300))

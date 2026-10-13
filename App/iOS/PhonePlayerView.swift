@@ -6,7 +6,8 @@ import SwiftUI
 import UIKit
 
 /// The full-screen landscape player: video, subtitles inside the picture, and touch controls.
-/// A tap shows or hides the controls; a double-tap on the left or right third skips 10 s / 30 s.
+/// A tap shows or hides the controls; a double-tap on the left or right third skips 10 s / 30 s;
+/// a sideways swipe scrubs; a pinch fills or fits the screen.
 struct PhonePlayerView: View {
     @Environment(AppModel.self) private var model
     let onClose: () -> Void
@@ -20,6 +21,9 @@ struct PhonePlayerView: View {
     /// A vertical swipe in progress: which side, and the level it started from.
     @State private var swipe: (brightness: Bool, start: Double)?
     @State private var level: (brightness: Bool, value: Double)?
+    /// A sideways swipe in progress: where the film was when it started.
+    @State private var swipeScrubStart: Double?
+    @State private var pinching = false
 
     private var player: PlaybackController { model.player }
 
@@ -65,6 +69,7 @@ struct PhonePlayerView: View {
                 }
                 if controlsVisible { controls.transition(.opacity) }
                 if let level { levelIndicator(level, width: geo.size.width).transition(.opacity) }
+                if let start = swipeScrubStart, let target = scrubbing { scrubIndicator(from: start, to: target) }
             }
         }
         .ignoresSafeArea()
@@ -87,25 +92,50 @@ struct PhonePlayerView: View {
     }
 
     /// Single tap toggles the controls; double tap on a side third skips. A vertical swipe on the
-    /// left half sets the screen brightness and on the right half the device volume, controls up or not.
+    /// left half sets the screen brightness and on the right half the device volume, controls up or
+    /// not; a sideways swipe scrubs and seeks on release. A pinch out fills the screen, in fits it.
     private func touchLayer(size: CGSize) -> some View {
         let width = size.width
         return Color.clear
             .contentShape(Rectangle())
             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
-                if swipe == nil {
-                    guard abs(drag.translation.height) > abs(drag.translation.width) else { return }
-                    let left = drag.startLocation.x < width / 2
-                    swipe = (left, left ? Double(PhoneScreen.brightness) : Double(SystemVolume.level))
+                guard !pinching else { return }
+                // The first movement decides what the swipe does, for the whole swipe.
+                if swipe == nil && swipeScrubStart == nil {
+                    if abs(drag.translation.height) > abs(drag.translation.width) {
+                        let left = drag.startLocation.x < width / 2
+                        swipe = (left, left ? Double(PhoneScreen.brightness) : Double(SystemVolume.level))
+                    } else if player.duration > 0 {
+                        swipeScrubStart = player.currentTime
+                    }
                 }
-                guard let swipe else { return }
-                let value = SwipeLevel.adjusted(start: swipe.start, translation: drag.translation.height, height: size.height)
-                if swipe.brightness { PhoneScreen.brightness = CGFloat(value) } else { SystemVolume.level = Float(value) }
-                level = (swipe.brightness, value)
+                if let start = swipeScrubStart {
+                    scrubbing = SwipeScrub.target(start: start, fraction: drag.translation.width / width, duration: player.duration)
+                } else if let swipe {
+                    let value = SwipeLevel.adjusted(start: swipe.start, translation: drag.translation.height, height: size.height)
+                    if swipe.brightness { PhoneScreen.brightness = CGFloat(value) } else { SystemVolume.level = Float(value) }
+                    level = (swipe.brightness, value)
+                }
                 lastActivity = Date()
             }.onEnded { _ in
+                if swipeScrubStart != nil, let target = scrubbing {
+                    swipeScrubStart = nil
+                    Task {
+                        await player.seek(to: target)
+                        scrubbing = nil
+                    }
+                }
                 swipe = nil
                 withAnimation(.easeIn(duration: 0.3).delay(0.4)) { level = nil }
+            })
+            .simultaneousGesture(MagnifyGesture().onChanged { _ in
+                // Two fingers: not a swipe after all.
+                pinching = true
+                if swipeScrubStart != nil { swipeScrubStart = nil; scrubbing = nil }
+            }.onEnded { pinch in
+                pinching = false
+                if pinch.magnification > 1.15 { zoomed = true } else if pinch.magnification < 0.87 { zoomed = false }
+                lastActivity = Date()
             })
             .gesture(
                 SpatialTapGesture(count: 2).onEnded { tap in
@@ -127,6 +157,21 @@ struct PhonePlayerView: View {
             try? await Task.sleep(for: .milliseconds(700))
             withAnimation(.easeIn(duration: 0.25)) { skipFlash = nil }
         }
+    }
+
+    /// The time a sideways swipe will seek to, and how far that is from where it started.
+    private func scrubIndicator(from start: Double, to target: Double) -> some View {
+        let delta = target - start
+        return VStack(spacing: 4) {
+            Text(TimeFormat.clock(target)).font(.system(size: 30, weight: .semibold).monospacedDigit())
+            Text((delta < 0 ? "−" : "+") + TimeFormat.clock(abs(delta))).font(.system(size: 15).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.75))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 22).padding(.vertical, 12)
+        .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 14))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func levelIndicator(_ level: (brightness: Bool, value: Double), width: CGFloat) -> some View {

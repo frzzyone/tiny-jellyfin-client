@@ -127,8 +127,6 @@ final class BrowserModel {
         return (row[selection.index], row)
     }
 
-    func items(inRow id: String) -> [BaseItem] { itemsByRow[id] ?? [] }
-
     func openQuickLook(_ item: BaseItem, in row: [BaseItem]) {
         quickLook = item
         quickLookRow = row

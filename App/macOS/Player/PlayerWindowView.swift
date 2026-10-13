@@ -11,6 +11,15 @@ struct PlayerWindowView: View {
     @State private var pip = PictureInPictureController()
     @State private var window: NSWindow?
     @FocusState private var focused: Bool
+    /// The position being scrubbed to (slider or trackpad), shown in place of the clock.
+    @State private var scrubbing: Double?
+    /// A trackpad scrub in progress: where it started and how far the fingers have gone (in widths).
+    @State private var trackpadScrub: (start: Double, travel: Double)?
+    @State private var scrollMonitor: Any?
+    /// While the pointer is over the control bars they stay up.
+    @State private var overControls = false
+    /// A click that only brings the window forward must not also pause.
+    @State private var becameKeyAt = Date.distantPast
 
     private var player: PlaybackController { model.player }
 
@@ -20,7 +29,10 @@ struct PlayerWindowView: View {
             if let engine = player.engine {
                 VideoLayerView(layer: engine.displayLayer, aspectRatio: player.videoSize)
                     .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
-                    .onTapGesture(count: 2) { toggleFullScreen() }
+                    // Double-click: full screen. Single click: pause or play, as in Infuse and IINA
+                    // (it waits out the double-click interval to tell them apart).
+                    .gesture(TapGesture(count: 2).onEnded { toggleFullScreen() }
+                        .exclusively(before: TapGesture().onEnded { clickToPause() }))
                     .id(ObjectIdentifier(engine)) // a new engine (retry, next title) gets PiP too
             }
             SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, bars: player.pictureBars)
@@ -48,7 +60,21 @@ struct PlayerWindowView: View {
             if player.status == .idle && player.item == nil {
                 Text("Nothing is playing").foregroundStyle(.secondary)
             }
-            PlayerControls(player: player, pip: pip, toggleFullScreen: toggleFullScreen)
+            if player.status == .ended {
+                // The last frame stays up; say so and offer the two things worth doing.
+                VStack(spacing: 14) {
+                    Label("Watched", systemImage: "checkmark.circle.fill").font(.title2.weight(.semibold))
+                    HStack(spacing: 12) {
+                        Button("Play Again") { player.togglePlayPause() }.keyboardShortcut(.defaultAction)
+                        Button("Close") { window?.close() }
+                    }
+                }
+                .foregroundStyle(.white)
+                .padding(24)
+                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
+            }
+            PlayerControls(player: player, pip: pip, scrubbing: $scrubbing, overControls: $overControls,
+                           toggleFullScreen: toggleFullScreen)
                 .opacity(controlsVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: controlsVisible)
         }
@@ -59,7 +85,8 @@ struct PlayerWindowView: View {
         .focusEffectDisabled()
         .focused($focused)
         .onAppear { focused = true }
-        .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, "f", "m"]) { press in
+        .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, "f", "m", "s",
+                           "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) { press in
             handle(press.key)
             return .handled
         }
@@ -69,8 +96,55 @@ struct PlayerWindowView: View {
             player.nowPlaying.update()
             noteActivity()
         }
-        .onDisappear { player.stop() }
-        .navigationTitle(player.item?.displayName ?? "Player")
+        .onDisappear {
+            player.stop()
+            if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+            scrollMonitor = nil
+        }
+        .onAppear { if scrollMonitor == nil { scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel, handler: trackpadScrub) } }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+            if (note.object as? NSWindow) === window { becameKeyAt = Date() }
+        }
+        // The title bar is hidden, but the Window menu and Mission Control still show the title.
+        .onChange(of: player.item?.displayName, initial: true) { _, name in window?.title = name ?? "Player" }
+        .onChange(of: window) { _, window in window?.title = player.item?.displayName ?? "Player" }
+    }
+
+    private func clickToPause() {
+        guard Date().timeIntervalSince(becameKeyAt) > 0.3, player.status != .ended else { return }
+        player.togglePlayPause()
+        noteActivity()
+    }
+
+    /// A sideways two-finger swipe on a trackpad scrubs, the same distance as on the iPhone; the
+    /// player seeks when the fingers lift. Vertical scrolls and mouse wheels pass through.
+    private func trackpadScrub(_ event: NSEvent) -> NSEvent? {
+        guard event.window === window, event.hasPreciseScrollingDeltas, player.duration > 0,
+              let width = window?.contentView?.bounds.width, width > 0 else { return event }
+        if event.phase == .began { trackpadScrub = nil }
+        if trackpadScrub == nil {
+            // The first movement decides: sideways scrubs, anything else is left alone.
+            guard event.phase == .began || event.phase == .changed,
+                  abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else { return event }
+            trackpadScrub = (player.currentTime, 0)
+        }
+        guard var scrub = trackpadScrub else { return event }
+        // Fingers to the right move forward, whichever way the system scrolls content.
+        let dx = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
+        scrub.travel += dx / width
+        trackpadScrub = scrub
+        scrubbing = SwipeScrub.target(start: scrub.start, fraction: scrub.travel, duration: player.duration)
+        noteActivity()
+        if event.phase == .ended || event.phase == .cancelled {
+            trackpadScrub = nil
+            if let target = scrubbing {
+                Task {
+                    await player.seek(to: target)
+                    scrubbing = nil
+                }
+            }
+        }
+        return nil
     }
 
     private func noteActivity() {
@@ -80,7 +154,8 @@ struct PlayerWindowView: View {
 
     /// Controls hide after 3 s without mouse movement while playing; they stay while paused.
     private func hideIfIdle() {
-        guard player.isPlaying, controlsVisible, Date().timeIntervalSince(lastActivity) >= 3 else { return }
+        guard player.isPlaying, controlsVisible, !overControls, scrubbing == nil,
+              Date().timeIntervalSince(lastActivity) >= 3 else { return }
         controlsVisible = false
         NSCursor.setHiddenUntilMouseMoves(true)
     }
@@ -95,6 +170,8 @@ struct PlayerWindowView: View {
         case .downArrow: player.volume = max(0, player.volume - 0.1)
         case "f": toggleFullScreen()
         case "m": player.isMuted.toggle()
+        case "s": player.cycleSubtitle()
+        case _ where key.character.wholeNumberValue != nil: player.jump(toTenth: key.character.wholeNumberValue!)
         case .escape:
             if let window = window ?? NSApp.keyWindow, window.styleMask.contains(.fullScreen) { toggleFullScreen() }
         default: break
@@ -230,8 +307,9 @@ struct VideoLayerView: NSViewRepresentable {
 struct PlayerControls: View {
     @Bindable var player: PlaybackController
     let pip: PictureInPictureController
+    @Binding var scrubbing: Double?
+    @Binding var overControls: Bool
     var toggleFullScreen: () -> Void = {}
-    @State private var scrubbing: Double?
 
     var body: some View {
         VStack {
@@ -262,6 +340,7 @@ struct PlayerControls: View {
                 .background(.black.opacity(0.45), in: Capsule())
             }
             .padding(.horizontal, 12).padding(.top, 10)
+            .onHover { overControls = $0 }
             // Just enough shade for the traffic lights and the pill to read on a bright scene.
             .background(LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
                             .frame(height: 70), alignment: .top)
@@ -311,6 +390,7 @@ struct PlayerControls: View {
             }
             .padding(.horizontal, 16).padding(.top, 24).padding(.bottom, 12)
             .background(LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .top, endPoint: .bottom))
+            .onHover { overControls = $0 }
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)

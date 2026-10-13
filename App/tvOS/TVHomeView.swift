@@ -22,6 +22,9 @@ struct TVHomeView: View {
                     InlineError(message: error) { Task { await home.load() } }.padding(.top, 200)
                 } else if home.isLoading {
                     ProgressView().frame(maxWidth: .infinity).frame(height: 600)
+                } else if home.isEmpty {
+                    Text(HomeModel.emptyMessage).font(.system(size: 28)).foregroundStyle(BrowserStyle.muted)
+                        .padding(.horizontal, TVStyle.side).padding(.top, 220)
                 }
                 if let librariesError {
                     InlineError(message: "Couldn't load your libraries. \(librariesError)", retry: onRetryLibraries)

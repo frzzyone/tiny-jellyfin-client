@@ -24,6 +24,4 @@ extension JellyfinClient: LibraryService {
 
 extension LibraryService {
     func nextUp(limit: Int = 24) async throws -> [BaseItem] { try await nextUp(limit: limit, seriesId: nil) }
-    func posterURL(for item: BaseItem) -> URL? { primaryImageURL(for: item, maxHeight: 450) }
-    func backdropURL(for item: BaseItem) -> URL? { backdropImageURL(for: item, maxWidth: 1600) }
 }

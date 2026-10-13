@@ -111,7 +111,7 @@ struct TVPlayerView: View {
             showTransport()
         case .panChanged(let fraction):
             guard let start = scrub?.start else { return }
-            scrub?.target = RemoteScrub.target(start: start, fraction: fraction, duration: player.duration)
+            scrub?.target = SwipeScrub.target(start: start, fraction: fraction, duration: player.duration)
             showTransport()
         case .panEnded:
             // The next swipe carries on from here; a click commits, Back cancels.

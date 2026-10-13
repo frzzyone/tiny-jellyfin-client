@@ -88,9 +88,10 @@ enum SwipeLevel {
     }
 }
 
-/// Scrubbing with a swipe on the Siri Remote: a swipe across the whole touch surface moves a
-/// tenth of the film, at least a minute and at most ten, so short and long titles both feel right.
-enum RemoteScrub {
+/// Scrubbing with a sideways swipe (the iPhone's screen, the Siri Remote's touch surface): a swipe
+/// across the whole width moves a tenth of the film, at least a minute and at most ten, so short
+/// and long titles both feel right.
+enum SwipeScrub {
     static func target(start: Double, fraction: Double, duration: Double) -> Double {
         let span = min(600, max(60, duration * 0.1))
         return min(max(0, start + fraction * span), max(duration, 0))

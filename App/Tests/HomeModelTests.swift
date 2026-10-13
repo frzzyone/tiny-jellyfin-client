@@ -25,11 +25,51 @@ final class HomeModelTests: XCTestCase {
         XCTAssertEqual(DiscoveryKind.rotation(day: 5), DiscoveryKind.rotation(day: 10), "five-day cycle")
     }
 
+    func testLibraryTabsGetTwoRowsThatSuitThemAndHomeIsNotShowing() {
+        for day in 0..<5 {
+            let home = Set(DiscoveryKind.rotation(day: day))
+            let films = DiscoveryKind.forLibrary(day: day, shows: false)
+            let shows = DiscoveryKind.forLibrary(day: day, shows: true)
+            XCTAssertEqual(films.count, 2)
+            XCTAssertEqual(shows.count, 2)
+            XCTAssertFalse(films.contains(.almostDone), "a film library has no series")
+            XCTAssertFalse(shows.contains(.shortTonight) || shows.contains(.becauseYouWatched))
+            // A kind that suits the library and isn't on Home today comes first.
+            let filmKinds: Set<DiscoveryKind> = [.shortTonight, .becauseYouWatched, .shelf, .decade]
+            if !filmKinds.subtracting(home).isEmpty { XCTAssertFalse(home.contains(films[0]), "day \(day)") }
+            XCTAssertEqual(films, DiscoveryKind.forLibrary(day: day, shows: false), "stable within a day")
+        }
+    }
+
+    func testLibraryRowsStayInsideTheLibrary() async {
+        var library = item("films", type: .collectionFolder)
+        library.collectionType = "movies"
+        service.onItems = { _ in [item("a", minutes: 90)] }
+        service.resume = [item("troy", position: 100)]
+        let model = HomeModel(service: service, library: library, now: { self.today })
+        await model.load()
+        XCTAssertNil(model.hero, "no hero in a library tab")
+        XCTAssertEqual(model.rows.map(\.id), DiscoveryKind.forLibrary(day: HomeRules.dayNumber(today), shows: false).map(\.rawValue))
+        XCTAssertFalse(service.queries.isEmpty)
+        XCTAssertTrue(service.queries.allSatisfy { $0.parentId == "films" }, "\(service.queries.map(\.parentId))")
+        XCTAssertTrue(service.queries.allSatisfy { $0.types == [.movie] })
+    }
+
     func testPlannedRowsOrder() {
         let ids = makeModel().plannedRows.map(\.id)
         XCTAssertEqual(ids.prefix(3), ["continue", "nextUp", "latest"])
         XCTAssertEqual(ids.last, "genre")
         XCTAssertEqual(ids.count, 7)
+    }
+
+    func testEmptyLibrary() async {
+        let model = makeModel()
+        XCTAssertFalse(model.isEmpty, "not before loading")
+        await model.load()
+        XCTAssertTrue(model.isEmpty)
+        service.latestItems = [item("new", created: "2026-10-11T10:00:00.0000000Z")]
+        await model.load()
+        XCTAssertFalse(model.isEmpty)
     }
 
     func testHeroIsTheLastWatchedAndRestIsTheRow() async {

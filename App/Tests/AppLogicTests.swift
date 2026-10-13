@@ -58,12 +58,12 @@ final class AppLogicTests: XCTestCase {
         XCTAssertNil(TopShelfLink(url: URL(string: "https://item/abc")!))
     }
 
-    func testRemoteScrub() {
-        XCTAssertEqual(RemoteScrub.target(start: 3000, fraction: 1, duration: 7200), 3600, "two hours: a full swipe is 10 min")
-        XCTAssertEqual(RemoteScrub.target(start: 1000, fraction: 0.5, duration: 3000), 1150, "50 min: a tenth")
-        XCTAssertEqual(RemoteScrub.target(start: 100, fraction: -1, duration: 300), 40, "short: at least a minute")
-        XCTAssertEqual(RemoteScrub.target(start: 10, fraction: -1, duration: 3000), 0, "not before the start")
-        XCTAssertEqual(RemoteScrub.target(start: 2990, fraction: 1, duration: 3000), 3000, "not past the end")
+    func testSwipeScrub() {
+        XCTAssertEqual(SwipeScrub.target(start: 3000, fraction: 1, duration: 7200), 3600, "two hours: a full swipe is 10 min")
+        XCTAssertEqual(SwipeScrub.target(start: 1000, fraction: 0.5, duration: 3000), 1150, "50 min: a tenth")
+        XCTAssertEqual(SwipeScrub.target(start: 100, fraction: -1, duration: 300), 40, "short: at least a minute")
+        XCTAssertEqual(SwipeScrub.target(start: 10, fraction: -1, duration: 3000), 0, "not before the start")
+        XCTAssertEqual(SwipeScrub.target(start: 2990, fraction: 1, duration: 3000), 3000, "not past the end")
     }
 
     func testSwipeLevel() {
@@ -79,16 +79,6 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(CTFontCopyPostScriptName(SubtitleFont.font(forPictureHeight: 1080)) as String, "HelveticaNeue")
         XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 540)), 24)
         XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 100)), 12, "never smaller than 12 pt")
-    }
-
-    func testPlaybackActionsForPartlyWatchedItem() {
-        let actions = PlaybackActions.actions(for: movie(resumeAt: 2530))
-        XCTAssertEqual(actions.map(\.title), ["Resume from 42:10", "Play from beginning"])
-        XCTAssertEqual(actions.map(\.resume), [true, false])
-    }
-
-    func testPlaybackActionsForUnwatchedItem() {
-        XCTAssertEqual(PlaybackActions.actions(for: movie()).map(\.title), ["Play"])
     }
 
     func testLoaderErrorStateAndRetry() async {

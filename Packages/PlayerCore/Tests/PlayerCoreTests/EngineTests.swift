@@ -300,6 +300,33 @@ final class EngineTests: XCTestCase {
                        file: file, line: line)
     }
 
+    /// The controller gives up on a slow switch by cancelling it. If that lands after the splice
+    /// point is chosen, the switch must still back out (and keep the old stream), not finish later
+    /// behind the controller's back. Paused, the old stream never reaches the splice point.
+    func testCancelledSwitchBacksOutAfterChoosingTheSplice() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        let original = try Fixtures.url("h264_aac.mp4")
+        try await engine.prepare(source: MediaSource(url: original), startAt: 0)
+        let task = Task { try await engine.switchSource(MediaSource(url: try Fixtures.url("h264_aac_low.mp4")), startAt: 0) }
+        let chosen = await waitFor(5) { !engine.debugSummary.hasSuffix("splice=-") }
+        XCTAssertTrue(chosen, "no splice point: \(engine.debugSummary)")
+        let cancelledAt = Date()
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("the switch finished after being cancelled")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(cancelledAt), 2)
+        XCTAssertTrue(engine.debugSummary.hasSuffix("splice=-"), engine.debugSummary)
+        engine.play()
+        let t = engine.currentTime
+        let advancing = await waitFor(2) { engine.currentTime > t + 0.3 }
+        XCTAssertTrue(advancing, "old stream stopped: \(engine.debugSummary)")
+    }
+
     func testFailedSwitchKeepsPlaying() async throws {
         let engine = engine()
         defer { engine.stop() }

@@ -32,7 +32,7 @@ struct TVTabsView: View {
             .tag("home")
 
             ForEach(libraries) { library in
-                page { TVLibraryView(parentId: library.id, title: library.displayName) }
+                page { TVLibraryView(parentId: library.id, title: library.displayName, library: library) }
                     .tabItem { Text(library.displayName) }
                     .tag(library.id)
             }

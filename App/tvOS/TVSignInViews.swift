@@ -142,13 +142,15 @@ private struct TVPasswordForm: View {
             .disabled(name.isEmpty || model.session.isBusy)
         }
         .onAppear { if name.isEmpty { name = username } }
-        // A failed attempt clears the password field.
-        .onChange(of: error) { _, newError in if newError != nil { password = "" } }
     }
 
     private func signIn() {
         let password = self.password
-        Task { await model.session.signIn(username: name, password: password) }
+        Task {
+            await model.session.signIn(username: name, password: password)
+            // Every failed attempt clears the field, even when the message is the same as last time.
+            if case .signIn(_, _, _?) = model.session.state { self.password = "" }
+        }
     }
 }
 

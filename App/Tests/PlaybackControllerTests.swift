@@ -52,6 +52,25 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(controller.pictureBars)
     }
 
+    func testCycleSubtitleSkipsImageTracksAndEndsOff() async {
+        let (controller, _, _) = await started()
+        var seen: [Int?] = []
+        for _ in 0..<4 {
+            controller.cycleSubtitle()
+            seen.append(controller.selectedSubtitle)
+        }
+        XCTAssertEqual(seen, [2, 4, nil, 2], "English, French (external), Off, English; never the PGS track")
+        controller.stop()
+    }
+
+    func testDigitKeysJumpByTenths() async {
+        let (controller, _, engine) = await started()
+        controller.jump(toTenth: 5)
+        let jumped = await eventually { engine.seeks.last == 300 }
+        XCTAssertTrue(jumped, "\(engine.seeks)")
+        controller.stop()
+    }
+
     /// The Apple TV switches the display mode here; the clock must not run until it is done.
     func testBeforePlayRunsBetweenOpenAndPlay() async {
         let controller = makeController()

@@ -14,6 +14,8 @@ settings:
     # PlayerCore's CFFmpeg module needs the FFmpeg headers wherever PlayerCore is imported.
     HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Vendor/FFmpeg/include"
     OTHER_SWIFT_FLAGS: "$(inherited) -Xcc -I$(SRCROOT)/Vendor/FFmpeg/include"
+    # BrowserStyle.accent, so system-tinted controls (Retry, Sign In, sliders) are amber too.
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 packages:
   JellyfinKit:
     path: Packages/JellyfinKit
