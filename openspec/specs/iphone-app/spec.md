@@ -1,11 +1,10 @@
-# Spec Delta
+# iphone-app Specification
 
 ## Purpose
-
 Tiny Jellyfin on iPhone: the same server connection, browsing and playback engine as the Mac app,
 with a touch interface and the audio and background behaviour a phone needs.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Runs on iPhone
 The app SHALL install and run on iPhones with iOS 17 or later, connect and sign in to a Jellyfin
@@ -16,7 +15,7 @@ server as the Mac app does, keep the token in the iOS Keychain, and restore the 
 - **THEN** they land on Home, and on the next launch they land on Home without signing in
 
 ### Requirement: Browsing on iPhone
-The app SHALL offer Home, Movies, Shows and Search as tabs, with Home showing the resume hero and the
+The app SHALL offer Home, one tab per video library (named after it) and Search, with Home showing the resume hero and the
 same rows as the Mac app, each row scrolling sideways. Tapping a title SHALL open a detail sheet with
 its facts, overview, progress, Resume or Play, Start over and Mark watched; series open to seasons and
 episodes.
@@ -42,6 +41,19 @@ progress bar, and offer quality and subtitle menus with the same behaviour as th
 - **WHEN** the user switches from Original to 720p 4 Mbps on cellular
 - **THEN** playback continues near the same position at the new quality, as on the Mac
 
+### Requirement: Brightness, volume and fill
+In the player, a vertical swipe SHALL set the screen brightness on the left half and the device
+volume on the right half, whether or not the controls are showing. A button SHALL switch between
+fitting the picture and filling the screen, remembered between films.
+
+#### Scenario: Volume with a swipe
+- **WHEN** the user swipes up on the right half of the picture with the controls hidden
+- **THEN** the device volume rises, the same level the volume buttons set, and a level bar shows it
+
+#### Scenario: Fill the screen
+- **WHEN** the user switches a 2.39:1 film to fill on a 19.5:9 phone
+- **THEN** the picture covers the screen, cropping its sides, and the next film opens filled too
+
 ### Requirement: Audio on iPhone
 The app SHALL play every audio format the Mac app plays. Formats iOS decodes itself are handed to the
 system; others SHALL be decoded to PCM by the app, keeping their channel layout for the system to
@@ -63,6 +75,10 @@ report progress to the server so another client resumes at the same point.
 #### Scenario: Leave the app while watching
 - **WHEN** the user swipes home during playback
 - **THEN** the video continues in a Picture in Picture window and the lock screen shows its controls
+
+#### Scenario: Phone call during a film
+- **WHEN** a call comes in during playback and the user declines it
+- **THEN** playback pauses for the call and carries on afterwards
 
 #### Scenario: Headphones unplugged
 - **WHEN** wired or Bluetooth headphones disconnect during playback

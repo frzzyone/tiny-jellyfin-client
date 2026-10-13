@@ -1,7 +1,7 @@
 # Tiny Jellyfin
 
-A small, native macOS client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback engine and
-on-the-fly quality switching.
+A small, native macOS and iPhone client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
+engine and on-the-fly quality switching.
 
 - **Plays files as they are.** FFmpeg reads the container (MKV, MP4, MOV, TS, WebM); video is decoded in
   hardware by macOS, and audio goes to the system audio renderer. Most files play without the server
@@ -16,7 +16,7 @@ The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpe
 
 ## Requirements
 
-- macOS 14 Sonoma or later
+- macOS 14 Sonoma or later; iPhone with iOS 17 or later
 - Xcode 15 or later (CI uses Xcode 16)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) and, for tests, the `ffmpeg` command-line tool:
   `brew install xcodegen ffmpeg`
@@ -66,6 +66,24 @@ A few things worth knowing:
 - If `swift` or `xcodebuild` complain about a missing `XCTest` or SDK, `xcode-select -p` is pointing
   at the Command Line Tools: either export `DEVELOPER_DIR` as above or run
   `sudo xcode-select -s /Applications/Xcode.app`.
+
+## iPhone
+
+The iPhone app is the `TinyJellyfinPhone` scheme in the same project. It shares the engine, the
+browser models and the sign-in with the Mac app; the screens and the player are its own: tabs for
+Home, each library and Search, a detail sheet, and a landscape player (tap for controls, double-tap
+the sides to skip, swipe up and down for brightness on the left and volume on the right, fit or fill).
+
+To run it on your phone, put your team in `App/Signing.local.xcconfig` (git-ignored):
+
+```
+DEVELOPMENT_TEAM = ABCDE12345
+```
+
+then `xcodegen generate`, pick the `TinyJellyfinPhone` scheme and your iPhone in Xcode, and run. The
+app is meant for your own devices: whether an LGPL FFmpeg build can go through the App Store is an
+open question this project has not taken on. iOS has no audio passthrough, so Dolby Atmos is
+played as 5.1/7.1 rather than passed to the receiver; DTS and TrueHD are decoded in the app.
 
 ## Tests
 
@@ -127,11 +145,12 @@ because the app only advertises what it can play.
 ## How it fits together
 
 ```
-App/                     SwiftUI app: sign-in, library, player window, PlaybackController
+App/Shared               Both apps: sign-in, browser and Home models, PlaybackController, Now Playing, PiP
+App/macOS, App/iOS       Each app's screens and player
 Packages/JellyfinKit     Jellyfin API client, session state, DeviceProfile, quality logic (Foundation only)
 Packages/PlayerCore      Playback engine
   Core/                  FFmpeg demuxing through URLSession byte sources, audio/subtitle decoding (portable)
-  Apple/                 AVSampleBufferDisplayLayer / AudioRenderer / RenderSynchronizer engine (macOS)
+  Apple/                 AVSampleBufferDisplayLayer / AudioRenderer / RenderSynchronizer engine (macOS, iOS)
 scripts/                 FFmpeg build, test fixtures, test HTTP server
 ```
 

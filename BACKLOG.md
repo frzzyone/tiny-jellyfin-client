@@ -29,14 +29,14 @@ Things we know about and have chosen not to do yet. Each should become its own O
   Waiting for more agreeing looks, or easing the move, would hide it. Decide after seeing it.
 - **Verification owed:** `openspec/changes/archive/2026-10-12-subtitle-style/manual-checklist.md` and `openspec/changes/archive/2026-10-13-browser-home/manual-checklist.md`.
 
-## iPad / iPhone (parked 2026-10-12)
+## iPhone
 
-Not a rewrite: JellyfinKit, the browser and player models, and the engine's core carry over; the
-Apple renderers exist on iOS. The work is an FFmpeg XCFramework (device + simulator slices),
-decoding E-AC-3/TrueHD/DTS to PCM since iOS has no passthrough (Atmos is lost), a touch UI (iPad
-close to the Mac layout, iPhone its own), and app lifecycle. Two to three weeks. Decide first
-whether it is for your own devices (fine) or the App Store, where LGPL FFmpeg under code signing
-is an open question. Start with the XCFramework and PlayerCore's tests on a simulator.
+- **From the production review (2026-10-13), not yet decided:** horizontal swipe to scrub, pinch
+  for fit/fill, a skip-interval setting, playback speed / audio track / chapters, Dynamic Type for
+  the browser text, PiP restore-to-app.
+- **iPad** would want a layout closer to the Mac's; the phone layout only stretches today.
+- **App Store** distribution: LGPL FFmpeg under code signing is unresolved; the app is for your own
+  devices.
 
 ## Playback engine
 

@@ -1,13 +1,13 @@
 schema: spec-driven
 
 context: |
-  Native macOS app (not a web, Electron or Catalyst app). Target macOS 14 Sonoma and later; an iPhone app (iOS 17+) is planned in iphone-app.
+  Native macOS app and iPhone app (not web, Electron or Catalyst). Target macOS 14 Sonoma and iOS 17 and later.
   Swift + SwiftUI for UI. Playback uses our own engine: FFmpeg for demuxing (and software audio decoding only),
   Apple's AVSampleBuffer* renderers + VideoToolbox for video, audio, sync, HDR, Dolby Vision, Atmos and PiP.
   FFmpeg is the one approved third-party dependency: an LGPL-only build, dynamically linked, pinned version.
   Avoid any other third-party dependency unless a design justifies it.
   Talks to a self-hosted Jellyfin server (10.9+) over its REST API; never assume a cloud backend.
-  Credentials and access tokens live in the macOS Keychain, never in UserDefaults or plain files.
+  Credentials and access tokens live in the Keychain, never in UserDefaults or plain files.
   Keep the app "tiny": favor a small, readable codebase over feature breadth.
 
 # Project context (optional)

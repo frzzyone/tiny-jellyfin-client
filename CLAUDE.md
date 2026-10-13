@@ -1,6 +1,6 @@
 # Tiny Jellyfin — notes for Claude
 
-Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
+Native macOS and iPhone Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
 `AVSampleBuffer*` renderers decode and present. See `README.md` for the user-facing description and
 `openspec/specs/` for the requirements it meets (finished changes are under
 `openspec/changes/archive/`, each with a `manual-checklist.md` of what still needs a person).
@@ -15,6 +15,7 @@ Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxe
 | `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS + iOS |
 | `App/Shared` | Models and pieces both apps use: `HomeModel`/`BrowserModel`/`LibraryGridModel`, `PlaybackController`, Now Playing, PiP, subtitle layout, cards and colours. No AppKit or UIKit beyond `#if`. | macOS + iOS |
 | `App/macOS` | The Mac app: `BrowserView` (tabs, keys, quick look), player window, menus. | macOS |
+| `App/iOS` | The iPhone app: tabs, detail sheet, landscape touch player (gestures, device volume, audio session). | iOS |
 
 Keep logic that can be portable in `Core/` — it is the only part CI can test on Linux, and it is
 much faster to iterate on.

@@ -1,0 +1,86 @@
+# Spec Delta
+
+## Purpose
+
+Tiny Jellyfin on iPhone: the same server connection, browsing and playback engine as the Mac app,
+with a touch interface and the audio and background behaviour a phone needs.
+
+## ADDED Requirements
+
+### Requirement: Runs on iPhone
+The app SHALL install and run on iPhones with iOS 17 or later, connect and sign in to a Jellyfin
+server as the Mac app does, keep the token in the iOS Keychain, and restore the session on launch.
+
+#### Scenario: First launch
+- **WHEN** the user opens the app for the first time and enters their server address and credentials
+- **THEN** they land on Home, and on the next launch they land on Home without signing in
+
+### Requirement: Browsing on iPhone
+The app SHALL offer Home, one tab per video library (named after it) and Search, with Home showing the resume hero and the
+same rows as the Mac app, each row scrolling sideways. Tapping a title SHALL open a detail sheet with
+its facts, overview, progress, Resume or Play, Start over and Mark watched; series open to seasons and
+episodes.
+
+#### Scenario: Resume from Home
+- **WHEN** the user opens the app with a film half watched
+- **THEN** the hero shows that film with its time left, and tapping Resume starts it where it stopped
+
+#### Scenario: Detail sheet
+- **WHEN** the user taps a poster in a row
+- **THEN** a sheet rises with the title's details and actions, and swiping it down returns to the row
+
+### Requirement: Touch player
+The player SHALL fill the screen in landscape, show its controls on a tap and hide them after 3 s of
+playback, skip back 10 s or forward 30 s on a double-tap on the left or right third, scrub with the
+progress bar, and offer quality and subtitle menus with the same behaviour as the Mac player.
+
+#### Scenario: Skip with a double-tap
+- **WHEN** the user double-taps the right third of the picture
+- **THEN** playback jumps 30 s forward and a brief "+30" mark appears there
+
+#### Scenario: Quality switch on the phone
+- **WHEN** the user switches from Original to 720p 4 Mbps on cellular
+- **THEN** playback continues near the same position at the new quality, as on the Mac
+
+### Requirement: Brightness, volume and fill
+In the player, a vertical swipe SHALL set the screen brightness on the left half and the device
+volume on the right half, whether or not the controls are showing. A button SHALL switch between
+fitting the picture and filling the screen, remembered between films.
+
+#### Scenario: Volume with a swipe
+- **WHEN** the user swipes up on the right half of the picture with the controls hidden
+- **THEN** the device volume rises, the same level the volume buttons set, and a level bar shows it
+
+#### Scenario: Fill the screen
+- **WHEN** the user switches a 2.39:1 film to fill on a 19.5:9 phone
+- **THEN** the picture covers the screen, cropping its sides, and the next film opens filled too
+
+### Requirement: Audio on iPhone
+The app SHALL play every audio format the Mac app plays. Formats iOS decodes itself are handed to the
+system; others SHALL be decoded to PCM by the app, keeping their channel layout for the system to
+render (spatial audio on supported headphones).
+
+#### Scenario: E-AC-3 track on AirPods
+- **WHEN** the user plays a file with an E-AC-3 5.1 track
+- **THEN** sound plays through the phone's output with no server transcode
+
+#### Scenario: DTS or TrueHD track
+- **WHEN** the file's audio is DTS or TrueHD
+- **THEN** the app decodes it to PCM and it plays with no server transcode
+
+### Requirement: Background and Picture in Picture
+Playback SHALL continue in Picture in Picture when the user leaves the app during playback, appear
+in the Lock Screen and Control Center Now Playing controls, pause when headphones are unplugged, and
+report progress to the server so another client resumes at the same point.
+
+#### Scenario: Leave the app while watching
+- **WHEN** the user swipes home during playback
+- **THEN** the video continues in a Picture in Picture window and the lock screen shows its controls
+
+#### Scenario: Phone call during a film
+- **WHEN** a call comes in during playback and the user declines it
+- **THEN** playback pauses for the call and carries on afterwards
+
+#### Scenario: Headphones unplugged
+- **WHEN** wired or Bluetooth headphones disconnect during playback
+- **THEN** playback pauses

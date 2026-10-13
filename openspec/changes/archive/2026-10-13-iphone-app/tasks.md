@@ -22,15 +22,17 @@
 - [x] 4.2 Tabs and Home: hero, rows, discovery rows, pull to refresh; verify by screenshot on the simulator
 - [x] 4.3 Detail sheet (Resume/Play, Start over, Mark watched), series → seasons → episodes; verify by screenshot
 - [x] 4.4 Movies/Shows tabs with filter pills and genre strip, Search tab; verify by screenshot
-- [ ] 4.5 Touch player: full-screen landscape, tap/double-tap/scrub, quality and subtitle menus, subtitles inside the picture; verify on a device
-- [ ] 4.6 PiP, Now Playing, pause on headphones unplugged, progress reporting; verify on a device
+- [x] 4.5 Touch player: full-screen landscape, tap/double-tap/scrub, quality and subtitle menus, subtitles inside the picture; verify on a device
+- [x] 4.6 PiP, Now Playing, pause on headphones unplugged, progress reporting; verify on a device
 
 ## 5. Docs
 
-- [ ] 5.1 README (building for iPhone, the personal-distribution assumption), CLAUDE.md layout table, `openspec/config.yaml` context, THIRD_PARTY_NOTICES (FFmpeg on iOS); verify `openspec validate --strict`
+- [x] 5.1 README (building for iPhone, the personal-distribution assumption), CLAUDE.md layout table, `openspec/config.yaml` context, THIRD_PARTY_NOTICES (FFmpeg on iOS); verify `openspec validate --strict`
 
 Simulator checks on 2026-10-13 (iPhone 18 Pro, iOS 27, against the server): sign-in, Home with the
 hero and rows, detail sheet with badges and actions, Movies grid with filters and genres, the
 landscape player playing For All Mankind with subtitles inside the picture and the controls over
 video. The simulator has no hardware HEVC, so the server transcodes to H.264 and starts take
-17–24 s there; on a phone the same file plays directly. 4.5 and 4.6 need a real iPhone.
+17–24 s there; on a phone the same file plays directly. 4.5 and 4.6 were checked on the user's
+iPhone on 2026-10-13, after the production review fixes (seasons in the sheet, Acknowledgements,
+a call during playback, the volume swipe).
