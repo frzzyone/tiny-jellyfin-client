@@ -44,6 +44,7 @@ public final class AppPreferences: @unchecked Sendable {
 
     private enum Key {
         static let serverURL = "serverURL"
+        static let serverName = "serverName"
         static let userId = "userId"
         static let userName = "userName"
         static let deviceId = "deviceId"
@@ -53,6 +54,12 @@ public final class AppPreferences: @unchecked Sendable {
     public var serverURL: URL? {
         get { defaults.string(forKey: Key.serverURL).flatMap(URL.init(string:)) }
         set { defaults.set(newValue?.absoluteString, forKey: Key.serverURL) }
+    }
+
+    /// The server's own name ("Home"), shown instead of its address.
+    public var serverName: String? {
+        get { defaults.string(forKey: Key.serverName) }
+        set { defaults.set(newValue, forKey: Key.serverName) }
     }
 
     public var userId: String? {

@@ -24,7 +24,7 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 - **From the production review (2026-10-13), not yet decided:** playback
   speed / audio track / chapters, long-press fast-forward and touch lock, Dynamic Type for the
-  browser text, PiP restore-to-app, the server's name after relaunch (shows the host).
+  browser text, PiP restore-to-app.
 - **iPad** would want a layout closer to the Mac's; the phone layout only stretches today.
 - **App Store** distribution: LGPL FFmpeg under code signing is unresolved; the app is for your own
   devices.

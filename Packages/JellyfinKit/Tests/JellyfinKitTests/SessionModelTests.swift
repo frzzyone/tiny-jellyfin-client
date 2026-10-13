@@ -96,7 +96,20 @@ final class SessionModelTests: XCTestCase {
         relaunched.restore()
         guard case .signedIn(let session) = relaunched.state else { return XCTFail("\(relaunched.state)") }
         XCTAssertEqual(session.userId, "u42")
+        XCTAssertEqual(session.server.name, "Home", "the server's name, not its address")
         XCTAssertEqual(relaunched.client?.accessToken, "secret-token")
+    }
+
+    func testRestoreLearnsANameItNeverSaved() async throws {
+        _ = await signedInModel()
+        defaults.removeObject(forKey: "serverName")
+        let relaunched = makeModel()
+        relaunched.restore()
+        for _ in 0..<50 {
+            if case .signedIn(let session) = relaunched.state, session.server.name == "Home" { return }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTFail("\(relaunched.state)")
     }
 
     func testRevokedTokenReturnsToSignIn() async throws {

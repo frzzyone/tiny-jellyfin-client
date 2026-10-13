@@ -82,8 +82,19 @@ public final class SessionModel {
             return
         }
         client = makeClient(url, token: token, userId: userId)
-        let server = ConnectedServer(url: url, name: url.host ?? url.absoluteString)
+        let server = ConnectedServer(url: url, name: preferences.serverName ?? url.host ?? url.absoluteString)
         state = .signedIn(SignedInSession(server: server, userId: userId, userName: preferences.userName ?? ""))
+        // Sign-ins before the name was saved: learn it once.
+        if preferences.serverName == nil { Task { await learnServerName(url) } }
+    }
+
+    private func learnServerName(_ url: URL) async {
+        guard let name = try? await makeClient(url).publicSystemInfo().serverName else { return }
+        preferences.serverName = name
+        if case .signedIn(var session) = state, session.server.url == url {
+            session.server.name = name
+            state = .signedIn(session)
+        }
     }
 
     /// Validates the address and moves to sign-in.
@@ -161,6 +172,7 @@ public final class SessionModel {
     private func finishSignIn(server: ConnectedServer, client: JellyfinClient, result: AuthenticationResult) throws {
         try tokens.setToken(result.accessToken, account: Self.account(server: server.url, userId: result.user.id))
         preferences.serverURL = server.url
+        preferences.serverName = server.name
         preferences.userId = result.user.id
         preferences.userName = result.user.name
         self.client = client
