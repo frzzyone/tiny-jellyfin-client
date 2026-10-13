@@ -7,6 +7,8 @@ struct PhoneLibraryView: View {
     let parentId: String?
     let title: String
     var searchTerm = ""
+    /// Search draws its own header (with the field) above the results.
+    var showsHeader = true
     let onPlay: (BaseItem, Bool) -> Void
     @State private var grid: LibraryGridModel?
     @State private var genres: [NameGuidPair] = []
@@ -14,11 +16,12 @@ struct PhoneLibraryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                if showsHeader { PhoneHeader(title: title) }
                 if let grid {
                     if let total = grid.total {
                         Text(grid.items.count < total ? "\(grid.items.count) of \(total)" : "\(total)")
                             .font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
-                            .padding(.horizontal, PhoneStyle.side).padding(.top, -6)
+                            .padding(.horizontal, PhoneStyle.side).padding(.top, showsHeader ? -6 : 0)
                     }
                     filters(grid)
                     PhoneGrid(grid: grid)
@@ -29,7 +32,8 @@ struct PhoneLibraryView: View {
             .padding(.bottom, 24)
         }
         .background(BrowserStyle.ground)
-        .navigationTitle(title)
+        .scrollDismissesKeyboard(.immediately)
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             guard grid == nil, let client = model.client else { return }
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }
@@ -108,17 +112,54 @@ struct PhoneSearchView: View {
     @State private var text = ""
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 12) {
+            PhoneHeader(title: "Search")
+            field
             if text.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text("Search films and series by title.")
                     .foregroundStyle(BrowserStyle.muted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(BrowserStyle.ground)
             } else {
-                PhoneLibraryView(parentId: nil, title: "Search", searchTerm: text, onPlay: onPlay)
+                PhoneLibraryView(parentId: nil, title: "Search", searchTerm: text, showsHeader: false, onPlay: onPlay)
             }
         }
-        .navigationTitle("Search")
-        .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "Title")
+        .background(BrowserStyle.ground)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    /// The system search field lives in the navigation bar, which these pages hide to match Home.
+    private var field: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(BrowserStyle.muted)
+            TextField("Title", text: $text)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+            if !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .foregroundStyle(BrowserStyle.muted)
+                    .accessibilityLabel("Clear")
+            }
+        }
+        .font(.system(size: 16))
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .background(BrowserStyle.raised, in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, PhoneStyle.side)
+    }
+}
+
+/// A tab's title, drawn like Home's header instead of a navigation bar's large title (which
+/// leaves an empty bar above it).
+struct PhoneHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 26, weight: .bold))
+            .foregroundStyle(BrowserStyle.text)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            .padding(.horizontal, PhoneStyle.side)
+            .padding(.top, 8)
     }
 }
