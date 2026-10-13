@@ -24,6 +24,10 @@ struct PhonePlayerView: View {
     /// A sideways swipe in progress: where the film was when it started.
     @State private var swipeScrubStart: Double?
     @State private var pinching = false
+    /// The Quality or Subtitles popover. While one is open the controls stay up: only the user closes it.
+    @State private var openMenu: PlayerMenu?
+
+    enum PlayerMenu: String, Identifiable { case quality = "Quality", subtitles = "Subtitles"; var id: String { rawValue } }
 
     private var player: PlaybackController { model.player }
 
@@ -80,7 +84,8 @@ struct PhonePlayerView: View {
         .onDisappear { PhoneOrientation.lock(.portrait) }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
             // Only real playback hides them: a slow start (buffering counts as "playing") must not.
-            if player.status == .playing, controlsVisible, scrubbing == nil, Date().timeIntervalSince(lastActivity) >= 3 {
+            if controlsVisible, ControlsAutoHide.due(playing: player.status == .playing, scrubbing: scrubbing != nil,
+                                                      menuOpen: openMenu != nil, idle: Date().timeIntervalSince(lastActivity)) {
                 withAnimation { controlsVisible = false }
             }
         }
@@ -89,6 +94,21 @@ struct PhonePlayerView: View {
             // Show the controls for 3 s once the picture is moving.
             if status == .playing { lastActivity = Date() }
         }
+        #if DEBUG
+        .task {
+            // Screenshot hooks: TJ_PHONE_MENU=Quality|Subtitles opens the popover once playing;
+            // TJ_AUTOSTOP=<seconds> closes the player as the button would, so the server stops transcoding.
+            let env = ProcessInfo.processInfo.environment
+            if let menu = env["TJ_PHONE_MENU"].flatMap(PlayerMenu.init) {
+                try? await Task.sleep(for: .seconds(4))
+                openMenu = menu
+            }
+            if let seconds = env["TJ_AUTOSTOP"].flatMap(Double.init) {
+                try? await Task.sleep(for: .seconds(seconds))
+                onClose()
+            }
+        }
+        #endif
     }
 
     /// Single tap toggles the controls; double tap on a side third skips. A vertical swipe on the
@@ -235,9 +255,13 @@ struct PhonePlayerView: View {
                 }
             }
             Spacer()
-            Menu { QualityMenuItems(player: player) } label: { chip(player.isSwitching ? "Switching…" : "Quality") }
-            Menu { SubtitleMenuItems(player: player) } label: { chip("Subtitles") }
-                .disabled(player.subtitleOptions.isEmpty)
+            menuButton(.quality, title: player.isSwitching ? "Switching…" : "Quality") {
+                QualityMenuItems(player: player) { openMenu = nil }
+            }
+            menuButton(.subtitles, title: "Subtitles") {
+                SubtitleMenuItems(player: player) { openMenu = nil }
+            }
+            .disabled(player.subtitleOptions.isEmpty)
             round(zoomed ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 44,
                   label: zoomed ? "Fit to screen" : "Fill screen") {
                 zoomed.toggle()
@@ -278,12 +302,53 @@ struct PhonePlayerView: View {
         .accessibilityLabel(label)
     }
 
+    /// A chip that opens a popover of choices. Not a Menu: a Menu closes when the controls fade, and
+    /// SwiftUI doesn't say when one is open, so the controls couldn't wait for it.
+    private func menuButton(_ menu: PlayerMenu, title: String, @ViewBuilder items: @escaping () -> some View) -> some View {
+        Button {
+            openMenu = menu
+        } label: { chip(title) }
+        .popover(isPresented: Binding(get: { openMenu == menu }, set: { if !$0 { openMenu = nil; lastActivity = Date() } })) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) { items() }
+                    .buttonStyle(MenuRowStyle())
+                    .labelStyle(CheckLast())
+                    .padding(.vertical, 6)
+            }
+            .frame(width: 260)
+            .frame(maxHeight: 300)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+
     private func chip(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 13))
             .padding(.horizontal, 12)
             .frame(height: 32)
             .background(.black.opacity(0.45), in: Capsule())
+    }
+}
+
+/// A popover row: the whole width taps, the checkmark sits at the end so titles line up.
+private struct MenuRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16))
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, 16)
+            .contentShape(Rectangle())
+            .background(configuration.isPressed ? Color.primary.opacity(0.1) : .clear)
+    }
+}
+
+private struct CheckLast: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.title
+            Spacer()
+            configuration.icon.foregroundStyle(BrowserStyle.accent)
+        }
     }
 }
 

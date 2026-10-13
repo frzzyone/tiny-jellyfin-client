@@ -47,11 +47,14 @@ struct ErrorBanner: View {
 /// The quality choices, checked against the current one; both players wrap these in their own Menu.
 struct QualityMenuItems: View {
     let player: PlaybackController
+    /// After a choice: the iPhone closes its popover (a Menu closes by itself).
+    var onPick: () -> Void = {}
 
     var body: some View {
         ForEach(player.qualityOptions) { option in
             Button {
                 player.selectQuality(option)
+                onPick()
             } label: {
                 if option == player.session?.quality { Label(option.label, systemImage: "checkmark") } else { Text(option.label) }
             }
@@ -62,20 +65,31 @@ struct QualityMenuItems: View {
 /// Off plus every subtitle track, the current one checked.
 struct SubtitleMenuItems: View {
     let player: PlaybackController
+    var onPick: () -> Void = {}
 
     var body: some View {
         Button {
             player.selectSubtitle(nil)
+            onPick()
         } label: {
             if player.selectedSubtitle == nil { Label("Off", systemImage: "checkmark") } else { Text("Off") }
         }
         ForEach(player.subtitleOptions) { option in
             Button {
                 player.selectSubtitle(option.id)
+                onPick()
             } label: {
                 if option.id == player.selectedSubtitle { Label(option.label, systemImage: "checkmark") } else { Text(option.label) }
             }
         }
+    }
+}
+
+/// When the iPhone's controls fade: 3 s after the last touch, during real playback, and never while
+/// the user is scrubbing or has a Quality or Subtitles popover open (only they close it).
+enum ControlsAutoHide {
+    static func due(playing: Bool, scrubbing: Bool, menuOpen: Bool, idle: TimeInterval) -> Bool {
+        playing && !scrubbing && !menuOpen && idle >= 3
     }
 }
 

@@ -66,6 +66,14 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(SwipeScrub.target(start: 2990, fraction: 1, duration: 3000), 3000, "not past the end")
     }
 
+    func testControlsWaitForAnOpenMenu() {
+        XCTAssertTrue(ControlsAutoHide.due(playing: true, scrubbing: false, menuOpen: false, idle: 3))
+        XCTAssertFalse(ControlsAutoHide.due(playing: true, scrubbing: false, menuOpen: true, idle: 600), "a menu stays until closed")
+        XCTAssertFalse(ControlsAutoHide.due(playing: true, scrubbing: true, menuOpen: false, idle: 10))
+        XCTAssertFalse(ControlsAutoHide.due(playing: false, scrubbing: false, menuOpen: false, idle: 10), "paused or loading")
+        XCTAssertFalse(ControlsAutoHide.due(playing: true, scrubbing: false, menuOpen: false, idle: 2.9))
+    }
+
     func testSwipeLevel() {
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: -100, height: 400), 0.8125, accuracy: 0.0001, "up raises")
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: 100, height: 400), 0.1875, accuracy: 0.0001, "down lowers")

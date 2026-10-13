@@ -116,7 +116,8 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   shows a code to approve), `TJ_BROWSER_TAB`, `TJ_TV_OPEN=hero|series`, `TJ_AUTOPLAY=1` and `TJ_TV_PANEL=Subtitles` pose it
   (add `TJ_AUTOSTOP=10` so the player closes properly and the server stops transcoding), and
   `xcrun simctl io … screenshot` captures it. Display matching and HDMI audio only exist on a real
-  Apple TV.
+  Apple TV. The iPhone simulator takes the same `SIMCTL_CHILD_` hooks, plus
+  `TJ_PHONE_MENU=Quality|Subtitles` and `TJ_AUTOSTOP` in the player.
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
   stops looking once the bars have held for ten looks (`Picture bars settled …`).
