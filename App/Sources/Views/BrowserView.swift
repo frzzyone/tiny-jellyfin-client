@@ -90,12 +90,10 @@ struct BrowserView: View {
     private var topBar: some View {
         HStack(spacing: 32) {
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
+                Image("Mark")
                     .resizable()
-                    .interpolation(.high)
-                    .frame(width: 28, height: 28)
-                    // The icon's own tile is the bar's colour; a faint edge keeps it a tile.
-                    .overlay(RoundedRectangle(cornerRadius: 6.5).stroke(.white.opacity(0.16)))
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
                     .accessibilityHidden(true)
                 Text("Tiny Jellyfin")
                     .font(.system(size: 15, weight: .semibold))
