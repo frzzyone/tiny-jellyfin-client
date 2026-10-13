@@ -268,6 +268,15 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(prefs.preferredQualityId(server: service.serverURL))
     }
 
+    func testFailedSwitchStopsItsTranscode() async {
+        let (controller, service, engine) = await started(method: .transcode)
+        engine.switchError = EngineError("boom")
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        let stopped = await eventually { service.recorded.contains("endEncoding:ps2") }
+        XCTAssertTrue(stopped, "the server stops the stream the switch asked for: \(service.recorded)")
+        XCTAssertFalse(service.recorded.contains("endEncoding:ps1"), "the playing stream keeps going")
+    }
+
     func testNewSelectionCancelsInFlightSwitch() async {
         let (controller, _, engine) = await started()
         engine.switchDelay = 0.3

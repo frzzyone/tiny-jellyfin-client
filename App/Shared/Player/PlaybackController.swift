@@ -334,18 +334,22 @@ final class PlaybackController {
         let timeout = switchTimeout
         switchTask = Task { [weak self] in
             guard let self else { return }
+            // A stream asked for but never adopted: the server is transcoding it for nobody.
+            var unused: String?
             do {
                 let start = self.position + 2
                 let stream = try await service.resolveStream(itemId: item.id, quality: quality,
                                                              capabilities: self.capabilities, startSeconds: start,
                                                              mediaSourceId: session.mediaSourceId,
                                                              subtitleStreamIndex: burnIn)
+                if stream.playMethod != .directPlay { unused = stream.playSessionId }
                 try Task.checkCancellation()
                 let source = MediaSource(url: stream.url, headers: service.streamHeaders,
                                          timelineOffset: stream.timelineOffset)
                 try await withTimeout(timeout) { try await engine.switchSource(source, startAt: start) }
                 try Task.checkCancellation()
                 guard self.engine === engine, var old = self.session else { return }
+                unused = nil
 
                 // Retire the old session on the server, start the new one.
                 let stopOld = self.report(for: old, position: self.position)
@@ -372,6 +376,7 @@ final class PlaybackController {
                 self.isSwitching = false
                 self.switchError = "Couldn't switch quality. Playing at \(session.quality.label)."
             }
+            if let unused { Task.detached { try? await service.endEncoding(playSessionId: unused) } }
         }
     }
 
