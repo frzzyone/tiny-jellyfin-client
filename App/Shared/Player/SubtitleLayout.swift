@@ -1,4 +1,4 @@
-import AppKit
+import CoreText
 import PlayerCore
 
 /// Subtitles are set in Helvetica Neue at 48 pt on a 1080-line picture, scaled with the picture.
@@ -8,9 +8,8 @@ enum SubtitleFont {
     static let referenceHeight: CGFloat = 1080
     static let minimumSize: CGFloat = 12
 
-    static func font(forPictureHeight height: CGFloat) -> NSFont {
-        let size = max(minimumSize, referenceSize * height / referenceHeight)
-        return NSFont(name: name, size: size) ?? .systemFont(ofSize: size, weight: .medium)
+    static func font(forPictureHeight height: CGFloat) -> CTFont {
+        CTFontCreateWithName(name as CFString, max(minimumSize, referenceSize * height / referenceHeight), nil)
     }
 }
 

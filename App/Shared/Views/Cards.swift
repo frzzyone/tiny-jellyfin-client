@@ -112,7 +112,9 @@ struct ItemCard: View {
         .contentShape(Rectangle())
         .onHover { over in
             hovering = over
+            #if os(macOS)
             if over { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            #endif
         }
     }
 }

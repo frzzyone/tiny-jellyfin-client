@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 import JellyfinKit
 import Observation
 import PlayerCore
@@ -18,13 +21,22 @@ final class AppModel {
         self.preferences = preferences
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
         session = SessionModel(tokens: KeychainTokenStore(), preferences: preferences,
-                               deviceName: Host.current().localizedName ?? "Mac", appVersion: version)
+                               deviceName: Self.deviceName, appVersion: version)
         player = PlaybackController(engineFactory: { FFmpegEngine() }, preferences: preferences,
                                     capabilities: PlaybackCapabilities(EngineCapabilities.current()))
         FFmpegLog.configure()
     }
 
     var client: JellyfinClient? { session.client }
+
+    /// What the server's device list shows for this machine.
+    private static var deviceName: String {
+        #if os(macOS)
+        Host.current().localizedName ?? "Mac"
+        #else
+        UIDevice.current.name
+        #endif
+    }
 
     /// Starts playback of an item in the player window (one playback at a time).
     func play(_ item: BaseItem, resume: Bool) {

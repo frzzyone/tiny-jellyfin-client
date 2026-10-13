@@ -41,10 +41,10 @@ final class AppLogicTests: XCTestCase {
     }
 
     func testSubtitleFontScalesWithThePicture() {
-        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 1080).pointSize, 48)
-        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 1080).fontName, "HelveticaNeue")
-        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 540).pointSize, 24)
-        XCTAssertEqual(SubtitleFont.font(forPictureHeight: 100).pointSize, 12, "never smaller than 12 pt")
+        XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 1080)), 48)
+        XCTAssertEqual(CTFontCopyPostScriptName(SubtitleFont.font(forPictureHeight: 1080)) as String, "HelveticaNeue")
+        XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 540)), 24)
+        XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 100)), 12, "never smaller than 12 pt")
     }
 
     func testPlaybackActionsForPartlyWatchedItem() {

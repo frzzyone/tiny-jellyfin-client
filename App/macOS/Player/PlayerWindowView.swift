@@ -236,7 +236,7 @@ struct SubtitleOverlay: View {
             if let text, !text.isEmpty {
                 let picture = SubtitleLayout.pictureRect(video: videoSize, in: geo.size, bars: bars)
                 Text(text)
-                    .font(Font(SubtitleFont.font(forPictureHeight: picture.height) as CTFont))
+                    .font(Font(SubtitleFont.font(forPictureHeight: picture.height)))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .shadow(color: .black, radius: 2, x: 0, y: 1)

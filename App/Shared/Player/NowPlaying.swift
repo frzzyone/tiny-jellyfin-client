@@ -1,8 +1,14 @@
-import AppKit
 import JellyfinKit
 import MediaPlayer
+#if os(macOS)
+import AppKit
+private typealias PlatformImage = NSImage
+#else
+import UIKit
+private typealias PlatformImage = UIImage
+#endif
 
-/// Publishes the current item to macOS Now Playing and handles system media controls
+/// Publishes the current item to Now Playing and handles system media controls
 /// (media keys, Control Center, headphones).
 @MainActor
 final class NowPlayingPublisher {
@@ -25,7 +31,7 @@ final class NowPlayingPublisher {
         if let artworkURL {
             Task {
                 guard let (data, _) = try? await URLSession.shared.data(from: artworkURL),
-                      let image = NSImage(data: data) else { return }
+                      let image = PlatformImage(data: data) else { return }
                 info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
                 update()
             }
