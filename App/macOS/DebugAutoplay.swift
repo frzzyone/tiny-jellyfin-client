@@ -13,6 +13,8 @@ import SwiftUI
 ///     TJ_AUTOPLAY_FULLSCREEN=1      toggle full screen 3 s after playback starts, and log the result
 ///     TJ_AUTOPLAY_SWITCH=<id>       switch to this quality once playing
 ///     TJ_AUTOPLAY_SWITCH_AFTER=<s>  …after this many seconds of playback (default 8)
+///     TJ_MAC_CHECKS=<file>          run `DebugChecks` on the player, results to the file; without
+///                                   TJ_AUTOPLAY_ITEM it plays a film that is already watched
 enum DebugAutoplay {
     @MainActor
     static func runIfRequested(model: AppModel, openWindow: OpenWindowAction) async {
@@ -25,6 +27,9 @@ enum DebugAutoplay {
             let item: BaseItem?
             if let id = env["TJ_AUTOPLAY_ITEM"] {
                 item = try await client.item(id: id)
+            } else if env["TJ_MAC_CHECKS"] != nil {
+                // The checks play to the end, which would mark an unwatched film watched.
+                item = try await client.items(ItemQuery(types: [.movie], filters: [.played], sort: .random, limit: 1)).items.first
             } else {
                 item = try await client.resumeItems(limit: 1).first
             }
@@ -35,6 +40,10 @@ enum DebugAutoplay {
             PlayerLog.engine("Autoplay: \(item.displayName) [\(item.id)]")
             model.play(item, resume: env["TJ_AUTOPLAY_FROM_START"] == nil)
             openWindow(id: AppModel.playerWindowID)
+            if let out = env["TJ_MAC_CHECKS"] {
+                await DebugChecks.run(player: model.player, out: out)
+                return
+            }
             if env["TJ_AUTOPLAY_FULLSCREEN"] != nil {
                 _ = await waitUntil { model.player.status == .playing }
                 try await Task.sleep(nanoseconds: 3_000_000_000)
