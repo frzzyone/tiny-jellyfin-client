@@ -88,12 +88,15 @@ struct ItemCard: View {
                 .overlay(alignment: .bottom) { if let fraction { ProgressLine(fraction: fraction) } }
                 .overlay(alignment: .topTrailing) {
                     if item.userData?.played == true {
+                        // Big enough to read at a glance on a bright poster: amber, sized with the card.
+                        let badge = max(20, size.width * 0.16)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: badge * 0.5, weight: .heavy))
                             .foregroundStyle(BrowserStyle.ground)
-                            .frame(width: 18, height: 18)
-                            .background(BrowserStyle.text, in: Circle())
-                            .padding(8)
+                            .frame(width: badge, height: badge)
+                            .background(BrowserStyle.accent, in: Circle())
+                            .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                            .padding(badge * 0.3)
                             .accessibilityLabel("Watched")
                     }
                 }
