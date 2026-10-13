@@ -12,9 +12,9 @@ final class PacketQueue: @unchecked Sendable {
     private var closed = false
     private(set) var endOfStream = false
 
-    /// Per queue. Two pipelines are alive during a quality switch, and iOS gives an app less memory,
+    /// Per queue. Two pipelines are alive during a quality switch, and iOS and tvOS give an app less memory,
     /// especially in Picture in Picture.
-    #if os(iOS)
+    #if os(iOS) || os(tvOS)
     static let defaultMaxBytes = 100 * 1024 * 1024
     #else
     static let defaultMaxBytes = 200 * 1024 * 1024

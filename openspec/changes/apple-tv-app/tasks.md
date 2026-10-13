@@ -2,8 +2,8 @@
 
 ## 1. Platform groundwork
 
-- [ ] 1.1 `build-ffmpeg.sh`: tvOS device and simulator slices in `FFmpeg.xcframework`, same LGPL flags; verify six slices and the GPL refusal
-- [ ] 1.2 Packages declare `.tvOS(.v17)`; "not the Mac" `#if`s cover tvOS; verify both packages build and test on the Apple TV simulator (`scripts/test-ios.sh` with a TV destination) and the Mac and iPhone are unchanged
+- [x] 1.1 `build-ffmpeg.sh`: tvOS device and simulator slices in `FFmpeg.xcframework`, same LGPL flags; verify six slices and the GPL refusal
+- [x] 1.2 Packages declare `.tvOS(.v17)`; "not the Mac" `#if`s cover tvOS; verify both packages build and test on the Apple TV simulator (`scripts/test-ios.sh` with a TV destination) and the Mac and iPhone are unchanged
 
 ## 2. Engine on tvOS
 

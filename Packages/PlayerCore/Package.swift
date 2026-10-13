@@ -3,7 +3,7 @@ import Foundation
 import PackageDescription
 
 // FFmpeg comes from the system on Linux (development/tests of the portable core) and from our own
-// LGPL build on Apple platforms: Vendor/FFmpeg/FFmpeg.xcframework (macOS, iOS, iOS Simulator), linked
+// LGPL build on Apple platforms: Vendor/FFmpeg/FFmpeg.xcframework (macOS, iOS, tvOS and their simulators), linked
 // as a binary target through the FFmpeg.xcframework symlink here, with headers in Vendor/FFmpeg/include.
 // See scripts/build-ffmpeg.sh.
 let packageDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -25,7 +25,7 @@ let ffmpegDeps: [Target.Dependency] = ["FFmpeg"]
 
 let package = Package(
     name: "PlayerCore",
-    platforms: [.macOS(.v14), .iOS(.v17)],
+    platforms: [.macOS(.v14), .iOS(.v17), .tvOS(.v17)],
     products: [
         .library(name: "PlayerCore", targets: ["PlayerCore"]),
     ],

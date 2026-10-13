@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the FFmpeg subset PlayerCore needs as one dynamic framework per Apple platform, bundled as
-# Vendor/FFmpeg/FFmpeg.xcframework (macOS 14+ arm64/x86_64, iOS 17+ arm64, iOS Simulator arm64),
-# with the headers in Vendor/FFmpeg/include.
+# Vendor/FFmpeg/FFmpeg.xcframework (macOS 14+ arm64/x86_64, iOS 17+ arm64, iOS Simulator arm64,
+# tvOS 17+ arm64, tvOS Simulator arm64), with the headers in Vendor/FFmpeg/include.
 #
 # - LGPL only: --disable-gpl --disable-nonfree, no external libraries besides zlib/bzip2.
 # - Demuxing plus audio and text-subtitle decoding only. Video is decoded by VideoToolbox.
@@ -15,13 +15,17 @@ set -euo pipefail
 FFMPEG_VERSION="7.1.1"
 MACOS_MIN="14.0"
 IOS_MIN="17.0"
+TVOS_MIN="17.0"
 # platform:arch:sdk:clang target. macOS builds keep their old directory names (build-<arch>).
 SLICES=(
   "macos:arm64:macosx:arm64-apple-macos$MACOS_MIN"
   "macos:x86_64:macosx:x86_64-apple-macos$MACOS_MIN"
   "ios:arm64:iphoneos:arm64-apple-ios$IOS_MIN"
   "iossim:arm64:iphonesimulator:arm64-apple-ios$IOS_MIN-simulator"
+  "tvos:arm64:appletvos:arm64-apple-tvos$TVOS_MIN"
+  "tvsim:arm64:appletvsimulator:arm64-apple-tvos$TVOS_MIN-simulator"
 )
+PLATFORMS=(macos ios iossim tvos tvsim)
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/Vendor/FFmpeg"
@@ -85,11 +89,11 @@ for slice in "${SLICES[@]}"; do
 done
 
 # One dynamic library per slice with all four FFmpeg libraries, wrapped as FFmpeg.framework per
-# platform (versioned bundle on macOS, shallow on iOS), then one XCFramework.
+# platform (versioned bundle on macOS, shallow on iOS and tvOS), then one XCFramework.
 LIBS=(libavformat libavcodec libswresample libavutil)
 rm -rf "$WORK/frameworks" "$OUT/FFmpeg.xcframework" "$OUT/lib"
 xcargs=()
-for platform in macos ios iossim; do
+for platform in "${PLATFORMS[@]}"; do
   dylibs=()
   for slice in "${SLICES[@]}"; do
     IFS=: read -r p arch sdk target <<< "$slice"
@@ -115,6 +119,7 @@ for platform in macos ios iossim; do
     lipo -create "${dylibs[@]}" -output "$fw/FFmpeg"
     plist="$fw/Info.plist"
     minkey=MinimumOSVersion; minver=$IOS_MIN
+    if [[ "$platform" == tv* ]]; then minver=$TVOS_MIN; fi
   fi
   cat > "$plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -138,7 +143,7 @@ rm -rf "$OUT/include"
 cp -R "$WORK/build-arm64/install/include" "$OUT/include"
 cp "$SRC/COPYING.LGPLv2.1" "$OUT/COPYING.LGPLv2.1"
 
-for platform in macos ios iossim; do
+for platform in "${PLATFORMS[@]}"; do
   # Not grep -q: it stops reading early and nm then fails on a broken pipe under pipefail.
   if [[ "$(nm -gU "$WORK/frameworks/$platform/FFmpeg.framework/FFmpeg" | grep -c " _avformat_open_input$")" == 0 ]]; then
     echo "FFmpeg.framework ($platform) does not export avformat_open_input" >&2
@@ -155,7 +160,7 @@ for slice in "${SLICES[@]}"; do
 done
 
 {
-  echo "FFmpeg $FFMPEG_VERSION: macOS $MACOS_MIN+ (arm64 x86_64), iOS $IOS_MIN+ (arm64), iOS Simulator (arm64)"
+  echo "FFmpeg $FFMPEG_VERSION: macOS $MACOS_MIN+ (arm64 x86_64), iOS $IOS_MIN+ (arm64), iOS Simulator (arm64), tvOS $TVOS_MIN+ (arm64), tvOS Simulator (arm64)"
   echo "script-sha256: $SCRIPT_HASH"
   echo "license: $(grep '#define FFMPEG_LICENSE' "$WORK/build-arm64/config.h" | cut -d'"' -f2)"
   echo "configure: ${CONFIGURE_FLAGS[*]}"

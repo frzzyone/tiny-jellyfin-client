@@ -327,7 +327,7 @@ final class HTTPTests: XCTestCase {
 
 final class PacketQueueTests: XCTestCase {
     func testByteCapIsSmallerOnIOS() {
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         XCTAssertEqual(PacketQueue().maxBytes, 100 * 1024 * 1024)
         #else
         XCTAssertEqual(PacketQueue().maxBytes, 200 * 1024 * 1024)
