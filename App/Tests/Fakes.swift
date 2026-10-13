@@ -43,6 +43,9 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
         currentTime = time
     }
 
+    var audioTrackChanges: [Int] = []
+    func selectAudioTrack(_ id: Int) async { audioTrackChanges.append(id) }
+
     func switchSource(_ source: MediaSource, startAt: Double) async throws {
         switches.append((source, startAt))
         if switchDelay > 0 { try await Task.sleep(nanoseconds: UInt64(switchDelay * 1_000_000_000)) }
@@ -67,6 +70,7 @@ final class FakeService: PlaybackService, @unchecked Sendable {
     var serverURL = URL(string: "https://jf.test")!
     var item: BaseItem
     var resolveCalls: [(quality: QualityPreset, start: Double, subtitle: Int?)] = []
+    var audioRequests: [Int?] = []
     var nextMethod: PlayMethod = .directPlay
     var resolveError: Error?
     /// The picture subtitle the server burns in when the request names none (its default).
@@ -83,9 +87,10 @@ final class FakeService: PlaybackService, @unchecked Sendable {
     func item(id: String) async throws -> BaseItem { item }
 
     func resolveStream(itemId: String, quality: QualityPreset, capabilities: PlaybackCapabilities, startSeconds: Double,
-                       mediaSourceId: String?, subtitleStreamIndex: Int?) async throws -> ResolvedStream {
+                       mediaSourceId: String?, subtitleStreamIndex: Int?, audioStreamIndex: Int?) async throws -> ResolvedStream {
         let n = lock.withLock {
             resolveCalls.append((quality, startSeconds, subtitleStreamIndex))
+            audioRequests.append(audioStreamIndex)
             counter += 1
             return counter
         }
@@ -117,16 +122,17 @@ final class FakeService: PlaybackService, @unchecked Sendable {
     func endEncoding(playSessionId: String) async throws { record("endEncoding:\(playSessionId)") }
 }
 
-func movie(height: Int = 1080, resumeAt seconds: Double? = nil, defaultSubtitle: Int? = nil) -> BaseItem {
+func movie(height: Int = 1080, resumeAt seconds: Double? = nil, defaultSubtitle: Int? = nil, defaultAudio: Int = 1) -> BaseItem {
     let json = """
     {"Id":"m1","Name":"Movie","Type":"Movie","RunTimeTicks":6000000000,
      "UserData":{"PlaybackPositionTicks":\(Int64((seconds ?? 0) * 10_000_000))},
-     "MediaSources":[{"Id":"src","DefaultSubtitleStreamIndex":\(defaultSubtitle ?? -1),"MediaStreams":[
+     "MediaSources":[{"Id":"src","DefaultSubtitleStreamIndex":\(defaultSubtitle ?? -1),"DefaultAudioStreamIndex":\(defaultAudio),"MediaStreams":[
        {"Type":"Video","Index":0,"Codec":"hevc","Height":\(height)},
        {"Type":"Audio","Index":1,"Codec":"eac3"},
        {"Type":"Subtitle","Index":2,"Codec":"subrip","Language":"eng","DisplayTitle":"English","IsTextSubtitleStream":true},
        {"Type":"Subtitle","Index":3,"Codec":"PGSSUB","Language":"spa","DisplayTitle":"Spanish","IsTextSubtitleStream":false},
-       {"Type":"Subtitle","Index":4,"Codec":"subrip","Language":"fra","DisplayTitle":"French","IsExternal":true,"IsTextSubtitleStream":true}
+       {"Type":"Subtitle","Index":4,"Codec":"subrip","Language":"fra","DisplayTitle":"French","IsExternal":true,"IsTextSubtitleStream":true},
+       {"Type":"Audio","Index":5,"Codec":"aac","Language":"spa","DisplayTitle":"Spanish"}
      ]}]}
     """
     let decoder = JSONDecoder()

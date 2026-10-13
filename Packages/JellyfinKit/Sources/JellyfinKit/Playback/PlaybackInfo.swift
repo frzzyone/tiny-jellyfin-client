@@ -103,14 +103,15 @@ public enum PlayMethodClassifier {
 
 extension JellyfinClient {
     public func playbackInfo(itemId: String, quality: QualityPreset, capabilities: PlaybackCapabilities,
-                             startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?) async throws
+                             startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?,
+                             audioStreamIndex: Int? = nil) async throws
         -> PlaybackInfoResponse {
         let body = PlaybackInfoRequest(
             userId: try requireUserId(),
             maxStreamingBitrate: quality.maxStreamingBitrate,
             startTimeTicks: Ticks.from(seconds: startSeconds),
             mediaSourceId: mediaSourceId,
-            audioStreamIndex: nil,
+            audioStreamIndex: audioStreamIndex,
             subtitleStreamIndex: subtitleStreamIndex,
             enableDirectPlay: true,
             enableDirectStream: true,

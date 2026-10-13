@@ -61,6 +61,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private let snapshotLock = NSLock()
     private var snapshotState: EngineState = .idle
     private var snapshotTracks: [MediaTrack] = []
+    private var snapshotAudioTrack: Int?
     private var snapshotDuration: Double?
     private var snapshotVideoSize: CGSize?
     private var snapshotVideoFormat: CMVideoFormatDescription?
@@ -87,6 +88,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     public var state: EngineState { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotState }
     public var tracks: [MediaTrack] { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotTracks }
+    /// The audio stream being played.
+    public var audioTrack: Int? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotAudioTrack }
     public var duration: Double? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotDuration }
     public func copyDisplayedFrame() -> CVPixelBuffer? {
         if #available(macOS 14.4, iOS 17.4, tvOS 17.4, *) { return videoRenderer.displayedPixelBuffer() }
@@ -168,6 +171,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             resetTimeline(at: max(startAt, pipeline.firstQueuedTime ?? startAt))
             snapshotLock.lock()
             snapshotTracks = pipeline.tracks
+            snapshotAudioTrack = pipeline.audioStream
             snapshotDuration = pipeline.duration
             snapshotVideoSize = pipeline.presentationSize
             snapshotVideoFormat = pipeline.videoFormat?.description
@@ -222,6 +226,18 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     // MARK: Seeking
 
     public func seek(to time: Double) async {
+        await seek(to: time, audioTrack: nil)
+    }
+
+    /// Plays another audio track of the file, from where the clock is: the reader takes it while it
+    /// repositions (a short pause, like a seek, and no second download).
+    public func selectAudioTrack(_ id: Int) async {
+        await seek(to: currentTime, audioTrack: id)
+        let track = queue.sync { active?.audioStream }
+        snapshotLock.lock(); snapshotAudioTrack = track; snapshotLock.unlock()
+    }
+
+    private func seek(to time: Double, audioTrack: Int?) async {
         let target = max(0, time)
         guard let pipeline = queue.sync(execute: { () -> Pipeline? in
             guard let active else { return nil }
@@ -235,7 +251,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             setState(.buffering)
             return active
         }) else { return }
-        await pipeline.seek(to: target)
+        await pipeline.seek(to: target, audioStream: audioTrack)
         queue.sync {
             guard active === pipeline else { return }
             resetTimeline(at: target)
@@ -343,7 +359,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         spliceTime = nil
         // The new stream starts at its first keyframe; frames before `time` decode hidden.
         resetTimeline(at: time)
-        snapshotLock.lock(); snapshotTracks = pipeline.tracks; snapshotLock.unlock()
+        snapshotLock.lock(); snapshotTracks = pipeline.tracks; snapshotAudioTrack = pipeline.audioStream; snapshotLock.unlock()
         startFeeding()
         desiredRate = rate
     }
@@ -362,7 +378,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         active = incoming
         self.incoming = nil
         spliceTime = nil
-        snapshotLock.lock(); snapshotTracks = incoming.tracks; snapshotLock.unlock()
+        snapshotLock.lock(); snapshotTracks = incoming.tracks; snapshotAudioTrack = incoming.audioStream; snapshotLock.unlock()
         DispatchQueue.global(qos: .utility).async { old?.stop() }
     }
 

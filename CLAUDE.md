@@ -112,7 +112,7 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   A stall with queues full is the start condition; with empty queues it is the network or the server.
 - Debug builds can start playback without clicking, which is how the open path was measured against
   a real server: `TJ_AUTOPLAY=1` (plus `TJ_AUTOPLAY_ITEM`, `TJ_AUTOPLAY_FROM_START`,
-  `TJ_AUTOPLAY_QUALITY`) — see `DebugAutoplay`. Run the binary directly to pass them, and watch with
+  `TJ_AUTOPLAY_QUALITY`, `TJ_AUTOPLAY_SWITCH`, `TJ_AUTOPLAY_AUDIO`) — see `DebugAutoplay`. Run the binary directly to pass them, and watch with
   `log stream --predicate 'subsystem == "app.tinyjellyfin"' --style compact`.
 - The test host skips session restore (`XCTestConfigurationFilePath` is set): the debug binary is
   ad-hoc signed, so every build is a new app to the Keychain and reading the token would put an

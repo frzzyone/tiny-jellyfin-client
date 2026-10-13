@@ -27,7 +27,10 @@ struct PhonePlayerView: View {
     /// The Quality or Subtitles popover. While one is open the controls stay up: only the user closes it.
     @State private var openMenu: PlayerMenu?
 
-    enum PlayerMenu: String, Identifiable { case quality = "Quality", subtitles = "Subtitles"; var id: String { rawValue } }
+    enum PlayerMenu: String, Identifiable {
+        case quality = "Quality", audio = "Audio", subtitles = "Subtitles"
+        var id: String { rawValue }
+    }
 
     private var player: PlaybackController { model.player }
 
@@ -261,6 +264,11 @@ struct PhonePlayerView: View {
             Spacer()
             menuButton(.quality, title: player.isSwitching ? "Switching…" : "Quality") {
                 QualityMenuItems(player: player) { openMenu = nil }
+            }
+            if player.audioOptions.count > 1 {
+                menuButton(.audio, title: "Audio") {
+                    AudioMenuItems(player: player) { openMenu = nil }
+                }
             }
             menuButton(.subtitles, title: "Subtitles") {
                 SubtitleMenuItems(player: player) { openMenu = nil }

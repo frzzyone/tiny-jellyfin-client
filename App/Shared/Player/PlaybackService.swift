@@ -10,7 +10,8 @@ protocol PlaybackService: PlaybackReporter {
     var serverURL: URL { get }
     func item(id: String) async throws -> BaseItem
     func resolveStream(itemId: String, quality: QualityPreset, capabilities: PlaybackCapabilities,
-                       startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?) async throws -> ResolvedStream
+                       startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?,
+                       audioStreamIndex: Int?) async throws -> ResolvedStream
     /// Downloads a text subtitle track converted to SRT by the server.
     func subtitleData(itemId: String, mediaSourceId: String, streamIndex: Int) async throws -> Data
     func primaryImageURL(for item: BaseItem) -> URL?
@@ -25,10 +26,12 @@ struct JellyfinPlaybackService: PlaybackService {
     func item(id: String) async throws -> BaseItem { try await client.item(id: id) }
 
     func resolveStream(itemId: String, quality: QualityPreset, capabilities: PlaybackCapabilities,
-                       startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?) async throws -> ResolvedStream {
+                       startSeconds: Double, mediaSourceId: String?, subtitleStreamIndex: Int?,
+                       audioStreamIndex: Int?) async throws -> ResolvedStream {
         let response = try await client.playbackInfo(itemId: itemId, quality: quality, capabilities: capabilities,
                                                      startSeconds: startSeconds, mediaSourceId: mediaSourceId,
-                                                     subtitleStreamIndex: subtitleStreamIndex)
+                                                     subtitleStreamIndex: subtitleStreamIndex,
+                                                     audioStreamIndex: audioStreamIndex)
         return try client.resolveStream(itemId: itemId, response: response, startSeconds: startSeconds)
     }
 

@@ -289,6 +289,42 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(off)
     }
 
+    /// Another audio track of the same file: the same splice, the clock keeps running.
+    func testAudioTrackSwitchIsSeamless() async throws {
+        let url = try Fixtures.url("two_audio.mkv")
+        try await assertSeamlessSwitch(from: MediaSource(url: url, audioTrack: 1), to: MediaSource(url: url, audioTrack: 2)) { engine in
+            XCTAssertEqual(engine.audioTrack, 2)
+            XCTAssertEqual(engine.tracks.filter { $0.kind == .audio }.count, 2)
+        }
+    }
+
+    /// Direct Play: the other track of the same file without a second download.
+    func testAudioTrackChangesInPlace() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: try Fixtures.url("two_audio.mkv")), startAt: 0)
+        let first = try XCTUnwrap(engine.audioTrack)
+        engine.play()
+        _ = await waitFor(3) { engine.currentTime > 1.5 }
+        let before = engine.currentTime
+        await engine.selectAudioTrack(first == 1 ? 2 : 1)
+        XCTAssertEqual(engine.audioTrack, first == 1 ? 2 : 1)
+        let resumed = await waitFor(3) { engine.state == .playing && engine.currentTime > before + 0.5 }
+        XCTAssertTrue(resumed, engine.debugSummary)
+        XCTAssertGreaterThanOrEqual(engine.currentTime, before - 0.1, "carries on from where it was")
+    }
+
+    func testStartsOnTheAskedAudioTrack() async throws {
+        let url = try Fixtures.url("two_audio.mkv")
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: url), startAt: 0)
+        let best = try XCTUnwrap(engine.audioTrack)
+        let other = best == 1 ? 2 : 1
+        try await engine.prepare(source: MediaSource(url: url, audioTrack: other), startAt: 0)
+        XCTAssertEqual(engine.audioTrack, other, "the asked track, not the container's pick (\(best))")
+    }
+
     /// Prepare-then-splice: the clock keeps running through the switch.
     func testSeamlessSwitch() async throws {
         try await assertSeamlessSwitch(to: MediaSource(url: try Fixtures.url("h264_aac_low.mp4")))
@@ -304,10 +340,12 @@ final class EngineTests: XCTestCase {
                                                        headers: TestHTTPServer.authHeaders, timelineOffset: -10))
     }
 
-    func assertSeamlessSwitch(to target: MediaSource, file: StaticString = #filePath, line: UInt = #line) async throws {
+    func assertSeamlessSwitch(from start: MediaSource? = nil, to target: MediaSource,
+                              then check: (FFmpegEngine) -> Void = { _ in },
+                              file: StaticString = #filePath, line: UInt = #line) async throws {
         let engine = engine()
         defer { engine.stop() }
-        try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
+        try await engine.prepare(source: start ?? MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
         engine.play()
         _ = await waitFor(3) { engine.currentTime > 0.5 }
         let before = engine.currentTime
@@ -333,6 +371,7 @@ final class EngineTests: XCTestCase {
         _ = await sampler.value
         let samples = recorder.samples
         let states = recorder.states
+        check(engine)
 
         XCTAssertFalse(states.contains(.buffering), "playback stalled during the switch: \(engine.debugSummary)", file: file, line: line)
         // The clock never stood still for more than 100 ms and never jumped.

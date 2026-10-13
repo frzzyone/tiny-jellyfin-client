@@ -13,6 +13,13 @@ struct SubtitleOption: Identifiable, Equatable {
     let isExternal: Bool
 }
 
+/// An audio track in the player menu.
+struct AudioOption: Identifiable, Equatable {
+    /// Jellyfin stream index (the container's stream index during Direct Play).
+    let id: Int
+    let label: String
+}
+
 /// What is currently being delivered.
 struct PlaybackSession: Equatable {
     var itemId: String
@@ -22,6 +29,7 @@ struct PlaybackSession: Equatable {
     var quality: QualityPreset
     /// Image subtitle track the server burns in, if any.
     var burnInSubtitle: Int?
+    var audio: Int?
     var stoppedReported = false
 }
 
@@ -48,6 +56,8 @@ final class PlaybackController {
     private(set) var switchError: String?
     private(set) var subtitleOptions: [SubtitleOption] = []
     private(set) var selectedSubtitle: Int?
+    private(set) var audioOptions: [AudioOption] = []
+    private(set) var selectedAudio: Int?
     private(set) var subtitleText: String?
     /// A picture subtitle (PGS, DVD, DVB) the app draws itself during Direct Play.
     private(set) var subtitleBitmap: SubtitleBitmap?
@@ -139,6 +149,7 @@ final class PlaybackController {
     private struct Carryover {
         var burnIn: Int?
         var subtitle: Int?
+        var audio: Int?
         var paused: Bool
     }
 
@@ -168,10 +179,15 @@ final class PlaybackController {
             let stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
                                                          startSeconds: start,
                                                          mediaSourceId: full.mediaSources?.first?.id,
-                                                         subtitleStreamIndex: carry.map { $0.burnIn ?? -1 })
+                                                         subtitleStreamIndex: carry.map { $0.burnIn ?? -1 },
+                                                         audioStreamIndex: carry?.audio)
             try Task.checkCancellation()
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
+            audioOptions = Self.audioOptions(stream.mediaSource)
+            // The server's pick for the user's language, which the file's own default may not be.
+            let audio = carry?.audio ?? stream.mediaSource.defaultAudioStreamIndex ?? audioOptions.first?.id
+            selectedAudio = audio
 
             PlayerLog.engine("Controller: \(stream.playMethod.label) \(stream.url.path)?\(Self.redactedQuery(stream.url))")
             loadingDetail = "Opening video (\(stream.playMethod.label))…"
@@ -181,14 +197,16 @@ final class PlaybackController {
             engine.onEvent = { [weak self] event in self?.handle(event) }
             self.engine = engine
             try await engine.prepare(source: MediaSource(url: stream.url, headers: service.streamHeaders,
-                                                         timelineOffset: stream.timelineOffset), startAt: start)
+                                                         timelineOffset: stream.timelineOffset,
+                                                         audioTrack: stream.playMethod == .directPlay ? audio : nil),
+                                     startAt: start)
             try Task.checkCancellation()
             loadingDetail = nil
             duration = engine.duration ?? Ticks.seconds(full.runTimeTicks ?? 0)
             videoSize = engine.videoSize.flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
-                                      quality: quality, burnInSubtitle: stream.burnedInSubtitle)
+                                      quality: quality, burnInSubtitle: stream.burnedInSubtitle, audio: audio)
             lastKnownPosition = start
             currentTime = start
             await beforePlay?(engine)
@@ -248,6 +266,7 @@ final class PlaybackController {
         subtitleText = nil
         subtitleBitmap = nil
         selectedSubtitle = nil
+        selectedAudio = nil
         externalCues = [:]
         loadingDetail = nil
         diagnostics = nil
@@ -340,7 +359,25 @@ final class PlaybackController {
 
     func selectQuality(_ quality: QualityPreset) {
         guard let session, quality != session.quality else { return }
-        performSwitch(quality: quality, burnIn: selectedPictureSubtitle, persistQuality: true)
+        performSwitch(quality: quality, burnIn: selectedPictureSubtitle, audio: selectedAudio, persistQuality: true)
+    }
+
+    /// Another audio track: in place during Direct Play (a short pause, like a seek), otherwise a
+    /// new stream from the server, switched seamlessly like a quality change.
+    func selectAudio(_ index: Int) {
+        guard let session, index != session.audio else { return }
+        selectedAudio = index   // checked in the menu at once; a failed switch puts it back
+        if session.playMethod == .directPlay, let engine {
+            // Every track is in the file being read: switch in place rather than download it twice.
+            self.session?.audio = index
+            Task { await engine.selectAudioTrack(index) }
+            return
+        }
+        performSwitch(quality: session.quality, burnIn: selectedPictureSubtitle, audio: index, persistQuality: false)
+    }
+
+    static func audioOptions(_ source: MediaSourceInfo) -> [AudioOption] {
+        source.audioStreams.map { AudioOption(id: $0.index, label: $0.displayTitle ?? $0.title ?? $0.language ?? "Track \($0.index)") }
     }
 
     /// The selected picture subtitle, asked for with every new stream: the server embeds it when it
@@ -349,10 +386,10 @@ final class PlaybackController {
         subtitleOptions.first { $0.id == selectedSubtitle && $0.isImage }?.id
     }
 
-    private func performSwitch(quality: QualityPreset, burnIn: Int?, persistQuality: Bool,
+    private func performSwitch(quality: QualityPreset, burnIn: Int?, audio: Int?, persistQuality: Bool,
                                then completion: (@MainActor () -> Void)? = nil) {
         guard let session, let service, let engine, let item else { return }
-        if quality == session.quality && burnIn == session.burnInSubtitle { return }
+        if quality == session.quality && burnIn == session.burnInSubtitle && audio == session.audio { return }
         switchTask?.cancel()
         isSwitching = true
         switchError = nil
@@ -366,11 +403,13 @@ final class PlaybackController {
                 let stream = try await service.resolveStream(itemId: item.id, quality: quality,
                                                              capabilities: self.capabilities, startSeconds: start,
                                                              mediaSourceId: session.mediaSourceId,
-                                                             subtitleStreamIndex: burnIn ?? -1)
+                                                             subtitleStreamIndex: burnIn ?? -1,
+                                                             audioStreamIndex: audio)
                 if stream.playMethod != .directPlay { unused = stream.playSessionId }
                 try Task.checkCancellation()
                 let source = MediaSource(url: stream.url, headers: service.streamHeaders,
-                                         timelineOffset: stream.timelineOffset)
+                                         timelineOffset: stream.timelineOffset,
+                                         audioTrack: stream.playMethod == .directPlay ? audio : nil)
                 try await withTimeout(timeout) { try await engine.switchSource(source, startAt: start) }
                 try Task.checkCancellation()
                 guard self.engine === engine, var old = self.session else { return }
@@ -382,7 +421,7 @@ final class PlaybackController {
                 old.stoppedReported = true
                 let newSession = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                                  playSessionId: stream.playSessionId, playMethod: stream.playMethod,
-                                                 quality: quality, burnInSubtitle: stream.burnedInSubtitle)
+                                                 quality: quality, burnInSubtitle: stream.burnedInSubtitle, audio: audio)
                 self.session = newSession
                 self.mediaSource = stream.mediaSource
                 let startNew = self.report(for: newSession, position: self.position)
@@ -401,10 +440,12 @@ final class PlaybackController {
                 // The new stream couldn't catch up with the playing one (a busy server). Switch the
                 // way a seek works instead: a short wait, and the server only encodes one stream.
                 PlayerLog.engine("Controller: \(quality.label) didn't catch up in time; restarting at it from here")
-                self.restart(quality: quality, burnIn: burnIn, persistQuality: persistQuality)
+                self.restart(quality: quality, burnIn: burnIn, audio: audio, persistQuality: persistQuality)
             } catch {
                 self.isSwitching = false
-                self.switchError = "Couldn't switch quality. Playing at \(session.quality.label)."
+                self.selectedAudio = session.audio
+                self.switchError = audio != session.audio ? "Couldn't switch the audio track."
+                    : "Couldn't switch quality. Playing at \(session.quality.label)."
             }
             if let unused { Task.detached { try? await service.endEncoding(playSessionId: unused) } }
         }
@@ -418,9 +459,9 @@ final class PlaybackController {
 
     /// Stops the playing stream and starts `quality` from the same position, keeping the
     /// subtitle and paused state: the fallback when a seamless switch can't be made.
-    private func restart(quality: QualityPreset, burnIn: Int?, persistQuality: Bool) {
+    private func restart(quality: QualityPreset, burnIn: Int?, audio: Int?, persistQuality: Bool) {
         guard let item, let service else { return }
-        let carry = Carryover(burnIn: burnIn, subtitle: selectedSubtitle, paused: !wantsToPlay)
+        let carry = Carryover(burnIn: burnIn, subtitle: selectedSubtitle, audio: audio, paused: !wantsToPlay)
         let position = self.position
         if persistQuality { preferences.setPreferredQualityId(quality.id, server: service.serverURL) }
         stopEngine(report: true)
@@ -466,14 +507,14 @@ final class PlaybackController {
                 // Otherwise the server burns them in (a stream switch at the same quality).
                 engine?.selectEmbeddedSubtitle(trackId: nil)
                 engine?.setExternalSubtitles(nil)
-                performSwitch(quality: session.quality, burnIn: index, persistQuality: false)
+                performSwitch(quality: session.quality, burnIn: index, audio: selectedAudio, persistQuality: false)
             }
             return
         }
         selectedSubtitle = index
         if session.burnInSubtitle != nil {
             // Leaving burn-in: back to the delivery the quality allows, then show text cues.
-            performSwitch(quality: session.quality, burnIn: nil, persistQuality: false)
+            performSwitch(quality: session.quality, burnIn: nil, audio: selectedAudio, persistQuality: false)
         }
         applySubtitleSource()
     }

@@ -349,6 +349,7 @@ struct PlayerControls: View {
                 }
                 HStack(spacing: 14) {
                     QualityMenu(player: player)
+                    if player.audioOptions.count > 1 { AudioMenu(player: player) }
                     SubtitleMenu(player: player)
                     Button { pip.toggle() } label: { Image(systemName: "pip.enter") }
                         .help("Picture in Picture")
@@ -436,6 +437,23 @@ struct QualityMenu: View {
     }
 }
 
+struct AudioMenu: View {
+    @Bindable var player: PlaybackController
+
+    var body: some View {
+        Menu {
+            AudioMenuItems(player: player)
+        } label: {
+            Image(systemName: "waveform")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Audio")
+        .accessibilityLabel("Audio")
+    }
+}
+
 struct SubtitleMenu: View {
     @Bindable var player: PlaybackController
 
@@ -474,6 +492,13 @@ struct PlaybackCommands: Commands {
                 }
             }
             .disabled(controller.session == nil)
+            Menu("Audio") {
+                ForEach(controller.audioOptions) { option in
+                    Toggle(option.label, isOn: Binding(get: { controller.selectedAudio == option.id },
+                                                       set: { if $0 { controller.selectAudio(option.id) } }))
+                }
+            }
+            .disabled(controller.audioOptions.count < 2)
             Menu("Subtitles") {
                 Toggle("Off", isOn: Binding(get: { controller.selectedSubtitle == nil },
                                             set: { if $0 { controller.selectSubtitle(nil) } }))

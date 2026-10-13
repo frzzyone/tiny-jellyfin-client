@@ -13,6 +13,7 @@ import SwiftUI
 ///     TJ_AUTOPLAY_FULLSCREEN=1      toggle full screen 3 s after playback starts, and log the result
 ///     TJ_AUTOPLAY_SWITCH=<id>       switch to this quality once playing
 ///     TJ_AUTOPLAY_SWITCH_AFTER=<s>  …after this many seconds of playback (default 8)
+///     TJ_AUTOPLAY_AUDIO=<index>     switch to this audio track once playing (same delay)
 ///     TJ_MAC_CHECKS=<file>          run `DebugChecks` on the player, results to the file; without
 ///                                   TJ_AUTOPLAY_ITEM it plays a film that is already watched
 enum DebugAutoplay {
@@ -59,6 +60,13 @@ enum DebugAutoplay {
                 window.toggleFullScreen(nil)
                 try await Task.sleep(nanoseconds: 4_000_000_000)
                 describe("after")
+            }
+            if let audio = env["TJ_AUTOPLAY_AUDIO"].flatMap(Int.init) {
+                let delay = env["TJ_AUTOPLAY_SWITCH_AFTER"].flatMap(Double.init) ?? 8
+                _ = await waitUntil { model.player.status == .playing }
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                PlayerLog.engine("Autoplay: switching to audio track \(audio)")
+                model.player.selectAudio(audio)
             }
             if let target = env["TJ_AUTOPLAY_SWITCH"], let quality = QualityPreset.with(id: target) {
                 let delay = env["TJ_AUTOPLAY_SWITCH_AFTER"].flatMap(Double.init) ?? 8

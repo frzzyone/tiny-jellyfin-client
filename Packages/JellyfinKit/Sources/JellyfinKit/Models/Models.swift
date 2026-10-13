@@ -214,6 +214,7 @@ public struct MediaSourceInfo: Codable, Sendable, Equatable {
 
     public var videoStream: MediaStream? { mediaStreams?.first { $0.type == .video } }
     public var subtitleStreams: [MediaStream] { mediaStreams?.filter { $0.type == .subtitle } ?? [] }
+    public var audioStreams: [MediaStream] { mediaStreams?.filter { $0.type == .audio } ?? [] }
 }
 
 public struct PlaybackInfoResponse: Codable, Sendable {

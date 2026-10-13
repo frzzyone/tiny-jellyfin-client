@@ -241,17 +241,8 @@ struct TVPlayerView: View {
         .focusable() // so focus can come down from the tabs and Back still reaches the panel
     }
 
-    /// Shown, not switchable: the engine plays the stream the server recommends.
     private var audio: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            let tracks = player.engine?.tracks.filter { $0.kind == .audio } ?? []
-            ForEach(tracks) { track in
-                Text("\(track.displayName) · \(track.codec.uppercased())\(track.isDefault ? " · default" : "")")
-                    .font(.system(size: 24)).foregroundStyle(BrowserStyle.text)
-            }
-            Text("Audio tracks can't be switched yet.").font(.system(size: 20)).foregroundStyle(BrowserStyle.muted)
-        }
-        .focusable()
+        options { AudioMenuItems(player: player) }
     }
 }
 

@@ -39,6 +39,8 @@ final class Pipeline: @unchecked Sendable {
     private var thread: Thread?
     private var stopped = false
     private var pendingSeek: Double?
+    /// Another audio stream of the same input, taken by the reader with the next seek.
+    private var pendingAudioStream: Int?
     private var seekWaiters: [CheckedContinuation<Void, Never>] = []
     private(set) var failure: String?
     private var consecutiveErrors = 0
@@ -71,7 +73,8 @@ final class Pipeline: @unchecked Sendable {
         videoStream = demuxer.bestStream(AVMEDIA_TYPE_VIDEO).flatMap { index in
             tracks.first { $0.id == index && $0.kind == .video }?.id
         }
-        audioStream = demuxer.bestStream(AVMEDIA_TYPE_AUDIO)
+        audioStream = source.audioTrack.flatMap { id in tracks.first { $0.id == id && $0.kind == .audio }?.id }
+            ?? demuxer.bestStream(AVMEDIA_TYPE_AUDIO)
         if let videoStream, let par = demuxer.codecParameters(videoStream) {
             videoInfo = VideoStreamInfo(parameters: par)
             if let stream = demuxer.stream(videoStream) {
@@ -154,7 +157,7 @@ final class Pipeline: @unchecked Sendable {
     }
 
     /// Repositions the reader at the keyframe before `time` and flushes queued packets.
-    func seek(to time: Double) async {
+    func seek(to time: Double, audioStream: Int? = nil) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             condition.lock()
             if stopped {
@@ -163,6 +166,7 @@ final class Pipeline: @unchecked Sendable {
                 return
             }
             pendingSeek = time
+            if let audioStream { pendingAudioStream = audioStream }
             seekWaiters.append(continuation)
             condition.broadcast()
             condition.unlock()
@@ -183,9 +187,18 @@ final class Pipeline: @unchecked Sendable {
             if stopped { condition.unlock(); break }
             if let target = pendingSeek {
                 pendingSeek = nil
+                let newAudio = pendingAudioStream
+                pendingAudioStream = nil
                 let waiters = seekWaiters
                 seekWaiters.removeAll()
                 condition.unlock()
+                // The engine isn't feeding during a seek, so the audio mode can change here.
+                if let newAudio, newAudio != audioStream, tracks.contains(where: { $0.id == newAudio && $0.kind == .audio }),
+                   let stream = demuxer.stream(newAudio), let mode = try? makeAudioMode(stream) {
+                    audioStream = newAudio
+                    audioMode = mode
+                    PlayerLog.engine("Audio: track \(newAudio)")
+                }
                 reposition(to: target)
                 videoQueue.flush()
                 audioQueue.flush()

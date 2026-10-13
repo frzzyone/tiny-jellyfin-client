@@ -361,6 +361,53 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(service.recorded.contains("subtitle:2"))
     }
 
+    /// The server's audio pick for the user's language, not the file's own default.
+    func testDirectPlayStartsOnTheServersAudioPick() async {
+        let (controller, _, engine) = await started(movie(defaultAudio: 5))
+        XCTAssertEqual(controller.selectedAudio, 5)
+        XCTAssertEqual(engine.prepared.first?.0.audioTrack, 5)
+        XCTAssertEqual(controller.audioOptions.map(\.id), [1, 5])
+    }
+
+    func testAudioTrackSwitchesWithoutAPause() async {
+        let (controller, service, engine) = await started()
+        engine.currentTime = 900
+        controller.selectAudio(5)
+        XCTAssertEqual(controller.selectedAudio, 5, "checked at once")
+        let switched = await eventually { engine.audioTrackChanges == [5] }
+        XCTAssertTrue(switched, "Direct Play switches in place")
+        XCTAssertEqual(controller.session?.audio, 5)
+        XCTAssertTrue(engine.switches.isEmpty, "no second download")
+        XCTAssertEqual(service.audioRequests.count, 1)
+        XCTAssertEqual(engines.count, 1)
+
+        // A quality change keeps it; the transcode carries only that track.
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
+        XCTAssertEqual(service.audioRequests.last, 5)
+        XCTAssertNil(engine.switches.last?.0.audioTrack)
+        XCTAssertEqual(controller.selectedAudio, 5)
+    }
+
+    func testTranscodedAudioSwitchAsksTheServer() async {
+        let (controller, service, engine) = await started(method: .transcode)
+        controller.selectAudio(5)
+        let switched = await eventually { controller.session?.audio == 5 && !controller.isSwitching }
+        XCTAssertTrue(switched)
+        XCTAssertEqual(service.audioRequests.last, 5)
+        XCTAssertNil(engine.switches.last?.0.audioTrack, "the transcode carries only that track")
+    }
+
+    func testFailedAudioSwitchKeepsTheTrack() async {
+        let (controller, _, engine) = await started(method: .transcode)
+        engine.switchError = EngineError("The server answered HTTP 500.")
+        controller.selectAudio(5)
+        let failed = await eventually { controller.switchError != nil }
+        XCTAssertTrue(failed)
+        XCTAssertEqual(controller.switchError, "Couldn't switch the audio track.")
+        XCTAssertEqual(controller.selectedAudio, 1)
+    }
+
     /// During Direct Play the app draws picture subtitles from the file: no new stream.
     func testPictureSubtitleDuringDirectPlayIsDrawnByTheApp() async {
         let (controller, service, engine) = await started()

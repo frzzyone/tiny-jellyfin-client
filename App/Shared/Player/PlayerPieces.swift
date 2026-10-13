@@ -107,6 +107,23 @@ struct QualityMenuItems: View {
     }
 }
 
+/// Every audio track, the current one checked.
+struct AudioMenuItems: View {
+    let player: PlaybackController
+    var onPick: () -> Void = {}
+
+    var body: some View {
+        ForEach(player.audioOptions) { option in
+            Button {
+                player.selectAudio(option.id)
+                onPick()
+            } label: {
+                if option.id == player.selectedAudio { Label(option.label, systemImage: "checkmark") } else { Text(option.label) }
+            }
+        }
+    }
+}
+
 /// Off plus every subtitle track, the current one checked.
 struct SubtitleMenuItems: View {
     let player: PlaybackController

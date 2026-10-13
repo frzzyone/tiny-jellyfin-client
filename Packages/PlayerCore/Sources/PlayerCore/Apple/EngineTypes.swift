@@ -9,11 +9,14 @@ public struct MediaSource: Sendable, Equatable {
     public var url: URL
     public var headers: [String: String]
     public var timelineOffset: Double
+    /// The audio stream to play from a file with several; nil plays the container's best.
+    public var audioTrack: Int?
 
-    public init(url: URL, headers: [String: String] = [:], timelineOffset: Double = 0) {
+    public init(url: URL, headers: [String: String] = [:], timelineOffset: Double = 0, audioTrack: Int? = nil) {
         self.url = url
         self.headers = headers
         self.timelineOffset = timelineOffset
+        self.audioTrack = audioTrack
     }
 }
 
@@ -95,6 +98,8 @@ public protocol PlaybackEngine: AnyObject {
     func play()
     func pause()
     func seek(to time: Double) async
+    /// Another audio track of the playing file (Direct Play), from the current position.
+    func selectAudioTrack(_ id: Int) async
     /// Opens `source` in the background while the current one keeps playing, then splices it in
     /// at a keyframe. Throws (and keeps the current stream) if the new one cannot be loaded.
     func switchSource(_ source: MediaSource, startAt: Double) async throws

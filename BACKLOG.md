@@ -22,7 +22,7 @@ Things we know about and have chosen not to do yet. Each should become its own O
 ## iPhone
 
 - **From the production review (2026-10-13), not yet decided:** playback
-  speed / audio track / chapters, long-press fast-forward and touch lock, Dynamic Type for the
+  speed / chapters, long-press fast-forward and touch lock, Dynamic Type for the
   browser text, PiP restore-to-app.
 - **iPad** would want a layout closer to the Mac's; the phone layout only stretches today.
 - **App Store** distribution: LGPL FFmpeg under code signing is unresolved; the app is for your own
@@ -30,8 +30,6 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## Apple TV
 
-- **Audio track switching** — the panel lists the tracks but the engine plays the one the server
-  recommends (the same gap as the other apps).
 - **Scrub previews** (trickplay thumbnails while swiping) and holding left/right to scrub.
 - **Siri and system search** ("play Troy"), user profiles, server discovery: left out of the first version.
 

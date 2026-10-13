@@ -77,6 +77,11 @@ ASS
   -metadata:s:s:0 language=eng -metadata:s:s:1 language=spa -metadata:s:s:1 title="Signs" \
   -disposition:s:0 default -t "$DUR" subs.mkv
 
+# Two audio tracks: English stereo AAC (default) and Spanish 5.1 AC-3.
+"${FF[@]}" "${VIDEO[@]}" "${STEREO[@]}" "${SURROUND[@]/1:a/2:a}" -map 0:v -map 1:a -map "[a]" "${H264[@]}" \
+  -c:a:0 aac -b:a:0 96k -c:a:1 ac3 -b:a:1 384k -metadata:s:a:0 language=eng -metadata:s:a:1 language=spa \
+  -disposition:a:0 default -disposition:a:1 0 -shortest two_audio.mkv
+
 # Picture subtitles: a Blu-ray PGS stream written by hand (FFmpeg can't render text into
 # bitmaps): a 40x20 white box at (100,120) on a 320x180 canvas from 1 s, cleared at 3 s, then a
 # second box at 4 s with no clear (it lasts until the end).
