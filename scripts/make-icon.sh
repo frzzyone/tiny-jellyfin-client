@@ -21,10 +21,26 @@ for px in [16, 32, 64, 128, 256, 512, 1024] {
     let png = rep.representation(using: .png, properties: [:])!
     try! png.write(to: URL(fileURLWithPath: "App/Resources/Assets.xcassets/AppIcon.appiconset/icon_\(px).png"))
 }
+// iOS masks the icon itself: a square, opaque, full-bleed 1024 without our rounded tile.
+let square = try! String(contentsOf: svg, encoding: .utf8).replacingOccurrences(of: "rx=\"230\"", with: "")
+let squareURL = FileManager.default.temporaryDirectory.appendingPathComponent("AppIcon-ios.svg")
+try! square.write(to: squareURL, atomically: true, encoding: .utf8)
+let ios = NSImage(contentsOf: squareURL)!
+let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024, bitsPerSample: 8,
+                           samplesPerPixel: 3, hasAlpha: false, isPlanar: false,
+                           colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+rep.size = NSSize(width: 1024, height: 1024)
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+ios.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024), from: .zero, operation: .copy, fraction: 1)
+NSGraphicsContext.restoreGraphicsState()
+try! rep.representation(using: .png, properties: [:])!
+    .write(to: URL(fileURLWithPath: "App/Resources/Assets.xcassets/AppIcon.appiconset/icon_ios_1024.png"))
 SWIFT
 cat > "$SET/Contents.json" <<'JSON'
 {
   "images" : [
+    { "filename" : "icon_ios_1024.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" },
     { "filename" : "icon_16.png",   "idiom" : "mac", "scale" : "1x", "size" : "16x16" },
     { "filename" : "icon_32.png",   "idiom" : "mac", "scale" : "2x", "size" : "16x16" },
     { "filename" : "icon_32.png",   "idiom" : "mac", "scale" : "1x", "size" : "32x32" },

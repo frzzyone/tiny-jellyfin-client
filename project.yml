@@ -53,6 +53,43 @@ targets:
     scheme:
       testTargets:
         - TinyJellyfinTests
+  TinyJellyfinPhone:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App/Shared
+      - path: App/iOS
+      - path: App/Resources/Assets.xcassets
+      - path: THIRD_PARTY_NOTICES.md
+        buildPhase: resources
+    dependencies:
+      - package: JellyfinKit
+      - package: PlayerCore
+    info:
+      path: App/Resources/Info-iOS.plist
+      properties:
+        CFBundleDisplayName: Tiny Jellyfin
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIRequiresFullScreen: true
+        # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: "Tiny Jellyfin connects to your Jellyfin server on this network."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.phone
+        PRODUCT_NAME: TinyJellyfin
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        # Set your team in Xcode (Signing & Capabilities) to run on a phone; the simulator needs none.
+        DEVELOPMENT_TEAM: ""
   TinyJellyfinTests:
     type: bundle.unit-test
     platform: macOS

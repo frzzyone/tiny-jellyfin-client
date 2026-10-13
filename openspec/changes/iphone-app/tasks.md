@@ -14,7 +14,7 @@
 ## 3. Shared app code
 
 - [x] 3.1 Split `App/` into `Shared/`, `macOS/`, `iOS/`; `SubtitleFont` on `CTFont`; `NowPlaying` artwork behind a typealias; verify the Mac app builds and its tests pass unchanged
-- [ ] 3.2 `TinyJellyfin-iOS` target in `project.yml` (bundle id, iOS 17, background audio, ATS exception, icon from the same SVG); verify it builds for the simulator
+- [x] 3.2 `TinyJellyfin-iOS` target in `project.yml` (bundle id, iOS 17, background audio, ATS exception, icon from the same SVG); verify it builds for the simulator
 
 ## 4. iPhone UI
 
