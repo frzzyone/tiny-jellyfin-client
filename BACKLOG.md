@@ -27,7 +27,7 @@ Things we know about and have chosen not to do yet. Each should become its own O
 - **The first bar reading can step.** Bars encoded in the frames are applied after two looks (4 s);
   a dark opening shot can place the text high for 2 s before a brighter frame narrows the bars.
   Waiting for more agreeing looks, or easing the move, would hide it. Decide after seeing it.
-- **Verification owed:** `openspec/changes/archive/2026-10-12-subtitle-style/manual-checklist.md`.
+- **Verification owed:** `openspec/changes/archive/2026-10-12-subtitle-style/manual-checklist.md` and `openspec/changes/archive/2026-10-13-browser-home/manual-checklist.md`.
 
 ## iPad / iPhone (parked 2026-10-12)
 
