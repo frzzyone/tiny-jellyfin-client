@@ -96,14 +96,13 @@ struct PhonePlayerView: View {
         }
     }
 
-    /// Single tap toggles the controls; double tap on a side third skips. With the controls up, a
-    /// vertical swipe on the left half sets the screen brightness and on the right half the volume.
+    /// Single tap toggles the controls; double tap on a side third skips. A vertical swipe on the
+    /// left half sets the screen brightness and on the right half the volume, controls up or not.
     private func touchLayer(size: CGSize) -> some View {
         let width = size.width
         return Color.clear
             .contentShape(Rectangle())
             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
-                guard controlsVisible else { return }
                 if swipe == nil {
                     guard abs(drag.translation.height) > abs(drag.translation.width) else { return }
                     let left = drag.startLocation.x < width / 2
