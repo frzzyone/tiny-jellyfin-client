@@ -35,9 +35,10 @@ public enum EngineEvent: Sendable {
     case switched
 }
 
-public struct EngineError: Error, CustomStringConvertible {
+public struct EngineError: LocalizedError, CustomStringConvertible {
     public let description: String
     public init(_ description: String) { self.description = description }
+    public var errorDescription: String? { description }
 }
 
 /// What this Mac can play locally.

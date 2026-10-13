@@ -1,7 +1,7 @@
 import CFFmpeg
 import Foundation
 
-public struct FFmpegError: Error, CustomStringConvertible, Equatable {
+public struct FFmpegError: LocalizedError, CustomStringConvertible, Equatable {
     public let code: Int32
     public let context: String
 
@@ -11,6 +11,7 @@ public struct FFmpegError: Error, CustomStringConvertible, Equatable {
     }
 
     public var description: String { "\(context): \(Self.message(code)) (\(code))" }
+    public var errorDescription: String? { "\(context): \(Self.message(code))" }
 
     static func message(_ code: Int32) -> String {
         var buffer = [CChar](repeating: 0, count: 256)

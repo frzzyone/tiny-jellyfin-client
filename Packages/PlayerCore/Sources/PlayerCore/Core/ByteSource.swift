@@ -63,7 +63,7 @@ public final class DefaultByteSourceFactory: ByteSourceFactory {
 
     public init(headers: [String: String] = [:], session: URLSession? = nil) {
         self.headers = headers
-        self.session = session ?? HTTPByteSource.makeSession()
+        self.session = session ?? HTTPByteSource.sharedSession
     }
 
     public func open(url: URL) throws -> ByteSource {

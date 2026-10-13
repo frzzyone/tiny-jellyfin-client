@@ -3,9 +3,10 @@ import Foundation
 import FoundationNetworking
 #endif
 
-public struct HTTPStatusError: Error, CustomStringConvertible {
+public struct HTTPStatusError: LocalizedError, CustomStringConvertible {
     public let status: Int
     public var description: String { "HTTP \(status)" }
+    public var errorDescription: String? { "The server answered HTTP \(status)." }
 }
 
 /// Streams an HTTP resource with Range requests through URLSession: system TLS, proxies,
@@ -49,6 +50,10 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     }
 
     deinit { close() }
+
+    /// One session for every stream: a session with a delegate lives until it is invalidated, so
+    /// one per demuxer would leak.
+    public static let sharedSession = makeSession()
 
     public static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.default

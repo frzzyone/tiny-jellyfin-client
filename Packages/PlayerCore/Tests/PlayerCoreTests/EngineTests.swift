@@ -167,6 +167,8 @@ final class EngineTests: XCTestCase {
             XCTFail("expected failure")
         } catch {
             if case .failed = engine.state {} else { XCTFail("state \(engine.state)") }
+            // What the player shows: a sentence, not "The operation couldn't be completed".
+            XCTAssertFalse(error.localizedDescription.contains("couldn"), error.localizedDescription)
         }
     }
 
