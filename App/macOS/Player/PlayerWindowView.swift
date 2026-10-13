@@ -404,15 +404,15 @@ struct QualityMenu: View {
         Menu {
             QualityMenuItems(player: player)
         } label: {
-            if player.isSwitching {
-                ProgressView().controlSize(.small)
-            } else {
-                Image(systemName: "dial.medium")
-            }
+            // Always the icon: AppKit draws a borderless menu's label once, so swapping it for the
+            // spinner left an empty (still clickable) space after a switch.
+            Image(systemName: "dial.medium")
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .opacity(player.isSwitching ? 0 : 1)
+        .overlay { if player.isSwitching { ProgressView().controlSize(.small).allowsHitTesting(false) } }
         .help("Quality")
         .accessibilityLabel("Quality")
     }
