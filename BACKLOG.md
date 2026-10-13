@@ -22,7 +22,7 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## iPhone
 
-- **From the production review (2026-10-13), not yet decided:** a skip-interval setting, playback
+- **From the production review (2026-10-13), not yet decided:** playback
   speed / audio track / chapters, long-press fast-forward and touch lock, Dynamic Type for the
   browser text, PiP restore-to-app, the server's name after relaunch (shows the host).
 - **The Subtitles and Quality menus close by themselves** when the controls auto-hide after 3 s;

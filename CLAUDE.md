@@ -132,6 +132,7 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   fixtures (`EngineTests`), network behaviour against `scripts/test-http-server.py`.
 - When a bug only reproduces against a real server, add the test that would have caught it (the
   seekable flag, the park-and-resume read) rather than relying on manual checks.
+- No settings screen. The app stays lean: pick a sensible default instead of adding an option.
 - Don't add third-party dependencies. FFmpeg is the one exception, LGPL-only and built by our script;
   keep it that way (`THIRD_PARTY_NOTICES.md`).
 - Generated and vendored paths are git-ignored: `Vendor/`, `*.xcodeproj/`, the fixtures,
