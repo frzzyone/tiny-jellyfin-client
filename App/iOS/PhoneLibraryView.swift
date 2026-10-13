@@ -15,6 +15,11 @@ struct PhoneLibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if let grid {
+                    if let total = grid.total {
+                        Text(grid.items.count < total ? "\(grid.items.count) of \(total)" : "\(total)")
+                            .font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                            .padding(.horizontal, PhoneStyle.side).padding(.top, -6)
+                    }
                     filters(grid)
                     PhoneGrid(grid: grid)
                 } else {
@@ -25,11 +30,6 @@ struct PhoneLibraryView: View {
         }
         .background(BrowserStyle.ground)
         .navigationTitle(title)
-        .toolbar {
-            if let total = grid?.total {
-                Text("\(total)").font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
-            }
-        }
         .task {
             guard grid == nil, let client = model.client else { return }
             let grid = LibraryGridModel(parentId: parentId, filter: parentId == nil ? .az : .unwatched) { try await client.items($0) }

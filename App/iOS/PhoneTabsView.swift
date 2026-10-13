@@ -11,9 +11,10 @@ struct PhoneTabsView: View {
     @State private var libraries: [BaseItem] = []
     @State private var showPlayer = false
     @State private var lastPlayedID: String?
+    @State private var tab = "home"
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             NavigationStack {
                 if let home {
                     PhoneHomeView(home: home, session: session, onPlay: play)
@@ -23,6 +24,7 @@ struct PhoneTabsView: View {
                 }
             }
             .tabItem { Label("Home", systemImage: "house") }
+            .tag("home")
 
             ForEach(libraries) { library in
                 NavigationStack {
@@ -30,6 +32,7 @@ struct PhoneTabsView: View {
                         .navigationDestination(for: BaseItem.self, destination: destination)
                 }
                 .tabItem { Label(library.displayName, systemImage: library.collectionType == "tvshows" ? "tv" : "film") }
+                .tag(library.id)
             }
 
             NavigationStack {
@@ -37,9 +40,9 @@ struct PhoneTabsView: View {
                     .navigationDestination(for: BaseItem.self, destination: destination)
             }
             .tabItem { Label("Search", systemImage: "magnifyingglass") }
+            .tag("search")
         }
         .tint(BrowserStyle.accent)
-        .environment(browser)
         .sheet(item: Binding(get: { browser.quickLook }, set: { if $0 == nil { browser.closeQuickLook() } })) { item in
             PhoneDetailSheet(item: item, onPlay: play, onUpdate: update)
                 .presentationDetents([.large])
@@ -48,6 +51,8 @@ struct PhoneTabsView: View {
         .fullScreenCover(isPresented: $showPlayer) {
             PhonePlayerView { showPlayer = false }
         }
+        // Outermost, so the sheet and the player (presented outside the tabs) see it too.
+        .environment(browser)
         .onChange(of: model.player.status) { was, now in
             // Playback ended: positions on the server changed, so Home and the played item follow.
             guard now == .idle || now == .ended, was != .idle, let playedID = lastPlayedID else { return }
@@ -63,6 +68,13 @@ struct PhoneTabsView: View {
             async let libs = (try? client.libraries()) ?? []
             await home.load()
             libraries = await libs
+            #if DEBUG
+            // Screenshot hooks (simctl launch with SIMCTL_CHILD_…): TJ_BROWSER_TAB=<library name>,
+            // TJ_BROWSER_QUICKLOOK=hero.
+            let env = ProcessInfo.processInfo.environment
+            if let name = env["TJ_BROWSER_TAB"], let library = libraries.first(where: { $0.displayName == name }) { tab = library.id }
+            if env["TJ_BROWSER_QUICKLOOK"] == "hero", let hero = home.hero { browser.openQuickLook(hero, in: [hero]) }
+            #endif
         }
     }
 

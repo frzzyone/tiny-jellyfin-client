@@ -27,12 +27,15 @@ let squareURL = FileManager.default.temporaryDirectory.appendingPathComponent("A
 try! square.write(to: squareURL, atomically: true, encoding: .utf8)
 let ios = NSImage(contentsOf: squareURL)!
 let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024, bitsPerSample: 8,
-                           samplesPerPixel: 3, hasAlpha: false, isPlanar: false,
+                           samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
 rep.size = NSSize(width: 1024, height: 1024)
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-ios.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024), from: .zero, operation: .copy, fraction: 1)
+// Opaque: fill the tile colour edge to edge, then draw the mark over it.
+NSColor(srgbRed: 0x23 / 255.0, green: 0x28 / 255.0, blue: 0x2f / 255.0, alpha: 1).setFill()
+NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
+ios.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024), from: .zero, operation: .sourceOver, fraction: 1)
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!
     .write(to: URL(fileURLWithPath: "App/Resources/Assets.xcassets/AppIcon.appiconset/icon_ios_1024.png"))

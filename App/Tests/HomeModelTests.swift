@@ -52,6 +52,15 @@ final class HomeModelTests: XCTestCase {
         XCTAssertEqual(model.hero?.id, "new")
     }
 
+    func testHeroIsNotRepeatedInTheRows() async {
+        service.resume = [item("e2", type: .episode, position: 100)]
+        service.nextUpItems = [item("e2", type: .episode), item("e9", type: .episode)]
+        let model = makeModel()
+        await model.load()
+        XCTAssertEqual(model.hero?.id, "e2")
+        XCTAssertEqual(model.visibleRows.first { $0.id == "nextUp" }?.items.map(\.id), ["e9"])
+    }
+
     func testEmptyRowsAreHiddenAndErrorsStay() async {
         service.errors = ["nextUp"]
         service.resume = [item("troy", position: 100)]

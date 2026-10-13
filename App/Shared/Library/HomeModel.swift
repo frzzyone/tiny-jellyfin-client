@@ -116,8 +116,16 @@ final class HomeModel {
         return rows
     }
 
-    /// Rows with something in them (or an error to show), in planned order.
-    var visibleRows: [HomeRow] { rows.filter { !$0.isEmpty } }
+    /// Rows with something in them (or an error to show), in planned order, without the hero:
+    /// it is already at the top, and Next up often holds the same episode.
+    var visibleRows: [HomeRow] {
+        rows.map { row in
+            var row = row
+            row.items.removeAll { $0.id == hero?.id }
+            return row
+        }
+        .filter { !$0.isEmpty }
+    }
 
     func load() async {
         isLoading = true
