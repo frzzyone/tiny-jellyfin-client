@@ -71,11 +71,16 @@ struct PhonePlayerView: View {
             PhoneOrientation.lock(.portrait)
         }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
-            if player.isPlaying, controlsVisible, scrubbing == nil, Date().timeIntervalSince(lastActivity) >= 3 {
+            // Only real playback hides them: a slow start (buffering counts as "playing") must not.
+            if player.status == .playing, controlsVisible, scrubbing == nil, Date().timeIntervalSince(lastActivity) >= 3 {
                 withAnimation { controlsVisible = false }
             }
         }
         .onChange(of: player.isPlaying) { _, _ in pip.invalidate(); player.nowPlaying.update() }
+        .onChange(of: player.status) { _, status in
+            // Show the controls for 3 s once the picture is moving.
+            if status == .playing { lastActivity = Date() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { note in
             // Headphones unplugged or disconnected: pause, as every player does.
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init)
@@ -122,6 +127,8 @@ struct PhonePlayerView: View {
             }
             .padding(.horizontal, 56)
             .padding(.vertical, 20)
+            // Hidden while the spinner holds the centre.
+            if player.status != .loading && player.status != .buffering {
             HStack(spacing: 72) {
                 round("gobackward.10", size: 52, label: "Back 10 seconds") { skip(-10, leading: true) }
                 round(player.isPlaying ? "pause.fill" : "play.fill", size: 68, label: player.isPlaying ? "Pause" : "Play") {
@@ -129,6 +136,7 @@ struct PhonePlayerView: View {
                     lastActivity = Date()
                 }
                 round("goforward.30", size: 52, label: "Forward 30 seconds") { skip(30, leading: false) }
+            }
             }
         }
         .foregroundStyle(.white)

@@ -74,6 +74,7 @@ struct PhoneTabsView: View {
             let env = ProcessInfo.processInfo.environment
             if let name = env["TJ_BROWSER_TAB"], let library = libraries.first(where: { $0.displayName == name }) { tab = library.id }
             if env["TJ_BROWSER_QUICKLOOK"] == "hero", let hero = home.hero { browser.openQuickLook(hero, in: [hero]) }
+            if env["TJ_AUTOPLAY"] != nil, let hero = home.hero { play(hero, resume: true) }
             #endif
         }
     }
