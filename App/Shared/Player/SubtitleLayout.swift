@@ -1,10 +1,15 @@
 import CoreText
 import PlayerCore
 
-/// Subtitles are set in Helvetica Neue at 48 pt on a 1080-line picture, scaled with the picture.
+/// Subtitles are set in Helvetica Neue at 48 pt on a 1080-line picture (56 on a phone, whose
+/// picture is small and close), scaled with the picture.
 enum SubtitleFont {
     static let name = "HelveticaNeue"
+    #if os(iOS)
+    static let referenceSize: CGFloat = 56
+    #else
     static let referenceSize: CGFloat = 48
+    #endif
     static let referenceHeight: CGFloat = 1080
     static let minimumSize: CGFloat = 12
 

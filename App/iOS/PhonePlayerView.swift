@@ -14,6 +14,8 @@ struct PhonePlayerView: View {
     @State private var scrubbing: Double?
     @State private var skipFlash: (text: String, leading: Bool)?
     @State private var pip = PictureInPictureController()
+    /// Fill the screen (cropping the picture) instead of fitting it; remembered between films.
+    @AppStorage("playerZoomed") private var zoomed = false
 
     private var player: PlaybackController { model.player }
 
@@ -22,10 +24,12 @@ struct PhonePlayerView: View {
             ZStack {
                 Color.black
                 if let engine = player.engine {
-                    PhoneVideoLayer(layer: engine.displayLayer)
+                    PhoneVideoLayer(layer: engine.displayLayer, gravity: zoomed ? .resizeAspectFill : .resizeAspect)
                         .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
                 }
-                SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, bars: player.pictureBars)
+                // Zoomed, the picture is cropped to the screen, so the screen is the picture.
+                SubtitleOverlay(text: player.subtitleText, videoSize: zoomed ? nil : player.videoSize,
+                                bars: zoomed ? nil : player.pictureBars)
                     .padding(.bottom, controlsVisible ? 56 : 0)
                     .animation(.easeOut(duration: 0.2), value: controlsVisible)
                 touchLayer(width: geo.size.width)
@@ -155,6 +159,11 @@ struct PhonePlayerView: View {
             Menu { QualityMenuItems(player: player) } label: { chip(player.isSwitching ? "Switching…" : "Quality") }
             Menu { SubtitleMenuItems(player: player) } label: { chip("Subtitles") }
                 .disabled(player.subtitleOptions.isEmpty)
+            round(zoomed ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 44,
+                  label: zoomed ? "Fit to screen" : "Fill screen") {
+                zoomed.toggle()
+                lastActivity = Date()
+            }
             round("pip.enter", size: 44, label: "Picture in Picture") { pip.toggle() }
         }
     }
@@ -200,15 +209,18 @@ struct PhonePlayerView: View {
 /// Hosts the engine's display layer in a UIView.
 struct PhoneVideoLayer: UIViewRepresentable {
     let layer: AVSampleBufferDisplayLayer
+    var gravity: AVLayerVideoGravity = .resizeAspect
 
     func makeUIView(context: Context) -> HostView {
         let view = HostView()
         view.videoLayer = layer
+        layer.videoGravity = gravity
         return view
     }
 
     func updateUIView(_ view: HostView, context: Context) {
         if view.videoLayer !== layer { view.videoLayer = layer }
+        if layer.videoGravity != gravity { layer.videoGravity = gravity }
     }
 
     final class HostView: UIView {

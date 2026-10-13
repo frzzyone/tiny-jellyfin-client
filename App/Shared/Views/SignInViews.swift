@@ -22,6 +22,8 @@ struct ServerEntryView: View {
             .disabled(address.trimmingCharacters(in: .whitespaces).isEmpty || model.session.isBusy)
         }
         .onAppear { if address.isEmpty { address = prefill } }
+        // The screen can already be up when the saved address arrives (session restore).
+        .onChange(of: prefill) { _, new in if address.isEmpty { address = new } }
     }
 
     private func connect() {
