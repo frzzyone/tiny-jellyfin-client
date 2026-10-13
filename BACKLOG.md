@@ -41,7 +41,13 @@ Things we know about and have chosen not to do yet. Each should become its own O
 - **Trim the HLS playlist before handing it to FFmpeg.** On a transcoded start FFmpeg fetches
   segment 0 to detect the format, which the server has to encode for nothing (~3 s of the ~5.5 s
   start). Rewriting the playlist to begin at the resume point would remove that, at the cost of
-  owning playlist parsing. Declined for now; revisit if transcoded starts feel slow.
+  owning playlist parsing. Declined for now; revisit if transcoded starts feel slow. Seen on
+  2026-10-13 against a slow server: a quality switch spent 8 of its 17 s opening on segment 0.
+- **AV1 transcodes, HEVC as the fallback.** Jellyfin only sends AV1 in fMP4 HLS segments, and
+  our FFmpeg 7.1 neither seeks HLS with fMP4 segments nor reads AV1 from MPEG-TS. Needs FFmpeg 8.x
+  (or an engine workaround for fMP4 seeks), fMP4 segments requested with `av1,hevc,h264`, and the
+  MPEG-TS invariants (the 10 s offset, open and seek paths) rechecked with new fixtures. Gain:
+  ~20–30% less bitrate for the same picture, mostly on the low presets.
 - **Atmos fallback.** If E-AC-3 passthrough ever fails on some output, decode to multichannel PCM
   instead. One-line change, not needed until someone sees it fail.
 
