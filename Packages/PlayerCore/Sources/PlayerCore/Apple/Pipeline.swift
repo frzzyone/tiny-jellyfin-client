@@ -28,6 +28,10 @@ final class Pipeline: @unchecked Sendable {
     var audioMode: AudioMode?
     private(set) var subtitleStores: [Int: SubtitleTrackStore] = [:]
     private var subtitleDecoders: [Int: SubtitleDecoder] = [:]
+    /// Picture subtitles are decoded for the selected track only: a Blu-ray remux can carry
+    /// dozens, and each event is an image.
+    private var pictureDecoders: [Int: SubtitleDecoder] = [:]
+    private var pictureTrackStore: (track: Int, store: BitmapSubtitleStore)?
     private(set) var tracks: [MediaTrack] = []
     private(set) var duration: Double?
 
@@ -85,6 +89,13 @@ final class Pipeline: @unchecked Sendable {
                                                      timelineOffset: source.timelineOffset) else { continue }
             subtitleDecoders[track.id] = decoder
             subtitleStores[track.id] = SubtitleTrackStore()
+        }
+        for track in tracks where track.isPictureSubtitle {
+            guard let stream = demuxer.stream(track.id),
+                  let decoder = try? SubtitleDecoder(parameters: stream.pointee.codecpar,
+                                                     timeBase: stream.pointee.time_base,
+                                                     timelineOffset: source.timelineOffset) else { continue }
+            pictureDecoders[track.id] = decoder
         }
         if startAt > 10 { timelineCheck = startAt }
         PlayerLog.engine(String(format: "Open took %.2f s (header+probe %.2f s, positioning %.2f s), seekable=%@",
@@ -276,9 +287,39 @@ final class Pipeline: @unchecked Sendable {
             if videoFormat != nil { videoQueue.push(packet) { [unowned self] in shouldAbortPush } }
         } else if packet.streamIndex == audioStream {
             audioQueue.push(packet) { [unowned self] in shouldAbortPush }
+        } else if let decoder = pictureDecoders[packet.streamIndex] {
+            condition.lock()
+            let store = pictureTrackStore?.track == packet.streamIndex ? pictureTrackStore?.store : nil
+            condition.unlock()
+            if let store, let event = decoder.decodePicture(packet) {
+                store.add(event.bitmap, at: event.time)
+                if let bitmap = event.bitmap, store.count == 1 {
+                    PlayerLog.engine(String(format: "Picture subtitles: first event at %.1f s, %d×%d, %d piece(s)",
+                                            event.time, bitmap.canvasWidth, bitmap.canvasHeight, bitmap.pieces.count))
+                }
+            }
         } else if let decoder = subtitleDecoders[packet.streamIndex], let store = subtitleStores[packet.streamIndex] {
             decoder.decode(packet).forEach(store.add)
         }
+    }
+
+    /// Starts decoding `track`'s picture subtitles into a fresh store; returns false when the track
+    /// has no picture subtitles, or is already the one decoded.
+    func decodePictures(of track: Int?) -> Bool {
+        condition.lock(); defer { condition.unlock() }
+        guard let track, pictureDecoders[track] != nil else {
+            pictureTrackStore = nil
+            return false
+        }
+        if pictureTrackStore?.track == track { return false }
+        PlayerLog.engine("Picture subtitles: decoding track \(track)")
+        pictureTrackStore = (track, BitmapSubtitleStore())
+        return true
+    }
+
+    func pictureSubtitles(of track: Int) -> BitmapSubtitleStore? {
+        condition.lock(); defer { condition.unlock() }
+        return pictureTrackStore?.track == track ? pictureTrackStore?.store : nil
     }
 
     var hasFailed: String? { condition.lock(); defer { condition.unlock() }; return failure }

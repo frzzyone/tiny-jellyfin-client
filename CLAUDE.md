@@ -89,6 +89,10 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   Jellyfin's FFmpeg failing to start. `testFailingSegmentsFailTheOpenFast` guards this.
 - **Asking for no subtitle in particular lets the server burn in its default.** Read
   `ResolvedStream.burnedInSubtitle`, and send `-1` for Off.
+- **Picture subtitles are decoded for the selected track only** (a remux can carry dozens), into
+  a store that keeps the latest 80 events. Selecting a track re-reads from the clock, or the
+  events between the clock and the reader are missed. PGS events have no end time: each lasts
+  until the next event or clear.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
   lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and

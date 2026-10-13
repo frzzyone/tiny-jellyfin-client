@@ -59,6 +59,81 @@ public final class SubtitleTrackStore: @unchecked Sendable {
     }
 }
 
+/// A picture subtitle (Blu-ray PGS, DVD, DVB): palette images placed on the video frame.
+public struct SubtitleBitmap: Sendable, Equatable {
+    public struct Piece: Sendable, Equatable {
+        public let x: Int, y: Int, width: Int, height: Int
+        /// One palette index per pixel, `width` per row. Kept indexed: a quarter of the memory of RGBA.
+        let indices: [UInt8]
+        /// 0xAARRGGBB, not premultiplied.
+        let palette: [UInt32]
+
+        public init(x: Int, y: Int, width: Int, height: Int, indices: [UInt8], palette: [UInt32]) {
+            (self.x, self.y, self.width, self.height) = (x, y, width, height)
+            self.indices = indices
+            self.palette = palette
+        }
+
+        /// Pixels as 0xAARRGGBB words (BGRA bytes in memory on little-endian machines).
+        public func argb() -> [UInt32] {
+            indices.map { Int($0) < palette.count ? palette[Int($0)] : 0 }
+        }
+    }
+
+    public let start: Double
+    /// `.infinity` until the next event (or a clear) says when it ends: PGS gives no end time.
+    public internal(set) var end: Double
+    /// The frame the pieces are placed on, the subtitle stream's own size (usually 1920×1080).
+    public let canvasWidth: Int, canvasHeight: Int
+    public let pieces: [Piece]
+
+    public init(start: Double, end: Double, canvasWidth: Int, canvasHeight: Int, pieces: [Piece]) {
+        self.start = start
+        self.end = end
+        self.canvasWidth = canvasWidth
+        self.canvasHeight = canvasHeight
+        self.pieces = pieces
+    }
+}
+
+/// Picture subtitles of one track, sorted by start; thread-safe. Holds the most recently
+/// decoded events only (they are re-decoded after a seek back), so a film doesn't pile up.
+public final class BitmapSubtitleStore: @unchecked Sendable {
+    static let capacity = 80
+    private let lock = NSLock()
+    private var events: [SubtitleBitmap] = []
+    private var added: [Double] = []
+
+    public init() {}
+
+    /// An event, or a clear (`nil`) at `time`. Either ends the open event before it.
+    func add(_ bitmap: SubtitleBitmap?, at time: Double) {
+        lock.lock(); defer { lock.unlock() }
+        if let open = events.lastIndex(where: { $0.start < time }), events[open].end > time {
+            events[open].end = time
+        }
+        guard var bitmap else { return }
+        if let next = events.first(where: { $0.start > bitmap.start }), bitmap.end > next.start { bitmap.end = next.start }
+        events.removeAll { $0.start == bitmap.start }
+        added.removeAll { $0 == bitmap.start }
+        let index = events.firstIndex { $0.start > bitmap.start } ?? events.count
+        events.insert(bitmap, at: index)
+        added.append(bitmap.start)
+        if added.count > Self.capacity {
+            let oldest = added.removeFirst()
+            events.removeAll { $0.start == oldest }
+        }
+    }
+
+    public var count: Int { lock.lock(); defer { lock.unlock() }; return events.count }
+
+    public func bitmap(at time: Double) -> SubtitleBitmap? {
+        lock.lock(); defer { lock.unlock() }
+        guard let index = events.lastIndex(where: { $0.start <= time }) else { return nil }
+        return events[index].end > time ? events[index] : nil
+    }
+}
+
 /// Converts decoded ASS event lines into plain text.
 public enum ASSText {
     /// `ass` is either a full "Dialogue:" line or FFmpeg's decoded event
@@ -142,6 +217,37 @@ final class SubtitleDecoder {
     }
 
     deinit { avcodec_free_context(&codec) }
+
+    /// Picture subtitles: the event the packet completes, or a clear. nil when it completes none.
+    func decodePicture(_ packet: Packet) -> (time: Double, bitmap: SubtitleBitmap?)? {
+        guard let codec else { return nil }
+        var subtitle = AVSubtitle()
+        var got: Int32 = 0
+        guard avcodec_decode_subtitle2(codec, &subtitle, &got, packet.pointer) >= 0, got != 0 else { return nil }
+        defer { avsubtitle_free(&subtitle) }
+        let start = (packet.pts ?? 0) + Double(subtitle.start_display_time) / 1000
+        let end = subtitle.end_display_time > 0 && subtitle.end_display_time != UInt32.max
+            ? (packet.pts ?? 0) + Double(subtitle.end_display_time) / 1000
+            : .infinity
+        var pieces: [SubtitleBitmap.Piece] = []
+        for i in 0..<Int(subtitle.num_rects) {
+            guard let rect = subtitle.rects[i]?.pointee, rect.type == SUBTITLE_BITMAP, rect.w > 0, rect.h > 0,
+                  let data = rect.data.0, let paletteData = rect.data.1 else { continue }
+            let width = Int(rect.w), height = Int(rect.h), stride = Int(rect.linesize.0)
+            var indices = [UInt8](repeating: 0, count: width * height)
+            for row in 0..<height {
+                for column in 0..<width { indices[row * width + column] = data[row * stride + column] }
+            }
+            let colors = max(0, min(256, Int(rect.nb_colors)))
+            let palette = paletteData.withMemoryRebound(to: UInt32.self, capacity: colors) { Array(UnsafeBufferPointer(start: $0, count: colors)) }
+            pieces.append(.init(x: Int(rect.x), y: Int(rect.y), width: width, height: height, indices: indices, palette: palette))
+        }
+        guard !pieces.isEmpty else { return (start, nil) }
+        let canvasWidth = codec.pointee.width > 0 ? Int(codec.pointee.width) : 1920
+        let canvasHeight = codec.pointee.height > 0 ? Int(codec.pointee.height) : 1080
+        return (start, SubtitleBitmap(start: start, end: end, canvasWidth: canvasWidth, canvasHeight: canvasHeight,
+                                      pieces: pieces))
+    }
 
     func decode(_ packet: Packet) -> [SubtitleCue] {
         guard let codec else { return [] }

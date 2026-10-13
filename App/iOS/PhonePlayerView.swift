@@ -42,6 +42,10 @@ struct PhonePlayerView: View {
                 }
                 // In the hierarchy so the volume swipe moves the device volume without the system HUD.
                 SystemVolume().frame(width: 1, height: 1).opacity(0.01).allowsHitTesting(false)
+                // Picture subtitles sit where the disc put them on the frame, so they don't move up
+                // for the controls.
+                SubtitleOverlay(text: nil, bitmap: player.subtitleBitmap, videoSize: player.videoSize, bars: nil,
+                                fill: zoomed)
                 // Zoomed, the picture is cropped to the screen, so the screen is the picture.
                 SubtitleOverlay(text: player.subtitleText, videoSize: zoomed ? nil : player.videoSize,
                                 bars: zoomed ? nil : player.pictureBars)

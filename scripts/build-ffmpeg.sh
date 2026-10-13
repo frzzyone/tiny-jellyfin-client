@@ -51,8 +51,10 @@ SRC="$WORK/FFmpeg-n$FFMPEG_VERSION"
 DECODERS="aac,aac_latm,ac3,eac3,dca,truehd,mlp,flac,alac,opus,vorbis,mp1,mp2,mp3,mp3float"
 DECODERS+=",pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32le,pcm_f32be,pcm_bluray,pcm_dvd"
 DECODERS+=",srt,subrip,ass,ssa,webvtt,mov_text,text"
+# Picture subtitles (Blu-ray PGS, DVD, DVB), drawn by the app instead of burnt in by the server.
+DECODERS+=",pgssub,dvdsub,dvbsub"
 DEMUXERS="matroska,mov,mpegts,hls,srt,ass,webvtt,flac,wav,aac,ac3,eac3,mp3,dts,truehd"
-PARSERS="h264,hevc,av1,aac,aac_latm,ac3,dca,mlp,flac,opus,vorbis,mpegaudio"
+PARSERS="h264,hevc,av1,aac,aac_latm,ac3,dca,mlp,flac,opus,vorbis,mpegaudio,dvdsub,dvbsub"
 
 CONFIGURE_FLAGS=(
   --disable-autodetect --enable-zlib --enable-bzlib
@@ -66,12 +68,15 @@ CONFIGURE_FLAGS=(
   --enable-static --disable-shared --enable-pic
 )
 
+FLAGS_HASH="$(printf '%s\n' "${CONFIGURE_FLAGS[@]}" | shasum -a 256 | cut -d' ' -f1)"
 builddir() { [[ "$1" == macos ]] && echo "$WORK/build-$2" || echo "$WORK/build-$1-$2"; }
 
 for slice in "${SLICES[@]}"; do
   IFS=: read -r platform arch sdk target <<< "$slice"
   build="$(builddir "$platform" "$arch")"
-  if [[ -f "$build/install/lib/libavformat.a" ]]; then continue; fi
+  # A slice built with other flags (decoders added since) is rebuilt, not reused.
+  if [[ -f "$build/install/lib/libavformat.a" && "$(cat "$build/.flags" 2>/dev/null)" == "$FLAGS_HASH" ]]; then continue; fi
+  rm -rf "$build"
   mkdir -p "$build"
   (
     cd "$build"
@@ -85,6 +90,7 @@ for slice in "${SLICES[@]}"; do
       ${extra[@]+"${extra[@]}"} "${CONFIGURE_FLAGS[@]}"
     make -j"$(sysctl -n hw.ncpu)"
     make install
+    echo "$FLAGS_HASH" > "$build/.flags"
   )
 done
 

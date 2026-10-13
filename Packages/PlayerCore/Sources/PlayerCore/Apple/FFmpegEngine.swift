@@ -369,7 +369,13 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     // MARK: Subtitles
 
     public func selectEmbeddedSubtitle(trackId: Int?) {
-        queue.async { [self] in selectedSubtitle = trackId }
+        queue.async { [self] in
+            selectedSubtitle = trackId
+            // The reader is ahead of the clock: re-read from here, or the events in between are missed.
+            guard active?.decodePictures(of: trackId) == true, state != .loading else { return }
+            let time = currentTime
+            Task { await self.seek(to: time) }
+        }
     }
 
     public func setExternalSubtitles(_ cues: [SubtitleCue]?) {
@@ -382,6 +388,11 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             (externalSubtitles, selectedSubtitle.flatMap { active?.subtitleStores[$0] })
         }
         return (external ?? store)?.text(at: time)
+    }
+
+    public func subtitleBitmap(at time: Double) -> SubtitleBitmap? {
+        let store = queue.sync { selectedSubtitle.flatMap { active?.pictureSubtitles(of: $0) } }
+        return store?.bitmap(at: time)
     }
 
     // MARK: Feeding

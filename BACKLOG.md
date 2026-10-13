@@ -10,11 +10,10 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## Subtitles (from the 2026-10-12 subtitle-style change)
 
-- **Render image subtitles (PGS/VobSub) in the app.** The server burns them into the video at the
-  position the disc authored, which on a scope film is inside the 16:9 bar, and nothing on our side
-  can move burned-in pixels. Decoding the bitmaps with FFmpeg's `pgssub`/`dvdsub` decoders and
-  compositing them over the picture ourselves would put them where the text subtitles go, and end
-  the transcode those tracks currently force. A real feature: its own change.
+- **Picture subtitles in the bars.** The app now draws PGS/DVD/DVB itself during Direct Play, where
+  the disc placed them, which on a scope film can be inside the black bar of a 16:9 frame. Moving
+  them above detected bars (as text subtitles do) is possible now that we hold the bitmaps.
+  Transcodes still burn them in.
 - **The first bar reading can step.** Bars encoded in the frames are applied after two looks (4 s);
   a dark opening shot can place the text high for 2 s before a brighter frame narrows the bars.
   Waiting for more agreeing looks, or easing the move, would hide it. Decide after seeing it.

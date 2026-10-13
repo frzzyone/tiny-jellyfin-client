@@ -34,4 +34,16 @@ enum SubtitleLayout {
         }
         return rect
     }
+
+    /// Where the whole video frame is drawn: aspect-fitted, or with `fill` covering the view and
+    /// cropped. Picture subtitles are placed on this, bars included.
+    static func frameRect(video: CGSize?, in bounds: CGSize, fill: Bool) -> CGRect {
+        guard let video, video.width > 0, video.height > 0, bounds.width > 0, bounds.height > 0 else {
+            return CGRect(origin: .zero, size: bounds)
+        }
+        let scale = fill ? max(bounds.width / video.width, bounds.height / video.height)
+                         : min(bounds.width / video.width, bounds.height / video.height)
+        return CGRect(x: (bounds.width - video.width * scale) / 2, y: (bounds.height - video.height * scale) / 2,
+                      width: video.width * scale, height: video.height * scale)
+    }
 }

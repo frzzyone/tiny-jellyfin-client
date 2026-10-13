@@ -52,6 +52,7 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     func selectEmbeddedSubtitle(trackId: Int?) { embeddedSubtitle = trackId }
     func setExternalSubtitles(_ cues: [SubtitleCue]?) { externalCues = cues }
     func subtitleText(at time: Double) -> String? { nil }
+    func subtitleBitmap(at time: Double) -> SubtitleBitmap? { nil }
     var displayedFrame: CVPixelBuffer?
     func copyDisplayedFrame() -> CVPixelBuffer? { displayedFrame }
     func stop() { stopped = true; state = .idle }
@@ -89,7 +90,10 @@ final class FakeService: PlaybackService, @unchecked Sendable {
             return counter
         }
         if let resolveError { throw resolveError }
-        let burned = (subtitleStreamIndex ?? serverDefaultBurnIn).flatMap { $0 >= 0 ? $0 : nil }
+        // Like Jellyfin with our profile: a picture subtitle is embedded (drawn by the app) when the
+        // file is sent as is, and burnt in when it is transcoded.
+        let directPlay = quality.isOriginal && nextMethod == .directPlay
+        let burned = directPlay ? nil : (subtitleStreamIndex ?? serverDefaultBurnIn).flatMap { $0 >= 0 ? $0 : nil }
         let method: PlayMethod = burned != nil ? .transcode : (quality.isOriginal ? nextMethod : .transcode)
         return ResolvedStream(url: URL(string: "https://jf.test/stream\(n)")!, playMethod: method,
                               mediaSource: item.mediaSources![0], mediaSourceId: "src",

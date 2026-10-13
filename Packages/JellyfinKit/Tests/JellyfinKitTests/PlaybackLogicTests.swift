@@ -71,6 +71,8 @@ final class DeviceProfileTests: XCTestCase {
         // Image subtitles are burned in, text subtitles embedded or external.
         let subs = object["SubtitleProfiles"] as! [[String: Any]]
         XCTAssertTrue(subs.contains { $0["Format"] as? String == "pgssub" && $0["Method"] as? String == "Encode" })
+        XCTAssertTrue(subs.contains { $0["Format"] as? String == "pgssub" && $0["Method"] as? String == "Embed" },
+                      "PGS plays as it is: the app draws it")
         XCTAssertTrue(subs.contains { $0["Format"] as? String == "srt" && $0["Method"] as? String == "External" })
     }
 

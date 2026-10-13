@@ -18,6 +18,9 @@ public struct MediaTrack: Sendable, Equatable, Identifiable {
     public static let textSubtitleCodecs: Set<String> = ["subrip", "srt", "ass", "ssa", "webvtt", "mov_text", "text"]
 
     public var isTextSubtitle: Bool { kind == .subtitle && Self.textSubtitleCodecs.contains(codec) }
+    /// FFmpeg's names for the picture subtitles the app draws itself.
+    public static let pictureSubtitleCodecs: Set<String> = ["hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle"]
+    public var isPictureSubtitle: Bool { kind == .subtitle && Self.pictureSubtitleCodecs.contains(codec) }
 
     public var displayName: String {
         let parts = [language.map { Locale.current.localizedString(forLanguageCode: $0) ?? $0 }, title]

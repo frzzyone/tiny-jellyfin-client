@@ -77,6 +77,33 @@ ASS
   -metadata:s:s:0 language=eng -metadata:s:s:1 language=spa -metadata:s:s:1 title="Signs" \
   -disposition:s:0 default -t "$DUR" subs.mkv
 
+# Picture subtitles: a Blu-ray PGS stream written by hand (FFmpeg can't render text into
+# bitmaps): a 40x20 white box at (100,120) on a 320x180 canvas from 1 s, cleared at 3 s, then a
+# second box at 4 s with no clear (it lasts until the end).
+python3 - <<'PY'
+import struct
+
+def seg(kind, pts, body):
+    return b"PG" + struct.pack(">IIBH", pts, 0, kind, len(body)) + body
+
+def display(pts, number, box=None):
+    objects = b"" if box is None else struct.pack(">HBBHH", 0, 0, 0, box[0], box[1])
+    pcs = struct.pack(">HHBHBBBB", 320, 180, 0x10, number, 0x80, 0, 0, 0 if box is None else 1) + objects
+    out = seg(0x16, pts, pcs)
+    out += seg(0x17, pts, struct.pack(">BBHHHH", 1, 0, 100, 120, 40, 20))
+    if box is not None:
+        out += seg(0x14, pts, struct.pack(">BB", 0, 0) + bytes([1, 235, 128, 128, 255]))
+        rle = (b"\x01" * 40 + b"\x00\x00") * 20
+        ods = struct.pack(">HBB", 0, 0, 0xC0) + struct.pack(">I", len(rle) + 4)[1:] + struct.pack(">HH", 40, 20) + rle
+        out += seg(0x15, pts, ods)
+    return out + seg(0x80, pts, b"")
+
+with open("subs.sup", "wb") as f:
+    f.write(display(90000, 1, (100, 120)) + display(270000, 2) + display(360000, 3, (100, 120)))
+PY
+"${FF[@]}" "${VIDEO[@]}" -i subs.sup -map 0:v -map 1:s "${H264[@]}" -c:s copy -copyts \
+  -metadata:s:s:0 language=eng -t "$DUR" pgs.mkv
+
 # Annex B H.264 in MPEG-TS.
 "${FF[@]}" "${VIDEO[@]}" "${STEREO[@]}" "${H264[@]}" -c:a aac -shortest annexb.ts
 

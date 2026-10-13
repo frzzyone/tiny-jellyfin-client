@@ -270,6 +270,25 @@ final class EngineTests: XCTestCase {
         XCTAssertNil(engine.subtitleText(at: 1.2))
     }
 
+    /// Picture subtitles are decoded for the selected track; selecting one re-reads from the
+    /// clock so the events the reader already passed are not missed.
+    func testPictureSubtitlesFollowTheSelection() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: try Fixtures.url("pgs.mkv")), startAt: 0)
+        let pgs = try XCTUnwrap(engine.tracks.first { $0.isPictureSubtitle })
+        _ = await waitFor(3) { false }   // let the reader run past every event first
+        XCTAssertNil(engine.subtitleBitmap(at: 1.5), "nothing selected")
+        engine.selectEmbeddedSubtitle(trackId: pgs.id)
+        let decoded = await waitFor(8) { engine.subtitleBitmap(at: 4.5) != nil }
+        XCTAssertTrue(decoded, engine.debugSummary)
+        XCTAssertEqual(engine.subtitleBitmap(at: 1.5)?.pieces.first?.width, 40)
+        XCTAssertNil(engine.subtitleBitmap(at: 3.5))
+        engine.selectEmbeddedSubtitle(trackId: nil)
+        let off = await waitFor(1) { engine.subtitleBitmap(at: 1.5) == nil }
+        XCTAssertTrue(off)
+    }
+
     /// Prepare-then-splice: the clock keeps running through the switch.
     func testSeamlessSwitch() async throws {
         try await assertSeamlessSwitch(to: MediaSource(url: try Fixtures.url("h264_aac_low.mp4")))

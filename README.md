@@ -166,9 +166,10 @@ Played locally, without server conversion:
 - **Audio:** AAC, MP3, AC-3, E-AC-3 (incl. Atmos), FLAC, ALAC, Opus, Vorbis, DTS, DTS-HD, TrueHD, PCM
 - **Subtitles:** SRT, WebVTT, MP4 timed text, SSA/ASS (shown as plain text); embedded or external.
   Drawn inside the picture (black bars encoded into the frames are detected and skipped), in
-  Helvetica Neue sized for the picture
+  Helvetica Neue sized for the picture. Blu-ray (PGS), DVD and DVB picture subtitles are drawn by
+  the app, where the disc places them, so remuxes play as they are (a transcode burns them in)
 
-Anything else (for example VC-1, MPEG-2 or VP9 video, or PGS/VobSub subtitles) is converted by the server,
+Anything else (for example VC-1, MPEG-2 or VP9 video) is converted by the server,
 because the app only advertises what it can play.
 
 ## How it fits together

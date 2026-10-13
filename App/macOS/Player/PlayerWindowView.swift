@@ -36,7 +36,8 @@ struct PlayerWindowView: View {
                         .exclusively(before: TapGesture().onEnded { clickToPause() }))
                     .id(ObjectIdentifier(engine)) // a new engine (retry, next title) gets PiP too
             }
-            SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, bars: player.pictureBars)
+            SubtitleOverlay(text: player.subtitleText, bitmap: player.subtitleBitmap, videoSize: player.videoSize,
+                            bars: player.pictureBars)
             if player.status == .loading || player.status == .buffering {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.large).tint(.white)

@@ -45,6 +45,31 @@ final class SubtitleRenderTests: XCTestCase {
         XCTAssertLessThan(Double(rows!.upperBound), 1080 * (1 - 0.128), "no text in the bar")
     }
 
+    /// A PGS box at (100,120)–(140,140) on a 320×180 canvas, drawn on a 4:3 view showing 16:9
+    /// video: it lands at that spot of the letterboxed picture, scaled with it.
+    func testPictureSubtitleIsPlacedOnTheFrame() {
+        let white: UInt32 = 0xFFFF_FFFF
+        let piece = SubtitleBitmap.Piece(x: 100, y: 120, width: 40, height: 20,
+                                         indices: [UInt8](repeating: 1, count: 800), palette: [0, white])
+        let bitmap = SubtitleBitmap(start: 0, end: 5, canvasWidth: 320, canvasHeight: 180, pieces: [piece])
+        let renderer = ImageRenderer(content: SubtitleOverlay(text: nil, bitmap: bitmap, videoSize: CGSize(width: 1920, height: 1080), bars: nil)
+            .frame(width: 640, height: 480).background(Color.black))
+        renderer.scale = 1
+        guard let cg = renderer.cgImage else { return XCTFail("no image") }
+        let w = cg.width, h = cg.height
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let ctx = CGContext(data: &pixels, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var xs: [Int] = [], ys: [Int] = []
+        for y in 0..<h { for x in 0..<w where pixels[(y * w + x) * 4] > 200 { xs.append(x); ys.append(y) } }
+        // Picture: 640×360 at y 60. Scale 2: the box spans x 200–280, y 60+240–60+280.
+        XCTAssertEqual(Double(xs.min() ?? -1), 200, accuracy: 2)
+        XCTAssertEqual(Double(xs.max() ?? -1), 279, accuracy: 2)
+        XCTAssertEqual(Double(ys.min() ?? -1), 300, accuracy: 2)
+        XCTAssertEqual(Double(ys.max() ?? -1), 339, accuracy: 2)
+    }
+
     func testTextSitsAboveTheBottomOfAFittingWindow() {
         let canvas = CGSize(width: 1280, height: 720)
         assertText(textRows(video: CGSize(width: 1920, height: 1080), canvas: canvas), insideBottomOf: CGRect(x: 0, y: 0, width: 1280, height: 720))

@@ -4,13 +4,22 @@ import SwiftUI
 
 struct SubtitleOverlay: View {
     let text: String?
+    var bitmap: SubtitleBitmap? = nil
     let videoSize: CGSize?
     let bars: PictureBars?
+    /// The picture fills the view, cropped (the iPhone's fill mode): text goes in the view, and
+    /// picture subtitles follow the cropped picture.
+    var fill = false
 
     var body: some View {
         GeometryReader { geo in
+            if let bitmap {
+                PictureSubtitle(bitmap: bitmap,
+                                frame: SubtitleLayout.frameRect(video: videoSize, in: geo.size, fill: fill))
+                    .equatable()
+            }
             if let text, !text.isEmpty {
-                let picture = SubtitleLayout.pictureRect(video: videoSize, in: geo.size, bars: bars)
+                let picture = SubtitleLayout.pictureRect(video: fill ? nil : videoSize, in: geo.size, bars: bars)
                 Text(text)
                     .font(Font(SubtitleFont.font(forPictureHeight: picture.height)))
                     .foregroundStyle(.white)
@@ -24,6 +33,42 @@ struct SubtitleOverlay: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// A PGS/DVD/DVB event: its images placed where the disc put them on the frame. The images are
+/// made once per event (the view only redraws when the event changes).
+private struct PictureSubtitle: View, Equatable {
+    let bitmap: SubtitleBitmap
+    let frame: CGRect
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.bitmap.start == b.bitmap.start && a.bitmap.end == b.bitmap.end && a.frame == b.frame
+    }
+
+    var body: some View {
+        let sx = frame.width / CGFloat(max(1, bitmap.canvasWidth))
+        let sy = frame.height / CGFloat(max(1, bitmap.canvasHeight))
+        ForEach(Array(bitmap.pieces.enumerated()), id: \.offset) { _, piece in
+            if let image = Self.image(piece) {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: CGFloat(piece.width) * sx, height: CGFloat(piece.height) * sy)
+                    .offset(x: frame.minX + CGFloat(piece.x) * sx, y: frame.minY + CGFloat(piece.y) * sy)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    static func image(_ piece: SubtitleBitmap.Piece) -> CGImage? {
+        let data = piece.argb().withUnsafeBufferPointer { Data(buffer: $0) }
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+        // 0xAARRGGBB words: BGRA bytes, alpha not premultiplied.
+        return CGImage(width: piece.width, height: piece.height, bitsPerComponent: 8, bitsPerPixel: 32,
+                       bytesPerRow: piece.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.first.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 }
 

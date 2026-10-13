@@ -27,7 +27,8 @@ struct TVPlayerView: View {
         ZStack {
             TVRemoteSurface(layer: player.engine?.displayLayer, onCommand: handle)
                 .focusable(panel == nil)
-            SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, bars: player.pictureBars)
+            SubtitleOverlay(text: player.subtitleText, bitmap: player.subtitleBitmap, videoSize: player.videoSize,
+                            bars: player.pictureBars)
             if player.status == .loading || player.status == .buffering {
                 VStack(spacing: 16) {
                     ProgressView()

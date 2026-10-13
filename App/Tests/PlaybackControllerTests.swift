@@ -361,22 +361,51 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(service.recorded.contains("subtitle:2"))
     }
 
-    func testImageSubtitleIsBurnedInAndRemovedAgain() async {
+    /// During Direct Play the app draws picture subtitles from the file: no new stream.
+    func testPictureSubtitleDuringDirectPlayIsDrawnByTheApp() async {
         let (controller, service, engine) = await started()
+        controller.selectSubtitle(3)
+        XCTAssertEqual(controller.selectedSubtitle, 3)
+        XCTAssertEqual(engine.embeddedSubtitle, 3, "the engine decodes the PGS track")
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(service.resolveCalls.count, 1)
+        XCTAssertTrue(engine.switches.isEmpty)
+        controller.selectSubtitle(nil)
+        XCTAssertNil(engine.embeddedSubtitle)
+    }
+
+    func testPictureSubtitleIsBurnedInWhenTranscodingAndRemovedAgain() async {
+        let (controller, service, engine) = await started(method: .transcode)
         engine.currentTime = 1200
         controller.selectSubtitle(3)
         let burned = await eventually { controller.session?.burnInSubtitle == 3 }
         XCTAssertTrue(burned)
         XCTAssertEqual(service.resolveCalls.last?.subtitle, 3)
         XCTAssertEqual(engine.switches.last?.1 ?? 0, 1202, accuracy: 0.01)
-        XCTAssertEqual(controller.session?.playMethod, .transcode)
+        XCTAssertNil(engine.embeddedSubtitle, "burnt into the picture, not drawn")
         XCTAssertNil(prefs.preferredQualityId(server: service.serverURL), "burn-in is not a quality preference")
 
         controller.selectSubtitle(nil)
         let removed = await eventually { controller.session?.burnInSubtitle == nil && !controller.isSwitching }
         XCTAssertTrue(removed)
         XCTAssertEqual(service.resolveCalls.last?.subtitle, -1, "Off asks for none: nil lets the server burn in its default")
-        XCTAssertEqual(controller.session?.playMethod, .directPlay)
+    }
+
+    /// Back to Original from a burnt-in transcode: the server sends the file as is again, and the
+    /// app draws the subtitle instead.
+    func testPictureSubtitleMovesFromBurnInToDrawnWhenTheFilePlaysAsItIs() async {
+        let (controller, service, engine) = await started(method: .directPlay)
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
+        controller.selectSubtitle(3)
+        let burned = await eventually { controller.session?.burnInSubtitle == 3 && !controller.isSwitching }
+        XCTAssertTrue(burned)
+        controller.selectQuality(.original)
+        let drawn = await eventually { controller.session?.playMethod == .directPlay && !controller.isSwitching }
+        XCTAssertTrue(drawn)
+        XCTAssertEqual(service.resolveCalls.last?.subtitle, 3, "the server is asked for the subtitle and embeds it")
+        XCTAssertNil(controller.session?.burnInSubtitle)
+        XCTAssertEqual(engine.embeddedSubtitle, 3)
     }
 
     /// The server burns in its default picture subtitle when asked for none in particular. The
@@ -385,6 +414,7 @@ final class PlaybackControllerTests: XCTestCase {
         let controller = makeController()
         let service = FakeService(item: movie(defaultSubtitle: 3))
         service.serverDefaultBurnIn = 3
+        service.nextMethod = .transcode
         controller.start(item: service.item, resume: false, service: service)
         let started = await eventually { controller.session != nil }
         XCTAssertTrue(started)

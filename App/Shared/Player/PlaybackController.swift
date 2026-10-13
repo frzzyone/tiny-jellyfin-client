@@ -49,6 +49,8 @@ final class PlaybackController {
     private(set) var subtitleOptions: [SubtitleOption] = []
     private(set) var selectedSubtitle: Int?
     private(set) var subtitleText: String?
+    /// A picture subtitle (PGS, DVD, DVB) the app draws itself during Direct Play.
+    private(set) var subtitleBitmap: SubtitleBitmap?
     private(set) var engine: PlaybackEngine?
     /// What the spinner is waiting for ("Getting stream…", "Opening video…").
     private(set) var loadingDetail: String?
@@ -199,9 +201,12 @@ final class PlaybackController {
             startTimers()
             nowPlaying.begin(controller: self, item: full, artworkURL: service.primaryImageURL(for: full))
 
+            PlayerLog.engine("Controller: server's default subtitle \(stream.mediaSource.defaultSubtitleStreamIndex.map(String.init) ?? "none"), burnt in \(stream.burnedInSubtitle.map(String.init) ?? "none")")
             if let carry {
                 if let subtitle = carry.subtitle { selectSubtitle(subtitle) }
-            } else if let track = SubtitleSelection.defaultTrack(for: stream.mediaSource) {
+            } else if let track = SubtitleSelection.defaultTrack(for: stream.mediaSource) ?? stream.burnedInSubtitle.flatMap({ index in
+                stream.mediaSource.subtitleStreams.first { $0.index == index }
+            }) {
                 // The server's default for the user's preferences. A picture track is already burnt
                 // into the stream (`burnedInSubtitle`), so selecting it starts no second stream.
                 selectSubtitle(track.index)
@@ -241,6 +246,7 @@ final class PlaybackController {
         isSwitching = false
         switchError = nil
         subtitleText = nil
+        subtitleBitmap = nil
         selectedSubtitle = nil
         externalCues = [:]
         loadingDetail = nil
@@ -334,7 +340,13 @@ final class PlaybackController {
 
     func selectQuality(_ quality: QualityPreset) {
         guard let session, quality != session.quality else { return }
-        performSwitch(quality: quality, burnIn: session.burnInSubtitle, persistQuality: true)
+        performSwitch(quality: quality, burnIn: selectedPictureSubtitle, persistQuality: true)
+    }
+
+    /// The selected picture subtitle, asked for with every new stream: the server embeds it when it
+    /// can send the file as is (the app draws it), and burns it in when it transcodes.
+    private var selectedPictureSubtitle: Int? {
+        subtitleOptions.first { $0.id == selectedSubtitle && $0.isImage }?.id
     }
 
     private func performSwitch(quality: QualityPreset, burnIn: Int?, persistQuality: Bool,
@@ -370,7 +382,7 @@ final class PlaybackController {
                 old.stoppedReported = true
                 let newSession = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                                  playSessionId: stream.playSessionId, playMethod: stream.playMethod,
-                                                 quality: quality, burnInSubtitle: burnIn)
+                                                 quality: quality, burnInSubtitle: stream.burnedInSubtitle)
                 self.session = newSession
                 self.mediaSource = stream.mediaSource
                 let startNew = self.report(for: newSession, position: self.position)
@@ -446,11 +458,16 @@ final class PlaybackController {
         guard let session else { return }
         let option = subtitleOptions.first { $0.id == index }
         if let option, option.isImage {
-            // Image subtitles: the server burns them in (a stream switch at the same quality).
             selectedSubtitle = index
-            engine?.selectEmbeddedSubtitle(trackId: nil)
-            engine?.setExternalSubtitles(nil)
-            performSwitch(quality: session.quality, burnIn: index, persistQuality: false)
+            if session.playMethod == .directPlay && !option.isExternal {
+                // The file plays as it is: the app draws the pictures itself.
+                applySubtitleSource()
+            } else {
+                // Otherwise the server burns them in (a stream switch at the same quality).
+                engine?.selectEmbeddedSubtitle(trackId: nil)
+                engine?.setExternalSubtitles(nil)
+                performSwitch(quality: session.quality, burnIn: index, persistQuality: false)
+            }
             return
         }
         selectedSubtitle = index
@@ -466,10 +483,17 @@ final class PlaybackController {
     private func applySubtitleSource() {
         guard let engine, let session else { return }
         subtitleTask?.cancel()
-        guard let index = selectedSubtitle, let option = subtitleOptions.first(where: { $0.id == index }),
-              !option.isImage else {
+        guard let index = selectedSubtitle, let option = subtitleOptions.first(where: { $0.id == index }) else {
             engine.selectEmbeddedSubtitle(trackId: nil)
             engine.setExternalSubtitles(nil)
+            return
+        }
+        if option.isImage {
+            // Drawn by the app from the file during Direct Play; burnt into the picture otherwise.
+            engine.setExternalSubtitles(nil)
+            let drawn = session.playMethod == .directPlay && !option.isExternal && session.burnInSubtitle != index
+            PlayerLog.engine("Controller: subtitle \(index) (\(option.label)) \(drawn ? "drawn by the app" : "burnt in by the server")")
+            engine.selectEmbeddedSubtitle(trackId: drawn ? index : nil)
             return
         }
         if session.playMethod == .directPlay && !option.isExternal {
@@ -568,6 +592,8 @@ final class PlaybackController {
         // Transcoded streams learn their picture size from the first keyframe, after open.
         if videoSize == nil, let size = engine.videoSize, size.width > 0, size.height > 0 { videoSize = size }
         subtitleText = engine.subtitleText(at: currentTime)
+        let bitmap = engine.subtitleBitmap(at: currentTime)
+        if bitmap?.start != subtitleBitmap?.start || bitmap?.end != subtitleBitmap?.end { subtitleBitmap = bitmap }
         // Burned-in subtitles are the server's pixels; there is nothing of ours to place.
         if status == .playing, session?.burnInSubtitle == nil { sampleBars(engine) }
     }

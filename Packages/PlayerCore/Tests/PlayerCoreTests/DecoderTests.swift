@@ -63,6 +63,53 @@ final class SubtitleTests: XCTestCase {
         return store
     }
 
+    /// Blu-ray PGS (fixture written by hand in make-fixtures.sh): a 40x20 white box at (100,120)
+    /// on a 320x180 canvas from 1 s, cleared at 3 s, and again from 4 s with no clear.
+    func testPGSBitmaps() throws {
+        let demuxer = try openDemuxer(try Fixtures.url("pgs.mkv"))
+        let track = try XCTUnwrap(demuxer.tracks.first { $0.isPictureSubtitle })
+        XCTAssertEqual(track.codec, "hdmv_pgs_subtitle")
+        let stream = try XCTUnwrap(demuxer.stream(track.id))
+        let decoder = try SubtitleDecoder(parameters: stream.pointee.codecpar, timeBase: stream.pointee.time_base,
+                                          timelineOffset: 0)
+        let store = BitmapSubtitleStore()
+        var events: [(Double, SubtitleBitmap?)] = []
+        while let packet = try demuxer.readPacket() {
+            guard packet.streamIndex == track.id, let event = decoder.decodePicture(packet) else { continue }
+            events.append(event)
+            store.add(event.bitmap, at: event.time)
+        }
+        XCTAssertEqual(events.map(\.0), [1, 3, 4])
+        XCTAssertNil(events[1].1, "the empty display set clears")
+        let shown = try XCTUnwrap(events[0].1)
+        XCTAssertEqual(shown.canvasWidth, 320)
+        XCTAssertEqual(shown.canvasHeight, 180)
+        let piece = try XCTUnwrap(shown.pieces.first)
+        XCTAssertEqual([piece.x, piece.y, piece.width, piece.height], [100, 120, 40, 20])
+        let pixel = piece.argb()[0]
+        XCTAssertEqual(pixel >> 24, 255, "opaque")
+        XCTAssertGreaterThan((pixel >> 16) & 0xFF, 240, "white")
+
+        XCTAssertNil(store.bitmap(at: 0.5))
+        XCTAssertEqual(store.bitmap(at: 2)?.start, 1)
+        XCTAssertNil(store.bitmap(at: 3.5), "cleared at 3 s")
+        XCTAssertEqual(store.bitmap(at: 5.9)?.start, 4, "no end yet: shown until the next event")
+    }
+
+    func testBitmapStoreKeepsTheLatestEventsOnly() {
+        let store = BitmapSubtitleStore()
+        func event(_ start: Double) -> SubtitleBitmap {
+            SubtitleBitmap(start: start, end: start + 1, canvasWidth: 1920, canvasHeight: 1080, pieces: [])
+        }
+        for i in 0..<(BitmapSubtitleStore.capacity + 10) { store.add(event(Double(i * 2)), at: Double(i * 2)) }
+        XCTAssertEqual(store.count, BitmapSubtitleStore.capacity)
+        XCTAssertNil(store.bitmap(at: 0.5), "the oldest went first")
+        // A seek back: re-decoded events come back, the ones added longest ago make room.
+        store.add(event(0), at: 0)
+        XCTAssertEqual(store.bitmap(at: 0.5)?.start, 0)
+        XCTAssertEqual(store.count, BitmapSubtitleStore.capacity)
+    }
+
     func testEmbeddedSRT() throws {
         let store = try embeddedCues(track: 2)
         XCTAssertEqual(store.count, 3)

@@ -142,7 +142,12 @@ public enum DeviceProfileBuilder {
             codecProfiles: codecProfiles,
             subtitleProfiles: textSubtitleFormats.flatMap {
                 [SubtitleProfile(format: $0, method: "Embed"), SubtitleProfile(format: $0, method: "External")]
-            } + imageSubtitleFormats.map { SubtitleProfile(format: $0, method: "Encode") }
+            }
+            // Picture subtitles: drawn by the app when the file plays as it is (Jellyfin never embeds
+            // them in an HLS transcode, so transcodes still burn them in).
+            + imageSubtitleFormats.flatMap {
+                [SubtitleProfile(format: $0, method: "Embed"), SubtitleProfile(format: $0, method: "Encode")]
+            }
         )
     }
 
