@@ -73,7 +73,7 @@ The iPhone app is the `TinyJellyfinPhone` scheme in the same project. It shares 
 browser models and the sign-in with the Mac app; the screens and the player are its own: tabs for
 Home, each library and Search, a detail sheet, and a landscape player (tap for controls, double-tap
 the sides to skip, swipe sideways to scrub, swipe up and down for brightness on the left and volume
-on the right, pinch or the button to fill or fit).
+on the right, pinch or the button to fill or fit, hold for 2×, and a lock against stray touches).
 
 To run it on your phone, put your team in `App/Signing.local.xcconfig` (git-ignored):
 

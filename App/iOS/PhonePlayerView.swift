@@ -24,6 +24,13 @@ struct PhonePlayerView: View {
     /// A sideways swipe in progress: where the film was when it started.
     @State private var swipeScrubStart: Double?
     @State private var pinching = false
+    /// Holding the picture: 2× until the finger lifts.
+    @State private var hold = SpeedHold()
+    @State private var holdTimer: Task<Void, Never>?
+    @State private var holdEndedAt = Date.distantPast
+    /// Touch lock: everything ignored except a tap, which offers the unlock button for a moment.
+    @State private var locked = false
+    @State private var unlockVisible = false
     /// The Quality or Subtitles popover. While one is open the controls stay up: only the user closes it.
     @State private var openMenu: PlayerMenu?
 
@@ -78,7 +85,9 @@ struct PhonePlayerView: View {
                         .allowsHitTesting(false)
                         .transition(.opacity)
                 }
-                if controlsVisible { controls.transition(.opacity) }
+                if controlsVisible && !locked { controls.transition(.opacity) }
+                if locked && unlockVisible { unlockButton.transition(.opacity) }
+                if hold.isHolding { holdBadge.transition(.opacity) }
                 if let level { levelIndicator(level, width: geo.size.width).transition(.opacity) }
                 if let start = swipeScrubStart, let target = scrubbing { scrubIndicator(from: start, to: target) }
             }
@@ -121,10 +130,40 @@ struct PhonePlayerView: View {
     /// Single tap toggles the controls; double tap on a side third skips. A vertical swipe on the
     /// left half sets the screen brightness and on the right half the device volume, controls up or
     /// not; a sideways swipe scrubs and seeks on release. A pinch out fills the screen, in fits it.
+    @ViewBuilder
     private func touchLayer(size: CGSize) -> some View {
+        if locked {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { showUnlock() }
+        } else {
+            gestureLayer(size: size)
+        }
+    }
+
+    private func gestureLayer(size: CGSize) -> some View {
         let width = size.width
         return Color.clear
             .contentShape(Rectangle())
+            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { drag in
+                // A finger held still for half a second: 2× until it lifts. Moving makes it a swipe.
+                if hypot(drag.translation.width, drag.translation.height) > 10 {
+                    holdTimer?.cancel()
+                } else if holdTimer == nil && !hold.isHolding {
+                    holdTimer = Task {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        guard !Task.isCancelled, player.isPlaying, !pinching, swipe == nil, swipeScrubStart == nil else { return }
+                        withAnimation(.easeOut(duration: 0.15)) { player.speed = hold.begin(from: player.speed) }
+                    }
+                }
+            }.onEnded { _ in
+                holdTimer?.cancel()
+                holdTimer = nil
+                if let restore = hold.end() {
+                    withAnimation(.easeIn(duration: 0.2)) { player.speed = restore }
+                    holdEndedAt = Date()
+                }
+            })
             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
                 guard !pinching else { return }
                 // The first movement decides what the swipe does, for the whole swipe.
@@ -170,10 +209,46 @@ struct PhonePlayerView: View {
                     if x < width / 3 { skip(-10, leading: true) } else if x > width * 2 / 3 { skip(30, leading: false) }
                 }
                 .exclusively(before: TapGesture().onEnded {
+                    // Lifting the finger after a hold is not a tap.
+                    guard Date().timeIntervalSince(holdEndedAt) > 0.3 else { return }
                     withAnimation { controlsVisible.toggle() }
                     lastActivity = Date()
                 })
             )
+    }
+
+    private func showUnlock() {
+        withAnimation { unlockVisible = true }
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            withAnimation { unlockVisible = false }
+        }
+    }
+
+    private var unlockButton: some View {
+        Button {
+            withAnimation { locked = false; unlockVisible = false; controlsVisible = true }
+            lastActivity = Date()
+        } label: {
+            Label("Unlock", systemImage: "lock.open.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.horizontal, 18).frame(height: 44)
+                .background(.black.opacity(0.6), in: Capsule())
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 24)
+    }
+
+    private var holdBadge: some View {
+        Label("\(SpeedLabel.text(SpeedHold.speed))", systemImage: "forward.fill")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14).frame(height: 34)
+            .background(.black.opacity(0.55), in: Capsule())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, 24)
+            .allowsHitTesting(false)
     }
 
     private func skip(_ seconds: Double, leading: Bool) {
@@ -288,6 +363,10 @@ struct PhonePlayerView: View {
                 lastActivity = Date()
             }
             round("pip.enter", size: 44, label: "Picture in Picture") { pip.toggle() }
+            round("lock", size: 44, label: "Lock the screen") {
+                withAnimation { locked = true; controlsVisible = false }
+                showUnlock()
+            }
         }
     }
 

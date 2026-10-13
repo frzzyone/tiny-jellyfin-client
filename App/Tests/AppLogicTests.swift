@@ -87,6 +87,16 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(back.target(duration: 7200), 5100)
     }
 
+    func testHoldPlaysAt2xAndGoesBack() {
+        var hold = SpeedHold()
+        XCTAssertEqual(hold.begin(from: 1.25), 2)
+        XCTAssertEqual(hold.begin(from: 2), 2, "a second begin while held keeps the first speed to go back to")
+        XCTAssertTrue(hold.isHolding)
+        XCTAssertEqual(hold.end(), 1.25)
+        XCTAssertNil(hold.end(), "only once")
+        XCTAssertFalse(hold.isHolding)
+    }
+
     func testSwipeLevel() {
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: -100, height: 400), 0.8125, accuracy: 0.0001, "up raises")
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: 100, height: 400), 0.1875, accuracy: 0.0001, "down lowers")

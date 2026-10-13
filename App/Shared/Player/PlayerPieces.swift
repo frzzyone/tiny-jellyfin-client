@@ -199,6 +199,26 @@ enum ControlsAutoHide {
     }
 }
 
+/// Holding the picture plays at 2× until the finger lifts, then back to the speed before.
+struct SpeedHold {
+    static let speed: Float = 2
+    private(set) var restore: Float?
+
+    var isHolding: Bool { restore != nil }
+
+    /// The speed to play at while held.
+    mutating func begin(from current: Float) -> Float {
+        if restore == nil { restore = current }
+        return Self.speed
+    }
+
+    /// The speed to go back to, once.
+    mutating func end() -> Float? {
+        defer { restore = nil }
+        return restore
+    }
+}
+
 /// A level (brightness, volume) dragged up or down: a drag over 80% of the screen's height covers
 /// the whole range, so a thumb's reach is enough.
 enum SwipeLevel {
