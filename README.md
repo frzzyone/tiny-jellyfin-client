@@ -1,6 +1,6 @@
 # Tiny Jellyfin
 
-A small, native macOS and iPhone client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
+A small, native macOS, iPhone and Apple TV client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
 engine and on-the-fly quality switching.
 
 - **Plays files as they are.** FFmpeg reads the container (MKV, MP4, MOV, TS, WebM); video is decoded in
@@ -16,7 +16,7 @@ The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpe
 
 ## Requirements
 
-- macOS 14 Sonoma or later; iPhone with iOS 17 or later
+- macOS 14 Sonoma or later; iPhone with iOS 17 or later; Apple TV 4K with tvOS 17 or later
 - Xcode 15 or later (CI uses Xcode 16)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) and, for tests, the `ffmpeg` command-line tool:
   `brew install xcodegen ffmpeg`
@@ -85,6 +85,29 @@ app is meant for your own devices: whether an LGPL FFmpeg build can go through t
 open question this project has not taken on. iOS has no audio passthrough, so Dolby Atmos is
 played as 5.1/7.1 rather than passed to the receiver; DTS and TrueHD are decoded in the app.
 
+## Apple TV
+
+The Apple TV app is the `TinyJellyfinTV` scheme. Like the iPhone app it shares the engine and the
+models; its screens are built for the remote: tabs along the top, Home with the hero and shelves,
+title pages with a season strip, library grids, the system search screen, and a full-screen player.
+
+- **Signing in:** type the server address once (the iPhone offers its keyboard), then approve the
+  code the TV shows in Jellyfin on your phone or the web (profile › Quick Connect). "Use a password
+  instead" is there when Quick Connect is off on the server.
+- **The remote:** click or Play/Pause to pause, click left or right for −10 s / +30 s, swipe on the
+  touch surface to scrub (click to jump there, Back to cancel), swipe or click down for Subtitles,
+  Quality, Audio and Info, Back to leave.
+- **Matching the TV:** with *Match Content* (Dynamic Range and Frame Rate) on in the Apple TV's
+  Video and Audio settings, the TV switches to the film's frame rate and HDR or Dolby Vision mode
+  before playback starts.
+- **Top Shelf:** Continue watching and Next up above the app's icon; Play starts the item.
+- **Sound:** Dolby Digital Plus (and Atmos in it) goes to the system as on the iPhone; TrueHD and DTS
+  are decoded in the app and sent as multichannel PCM, as many channels as the receiver takes.
+
+To run it on your Apple TV, the team in `App/Signing.local.xcconfig` is enough: Xcode registers the
+App Group and Keychain group the Top Shelf extension shares with the app. Pair the Apple TV in
+Xcode (Window › Devices and Simulators) and pick it as the run destination.
+
 ## Tests
 
 ```sh
@@ -145,12 +168,14 @@ because the app only advertises what it can play.
 ## How it fits together
 
 ```
-App/Shared               Both apps: sign-in, browser and Home models, PlaybackController, Now Playing, PiP
-App/macOS, App/iOS       Each app's screens and player
+App/Shared               All apps: sign-in, browser, Home and series models, PlaybackController, Now Playing, PiP
+App/macOS, App/iOS,      Each app's screens and player
+  App/tvOS
+App/TopShelf             The Apple TV's Top Shelf extension
 Packages/JellyfinKit     Jellyfin API client, session state, DeviceProfile, quality logic (Foundation only)
 Packages/PlayerCore      Playback engine
   Core/                  FFmpeg demuxing through URLSession byte sources, audio/subtitle decoding (portable)
-  Apple/                 AVSampleBufferDisplayLayer / AudioRenderer / RenderSynchronizer engine (macOS, iOS)
+  Apple/                 AVSampleBufferDisplayLayer / AudioRenderer / RenderSynchronizer engine (macOS, iOS, tvOS)
 scripts/                 FFmpeg build, test fixtures, test HTTP server
 ```
 

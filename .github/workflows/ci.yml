@@ -71,6 +71,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" > xcodebuild-test.log 2>&1 || status=$?
           grep -E "error:|Test Case .* failed|Executed [0-9]+ tests|\*\* TEST" xcodebuild-test.log | tail -100
           exit ${status:-0}
+      - name: iPhone and Apple TV builds
+        # The FFmpeg simulator slices are arm64 only.
+        run: |
+          set -o pipefail
+          for scheme in TinyJellyfinPhone:iOS TinyJellyfinTV:tvOS; do
+            xcodebuild -project TinyJellyfin.xcodeproj -scheme "${scheme%%:*}" -configuration Debug \
+              -destination "generic/platform=${scheme##*:} Simulator" ARCHS=arm64 build \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -5
+          done
       - name: Release build
         run: |
           set -o pipefail

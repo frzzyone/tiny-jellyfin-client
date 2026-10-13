@@ -11,4 +11,6 @@ App/Resources/Info.plist
 build/
 App/Resources/Info-iOS.plist
 App/Resources/Info-tvOS.plist
+App/Resources/Info-TopShelf.plist
+App/Resources/*.entitlements
 App/Signing.local.xcconfig

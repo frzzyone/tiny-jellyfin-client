@@ -17,7 +17,12 @@ final class AppModel {
     let player: PlaybackController
 
     init() {
+        #if os(tvOS)
+        // Shared with the Top Shelf extension.
+        let preferences = AppPreferences(defaults: TVShared.defaults)
+        #else
         let preferences = AppPreferences()
+        #endif
         self.preferences = preferences
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
         session = SessionModel(tokens: KeychainTokenStore(), preferences: preferences,

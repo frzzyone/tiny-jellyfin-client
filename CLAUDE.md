@@ -1,6 +1,6 @@
 # Tiny Jellyfin — notes for Claude
 
-Native macOS and iPhone Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
+Native macOS, iPhone and Apple TV Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
 `AVSampleBuffer*` renderers decode and present. See `README.md` for the user-facing description and
 `openspec/specs/` for the requirements it meets (finished changes are under
 `openspec/changes/archive/`, each with a `manual-checklist.md` of what still needs a person).
@@ -10,12 +10,14 @@ Native macOS and iPhone Jellyfin client with an Infuse-style playback engine: FF
 
 | Path | What | Builds on |
 |---|---|---|
-| `Packages/JellyfinKit` | API client, session, DeviceProfile, quality logic. Foundation only. | Linux + macOS + iOS |
-| `Packages/PlayerCore/Sources/PlayerCore/Core` | FFmpeg demuxing, byte sources, audio/subtitle decode. | Linux + macOS + iOS |
-| `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS + iOS |
-| `App/Shared` | Models and pieces both apps use: `HomeModel`/`BrowserModel`/`LibraryGridModel`, `PlaybackController`, Now Playing, PiP, subtitle layout, cards and colours. No AppKit or UIKit beyond `#if`. | macOS + iOS |
+| `Packages/JellyfinKit` | API client, session, DeviceProfile, quality logic. Foundation only. | Linux + macOS + iOS + tvOS |
+| `Packages/PlayerCore/Sources/PlayerCore/Core` | FFmpeg demuxing, byte sources, audio/subtitle decode. | Linux + macOS + iOS + tvOS |
+| `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS + iOS + tvOS |
+| `App/Shared` | Models and pieces the apps share: `HomeModel`/`BrowserModel`/`LibraryGridModel`/`SeriesModel`, `PlaybackController`, Now Playing, PiP, subtitle layout, the audio session (iPhone and TV), cards and colours. No AppKit or UIKit beyond `#if`. | macOS + iOS + tvOS |
 | `App/macOS` | The Mac app: `BrowserView` (tabs, keys, quick look), player window, menus. | macOS |
-| `App/iOS` | The iPhone app: tabs, detail sheet, landscape touch player (gestures, device volume, audio session). | iOS |
+| `App/iOS` | The iPhone app: tabs, detail sheet, landscape touch player (gestures, device volume). | iOS |
+| `App/tvOS` | The Apple TV app: Quick Connect sign-in, focus UI, remote player (`TVRemoteSurface` takes presses and touch-surface swipes), display matching. | tvOS |
+| `App/TopShelf` | The Top Shelf extension; shares the App Group defaults and the Keychain group with the TV app. | tvOS |
 
 Keep logic that can be portable in `Core/` — it is the only part CI can test on Linux, and it is
 much faster to iterate on.
@@ -23,12 +25,12 @@ much faster to iterate on.
 ## Commands
 
 ```sh
-scripts/build-ffmpeg.sh      # Vendor/FFmpeg/FFmpeg.xcframework (git-ignored), macOS + iOS. ~10 min first time.
+scripts/build-ffmpeg.sh      # Vendor/FFmpeg/FFmpeg.xcframework (git-ignored), macOS + iOS + tvOS. ~10 min first time.
 xcodegen generate            # TinyJellyfin.xcodeproj (git-ignored; regenerate after editing project.yml)
 scripts/make-fixtures.sh     # test videos (git-ignored); needs Homebrew ffmpeg
 swift test --package-path Packages/JellyfinKit
 swift test --package-path Packages/PlayerCore
-scripts/test-ios.sh          # both packages on an iPhone simulator (xcodebuild -downloadPlatform iOS once)
+scripts/test-ios.sh          # both packages on an iPhone simulator (or: scripts/test-ios.sh "Apple TV 4K (3rd generation)")
 xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destination 'platform=macOS'
 ```
 
@@ -109,6 +111,11 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   on this Mac). Capture just the app with `screencapture -x -l <windowID>` (window id from
   `CGWindowListCopyWindowInfo`), and pose the browser with the DEBUG hooks `TJ_BROWSER_TAB`,
   `TJ_BROWSER_SEARCH`, `TJ_BROWSER_QUICKLOOK=hero|<id>`, `TJ_BROWSER_SELECT=<row>,<index>`.
+- The Apple TV simulator: `xcrun simctl launch "Apple TV 4K (3rd generation)" app.tinyjellyfin.TinyJellyfin.tv`
+  with `SIMCTL_CHILD_` variables. `TJ_SERVER=<address>` connects without typing (then Quick Connect
+  shows a code to approve), `TJ_BROWSER_TAB`, `TJ_AUTOPLAY=1` and `TJ_TV_PANEL=Subtitles` pose it, and
+  `xcrun simctl io … screenshot` captures it. Display matching and HDMI audio only exist on a real
+  Apple TV.
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
   stops looking once the bars have held for ten looks (`Picture bars settled …`).

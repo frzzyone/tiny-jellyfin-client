@@ -1,6 +1,7 @@
 import JellyfinKit
 import PlayerCore
 import SwiftUI
+import TVServices
 
 /// Home, one tab per video library, Search, along the top. A title opens its page; Play opens the
 /// player over everything.
@@ -27,7 +28,7 @@ struct TVTabsView: View {
                     ProgressView()
                 }
             }
-            .tabItem { Text("Home") }
+            .tabItem { Text("Tiny Jellyfin") }
             .tag("home")
 
             ForEach(libraries) { library in
@@ -50,6 +51,7 @@ struct TVTabsView: View {
             guard now == .idle || now == .ended, was != .idle, lastPlayedID != nil else { return }
             playbackEnded += 1
             Task { await home?.refreshProgress() }
+            TVTopShelfContentProvider.topShelfContentDidChange()
         }
         .onOpenURL(perform: open)
         .task {
@@ -140,8 +142,6 @@ struct TVShelf: View {
     let title: String
     let items: [BaseItem]
     let shape: RowShape
-    /// What a card does when clicked; by default it opens the title's page.
-    var onSelect: ((BaseItem) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -149,7 +149,7 @@ struct TVShelf: View {
                 .padding(.horizontal, TVStyle.side)
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: TVStyle.cardGap) {
-                    ForEach(items) { item in TVCard(item: item, shape: shape, onSelect: onSelect) }
+                    ForEach(items) { item in TVCard(item: item, shape: shape) }
                 }
                 .padding(.horizontal, TVStyle.side)
                 .padding(.vertical, 30) // room for the lift
@@ -160,19 +160,17 @@ struct TVShelf: View {
     }
 }
 
+/// A title's card; clicking it opens the title's page.
 struct TVCard: View {
     let item: BaseItem
     let shape: RowShape
-    var onSelect: ((BaseItem) -> Void)?
 
     var body: some View {
-        let card = ItemCard(item: item, shape: shape, selected: false,
-                            width: shape == .poster ? TVStyle.posterWidth : TVStyle.stillWidth)
-        if let onSelect {
-            Button { onSelect(item) } label: { card }.buttonStyle(TVCardButtonStyle())
-        } else {
-            NavigationLink(value: item) { card }.buttonStyle(TVCardButtonStyle())
+        NavigationLink(value: item) {
+            ItemCard(item: item, shape: shape, selected: false,
+                     width: shape == .poster ? TVStyle.posterWidth : TVStyle.stillWidth)
         }
+        .buttonStyle(TVCardButtonStyle())
     }
 }
 
@@ -209,22 +207,5 @@ struct TVPill: View {
                     .animation(.easeOut(duration: 0.15), value: focused)
             }
         }
-    }
-}
-
-/// Links the Top Shelf extension hands the app.
-struct TopShelfLink: Equatable {
-    var itemId: String
-    var play: Bool
-
-    init?(url: URL) {
-        guard url.scheme == "tinyjellyfin", let host = url.host, host == "item" || host == "play",
-              let id = url.pathComponents.dropFirst().first, !id.isEmpty else { return nil }
-        itemId = id
-        play = host == "play"
-    }
-
-    static func url(itemId: String, play: Bool) -> URL {
-        URL(string: "tinyjellyfin://\(play ? "play" : "item")/\(itemId)")!
     }
 }

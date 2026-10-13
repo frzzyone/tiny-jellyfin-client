@@ -32,4 +32,4 @@
 
 ## 6. Docs and CI
 
-- [ ] 6.1 README (Apple TV section), CLAUDE.md layout row, `openspec/config.yaml`, BACKLOG; CI builds the TV app; verify `openspec validate --strict`
+- [x] 6.1 README (Apple TV section), CLAUDE.md layout row, `openspec/config.yaml`, BACKLOG; CI builds the TV app; verify `openspec validate --strict`

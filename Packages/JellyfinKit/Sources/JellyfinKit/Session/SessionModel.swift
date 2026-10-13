@@ -60,7 +60,8 @@ public final class SessionModel {
         ClientIdentity(device: deviceName, deviceId: preferences.deviceId, version: appVersion)
     }
 
-    static func account(server: URL, userId: String) -> String { "\(server.absoluteString)|\(userId)" }
+    /// The Keychain account a token is stored under.
+    nonisolated public static func account(server: URL, userId: String) -> String { "\(server.absoluteString)|\(userId)" }
 
     private func makeClient(_ url: URL, token: String? = nil, userId: String? = nil) -> JellyfinClient {
         let client = JellyfinClient(baseURL: url, identity: identity, accessToken: token, userId: userId,

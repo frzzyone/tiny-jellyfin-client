@@ -2,7 +2,7 @@ import JellyfinKit
 import SwiftUI
 
 /// A title's page: backdrop, facts and badges, overview, Resume or Play, Start over, Mark watched.
-/// A series adds a season strip and its episodes; clicking an episode plays it.
+/// A series adds a season strip and its episodes; an episode opens its own page.
 struct TVDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.tvPlay) private var play
@@ -114,9 +114,7 @@ struct TVDetailView: View {
                 .padding(.horizontal, TVStyle.side).padding(.vertical, 12)
             }
             .scrollClipDisabled()
-            TVShelf(title: series.season?.displayName ?? "Episodes", items: series.episodes, shape: .still) { episode in
-                play(episode, resume: episode.resumePositionSeconds != nil)
-            }
+            TVShelf(title: series.season?.displayName ?? "Episodes", items: series.episodes, shape: .still)
         }
     }
 

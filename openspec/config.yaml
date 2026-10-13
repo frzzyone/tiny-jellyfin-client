@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Native macOS app and iPhone app (not web, Electron or Catalyst). Target macOS 14 Sonoma and iOS 17 and later.
+  Native macOS, iPhone and Apple TV apps (not web, Electron or Catalyst). Target macOS 14 Sonoma, iOS 17 and tvOS 17 and later.
   Swift + SwiftUI for UI. Playback uses our own engine: FFmpeg for demuxing (and software audio decoding only),
   Apple's AVSampleBuffer* renderers + VideoToolbox for video, audio, sync, HDR, Dolby Vision, Atmos and PiP.
   FFmpeg is the one approved third-party dependency: an LGPL-only build, dynamically linked, pinned version.

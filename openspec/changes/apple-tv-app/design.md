@@ -87,8 +87,10 @@ with Continue watching (resume items, with `playbackProgress`) and Next up, `.hd
 the server's backdrop/thumb URLs (Jellyfin serves images without a token). Each item's
 `displayAction` is `tinyjellyfin://item/<id>` and `playAction` `tinyjellyfin://play/<id>`; the app
 handles both with `onOpenURL`. The extension needs the session: the server address and user id go
-into an App Group's defaults, and the token into a Keychain access group shared with the
-extension (`KeychainTokenStore` gains an optional access group). The system asks the extension
+into an App Group's defaults (the TV app keeps all its preferences there), and the token into a
+Keychain access group shared with the extension. Both list that group first in
+`keychain-access-groups`, which makes it the default group for new items and searched by queries,
+so `KeychainTokenStore` is unchanged and the Mac and iPhone keep their tokens where they are. The system asks the extension
 again when the app calls `TVTopShelfContentProvider.topShelfContentDidChange()`, which it does when
 playback stops.
 
@@ -103,8 +105,10 @@ image, generated from the same SVG by `scripts/make-icon.sh`.
 - **Simulator limits:** the tvOS simulator has no HDMI, no display switching and no hardware HEVC;
   D6 and D7 are verified only on a real Apple TV. The rest (UI, sign-in, Top Shelf content) is
   checked on the simulator.
-- **Indirect touch scrubbing** in SwiftUI needs the UIKit gesture; focus can fight it. Fallback:
-  scrub with left/right holds.
+- **Indirect touch scrubbing** in SwiftUI needs the UIKit gesture; focus can fight it. The player
+  hosts the picture in a focusable UIKit view (`TVRemoteSurface`) that takes the remote's presses and
+  touch-surface pans itself; SwiftUI only draws the transport bar and the panel. Fallback if that
+  misbehaves on hardware: scrub with left/right holds.
 - **Quick Connect off on the server:** the TV then goes straight to the password form, typed with
   the remote or the iPhone keyboard.
 - Three UIs on shared models: anything a TV page needs that a model lacks goes into the model, not

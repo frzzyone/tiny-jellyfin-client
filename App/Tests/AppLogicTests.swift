@@ -48,6 +48,16 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(PlaybackController.redactedQuery(url), "DeviceId=d&ApiKey=…&MediaSourceId=m&api_key=…")
     }
 
+    func testTopShelfLinks() {
+        let play = TopShelfLink(itemId: "abc123", play: true)
+        XCTAssertEqual(play.url.absoluteString, "tinyjellyfin://play/abc123")
+        XCTAssertEqual(TopShelfLink(url: play.url), play)
+        XCTAssertEqual(TopShelfLink(url: URL(string: "tinyjellyfin://item/abc123")!), TopShelfLink(itemId: "abc123", play: false))
+        XCTAssertNil(TopShelfLink(url: URL(string: "tinyjellyfin://item/")!))
+        XCTAssertNil(TopShelfLink(url: URL(string: "tinyjellyfin://delete/abc")!))
+        XCTAssertNil(TopShelfLink(url: URL(string: "https://item/abc")!))
+    }
+
     func testRemoteScrub() {
         XCTAssertEqual(RemoteScrub.target(start: 3000, fraction: 1, duration: 7200), 3600, "two hours: a full swipe is 10 min")
         XCTAssertEqual(RemoteScrub.target(start: 1000, fraction: 0.5, duration: 3000), 1150, "50 min: a tenth")
