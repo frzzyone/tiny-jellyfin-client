@@ -1,0 +1,4 @@
+// Signing for the iPhone app. Your team goes in App/Signing.local.xcconfig (git-ignored), e.g.
+//   DEVELOPMENT_TEAM = ABCDE12345
+// so it survives `xcodegen generate` and never lands in the repository.
+#include? "Signing.local.xcconfig"

@@ -88,8 +88,10 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
-        # Set your team in Xcode (Signing & Capabilities) to run on a phone; the simulator needs none.
-        DEVELOPMENT_TEAM: ""
+    # The team comes from App/Signing.local.xcconfig (git-ignored); see App/Signing.xcconfig.
+    configFiles:
+      Debug: App/Signing.xcconfig
+      Release: App/Signing.xcconfig
   TinyJellyfinTests:
     type: bundle.unit-test
     platform: macOS

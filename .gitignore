@@ -10,3 +10,4 @@ Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/*
 App/Resources/Info.plist
 build/
 App/Resources/Info-iOS.plist
+App/Signing.local.xcconfig
