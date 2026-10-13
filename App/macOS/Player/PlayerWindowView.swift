@@ -13,8 +13,9 @@ struct PlayerWindowView: View {
     @FocusState private var focused: Bool
     /// The position being scrubbed to (slider or trackpad), shown in place of the clock.
     @State private var scrubbing: Double?
-    /// A trackpad scrub in progress: where it started and how far the fingers have gone (in widths).
-    @State private var trackpadScrub: (start: Double, travel: Double)?
+    /// A trackpad stroke in progress, and the seek waiting for the fingers to stay off the pad.
+    @State private var trackpadScrub: TrackpadScrub?
+    @State private var trackpadSeek: Task<Void, Never>?
     @State private var scrollMonitor: Any?
     /// While the pointer is over the control bars they stay up.
     @State private var overControls = false
@@ -116,32 +117,33 @@ struct PlayerWindowView: View {
         noteActivity()
     }
 
-    /// A sideways two-finger swipe on a trackpad scrubs, the same distance as on the iPhone; the
-    /// player seeks when the fingers lift. Vertical scrolls and mouse wheels pass through.
+    /// A sideways two-finger swipe on a trackpad scrubs; strokes chain, each going on from where the
+    /// last one aimed, and the player seeks once the fingers have been off for a moment. Vertical
+    /// scrolls and mouse wheels pass through.
     private func trackpadScrub(_ event: NSEvent) -> NSEvent? {
-        guard event.window === window, event.hasPreciseScrollingDeltas, player.duration > 0,
-              let width = window?.contentView?.bounds.width, width > 0 else { return event }
+        guard event.window === window, event.hasPreciseScrollingDeltas, player.duration > 0 else { return event }
         if event.phase == .began { trackpadScrub = nil }
         if trackpadScrub == nil {
             // The first movement decides: sideways scrubs, anything else is left alone.
             guard event.phase == .began || event.phase == .changed,
                   abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else { return event }
-            trackpadScrub = (player.currentTime, 0)
+            trackpadSeek?.cancel()
+            trackpadScrub = TrackpadScrub(start: scrubbing ?? player.currentTime)
         }
         guard var scrub = trackpadScrub else { return event }
         // Fingers to the right move forward, whichever way the system scrolls content.
-        let dx = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
-        scrub.travel += dx / width
+        scrub.travel += event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
         trackpadScrub = scrub
-        scrubbing = SwipeScrub.target(start: scrub.start, fraction: scrub.travel, duration: player.duration)
+        let target = scrub.target(duration: player.duration)
+        scrubbing = target
         noteActivity()
         if event.phase == .ended || event.phase == .cancelled {
             trackpadScrub = nil
-            if let target = scrubbing {
-                Task {
-                    await player.seek(to: target)
-                    scrubbing = nil
-                }
+            trackpadSeek = Task {
+                try? await Task.sleep(for: .seconds(TrackpadScrub.settle))
+                guard !Task.isCancelled else { return }
+                await player.seek(to: target)
+                if scrubbing == target { scrubbing = nil }
             }
         }
         return nil
@@ -189,6 +191,21 @@ struct PlayerWindowView: View {
         PlayerLog.engine("Full screen: \(window.styleMask.contains(.fullScreen) ? "leaving" : "entering")"
                          + " (behavior \(window.collectionBehavior.rawValue))")
         window.toggleFullScreen(nil)
+    }
+}
+
+/// One trackpad stroke. Sized in points rather than window widths, so it feels the same in a small
+/// window and in full screen: a comfortable stroke (about 1600 points of scrolling) moves two swipe
+/// spans, 20 minutes of a long film.
+struct TrackpadScrub {
+    static let pointsPerSpan = 800.0
+    /// How long the fingers stay off before the seek, so the next stroke can carry on instead.
+    static let settle = 0.5
+    let start: Double
+    var travel = 0.0
+
+    func target(duration: Double) -> Double {
+        SwipeScrub.target(start: start, fraction: travel / Self.pointsPerSpan, duration: duration)
     }
 }
 

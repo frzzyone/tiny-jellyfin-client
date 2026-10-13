@@ -74,6 +74,19 @@ final class AppLogicTests: XCTestCase {
         XCTAssertFalse(ControlsAutoHide.due(playing: true, scrubbing: false, menuOpen: false, idle: 2.9))
     }
 
+    func testTrackpadStrokesChain() {
+        var first = TrackpadScrub(start: 3000)
+        first.travel = 1600
+        let aimed = first.target(duration: 7200)
+        XCTAssertEqual(aimed, 4200, "a long stroke on a two-hour film: 20 min")
+        var second = TrackpadScrub(start: aimed) // the next stroke starts where the last one aimed
+        second.travel = 1600
+        XCTAssertEqual(second.target(duration: 7200), 5400)
+        var back = TrackpadScrub(start: 5400)
+        back.travel = -400
+        XCTAssertEqual(back.target(duration: 7200), 5100)
+    }
+
     func testSwipeLevel() {
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: -100, height: 400), 0.8125, accuracy: 0.0001, "up raises")
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: 100, height: 400), 0.1875, accuracy: 0.0001, "down lowers")
