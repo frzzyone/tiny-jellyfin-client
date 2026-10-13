@@ -12,7 +12,15 @@ final class PacketQueue: @unchecked Sendable {
     private var closed = false
     private(set) var endOfStream = false
 
-    init(maxDuration: Double = 30, maxBytes: Int = 200 * 1024 * 1024) {
+    /// Per queue. Two pipelines are alive during a quality switch, and iOS gives an app less memory,
+    /// especially in Picture in Picture.
+    #if os(iOS)
+    static let defaultMaxBytes = 100 * 1024 * 1024
+    #else
+    static let defaultMaxBytes = 200 * 1024 * 1024
+    #endif
+
+    init(maxDuration: Double = 30, maxBytes: Int = PacketQueue.defaultMaxBytes) {
         self.maxDuration = maxDuration
         self.maxBytes = maxBytes
     }

@@ -29,13 +29,14 @@ binary targets inside the package), which also cleans up the Mac build: Xcode no
 every Apple platform), still passed with `-I`.
 
 ### D2. Audio
-On iOS the audio renderer has no passthrough. iOS has system decoders for AC-3 and E-AC-3, so the
-existing `.passthrough` path's format descriptions are tried first behind a capability check
-(`AVSampleBufferAudioRenderer` accepting the format, verified on a device); TrueHD, DTS and anything
-the check rejects go through the existing FFmpeg-decode-to-Float32 path, keeping the channel layout
-(AVAudioSession `.moviePlayback`, `setSupportsMultichannelContent(true)`) so spatial audio applies.
-`EngineCapabilities` gains the platform's audio answer so the DeviceProfile tells the server the
-truth.
+On iOS the audio renderer has no passthrough, but it decodes AC-3 and E-AC-3 itself, so the engine's
+existing `.passthrough` path (compressed Dolby sample buffers) works unchanged: the system decodes
+them. TrueHD, DTS and the rest already go through FFmpeg to Float32 PCM with their channel layout.
+Verified on the simulator: the engine's play tests for AAC, E-AC-3, DTS and TrueHD now also assert
+the audio renderer did not fail, and all pass. The player sets AVAudioSession `.playback`/
+`.moviePlayback` with `setSupportsMultichannelContent(true)` so 5.1 reaches spatial audio. The
+DeviceProfile needs no change: every codec it declares plays on the phone. (The capability check
+the plan foresaw turned out unnecessary.)
 
 ### D3. Folder split
 `App/Shared` (models, `ItemLabels`, `BrowserStyle` colours, `SubtitleLayout` geometry, the service

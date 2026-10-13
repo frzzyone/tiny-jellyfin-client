@@ -35,6 +35,9 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(advanced, "stalled: \(engine.debugSummary)", file: file, line: line)
         XCTAssertNotEqual(engine.videoRenderer.status, .failed,
                           "video renderer: \(String(describing: engine.videoRenderer.error))", file: file, line: line)
+        // On iOS there is no passthrough: compressed AC-3/E-AC-3 must be accepted by the system decoder.
+        XCTAssertNotEqual(engine.audioRenderer.status, .failed,
+                          "audio renderer: \(String(describing: engine.audioRenderer.error))", file: file, line: line)
         if case .failed(let message) = engine.state { XCTFail(message, file: file, line: line) }
     }
 

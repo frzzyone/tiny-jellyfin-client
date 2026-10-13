@@ -326,6 +326,15 @@ final class HTTPTests: XCTestCase {
 }
 
 final class PacketQueueTests: XCTestCase {
+    func testByteCapIsSmallerOnIOS() {
+        #if os(iOS)
+        XCTAssertEqual(PacketQueue().maxBytes, 100 * 1024 * 1024)
+        #else
+        XCTAssertEqual(PacketQueue().maxBytes, 200 * 1024 * 1024)
+        #endif
+        XCTAssertEqual(PacketQueue().maxDuration, 30)
+    }
+
     func packets(_ demuxer: Demuxer, stream: Int, count: Int) throws -> [Packet] {
         var result: [Packet] = []
         while result.count < count, let p = try demuxer.readPacket() {

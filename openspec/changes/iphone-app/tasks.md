@@ -8,8 +8,8 @@
 
 ## 2. Engine on iOS
 
-- [ ] 2.1 Audio session setup and the audio capability check: Dolby to the system decoder where accepted, the rest decoded to Float32 PCM with channel layout; `EngineCapabilities` reports it; verify unit tests for the mode choice and an engine test that decodes the AC-3, E-AC-3, DTS and TrueHD fixtures on the simulator
-- [ ] 2.2 Halve queue limits on iOS; verify the queue-limit tests per platform
+- [x] 2.1 Audio session setup and the audio capability check: Dolby to the system decoder where accepted, the rest decoded to Float32 PCM with channel layout; `EngineCapabilities` reports it; verify unit tests for the mode choice and an engine test that decodes the AC-3, E-AC-3, DTS and TrueHD fixtures on the simulator
+- [x] 2.2 Halve queue limits on iOS; verify the queue-limit tests per platform
 
 ## 3. Shared app code
 

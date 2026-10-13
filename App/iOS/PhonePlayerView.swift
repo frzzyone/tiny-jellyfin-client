@@ -60,8 +60,11 @@ struct PhonePlayerView: View {
         .persistentSystemOverlays(.hidden)
         .onAppear {
             PhoneOrientation.lock(.landscape)
-            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-            try? AVAudioSession.sharedInstance().setActive(true)
+            let session = AVAudioSession.sharedInstance()
+            try? session.setCategory(.playback, mode: .moviePlayback)
+            // 5.1/7.1 PCM and Dolby reach the system whole, so AirPods can render them spatially.
+            try? session.setSupportsMultichannelContent(true)
+            try? session.setActive(true)
         }
         .onDisappear {
             player.stop()
