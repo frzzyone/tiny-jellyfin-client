@@ -4,7 +4,7 @@
 
 - [x] 1.1 `build-ffmpeg.sh --ios`: device and simulator slices plus the macOS slice in `FFmpeg.xcframework`, same LGPL configure flags; verify `xcodebuild -create-xcframework` output lists three platforms and the script still refuses GPL options
 - [x] 1.2 PlayerCore `CFFmpeg` as a `binaryTarget` on the XCFramework; packages declare `.iOS(.v17)`; verify the Mac app and all package tests are unchanged and green
-- [ ] 1.3 Run JellyfinKit and PlayerCore tests on the iOS simulator (fixtures served by the existing HTTP test server); verify green and add both to CI
+- [x] 1.3 Run JellyfinKit and PlayerCore tests on the iOS simulator (fixtures served by the existing HTTP test server); verify green and add both to CI
 
 ## 2. Engine on iOS
 
@@ -13,7 +13,7 @@
 
 ## 3. Shared app code
 
-- [ ] 3.1 Split `App/` into `Shared/`, `macOS/`, `iOS/`; `SubtitleFont` on `CTFont`; `NowPlaying` artwork behind a typealias; verify the Mac app builds and its tests pass unchanged
+- [x] 3.1 Split `App/` into `Shared/`, `macOS/`, `iOS/`; `SubtitleFont` on `CTFont`; `NowPlaying` artwork behind a typealias; verify the Mac app builds and its tests pass unchanged
 - [ ] 3.2 `TinyJellyfin-iOS` target in `project.yml` (bundle id, iOS 17, background audio, ATS exception, icon from the same SVG); verify it builds for the simulator
 
 ## 4. iPhone UI

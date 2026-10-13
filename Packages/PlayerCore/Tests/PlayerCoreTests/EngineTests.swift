@@ -347,9 +347,13 @@ final class VideoFormatTests: XCTestCase {
         XCTAssertNotEqual(Array(payload.prefix(4)), [0, 0, 0, 1], "converted to length prefixes")
     }
 
-    func testCapabilities() {
+    func testCapabilities() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("the simulator has no hardware video decoders")
+        #else
         let caps = EngineCapabilities.current()
-        XCTAssertTrue(caps.hevc, "every macOS 14 Mac decodes HEVC in hardware")
+        XCTAssertTrue(caps.hevc, "every macOS 14 Mac and every iOS 17 iPhone decodes HEVC in hardware")
+        #endif
     }
 }
 #endif

@@ -10,9 +10,9 @@ Native macOS Jellyfin client with an Infuse-style playback engine: FFmpeg demuxe
 
 | Path | What | Builds on |
 |---|---|---|
-| `Packages/JellyfinKit` | API client, session, DeviceProfile, quality logic. Foundation only. | Linux + macOS |
-| `Packages/PlayerCore/Sources/PlayerCore/Core` | FFmpeg demuxing, byte sources, audio/subtitle decode. | Linux + macOS |
-| `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS |
+| `Packages/JellyfinKit` | API client, session, DeviceProfile, quality logic. Foundation only. | Linux + macOS + iOS |
+| `Packages/PlayerCore/Sources/PlayerCore/Core` | FFmpeg demuxing, byte sources, audio/subtitle decode. | Linux + macOS + iOS |
+| `Packages/PlayerCore/Sources/PlayerCore/Apple` | The engine: sample buffers, renderers, splicing. `#if canImport(AVFoundation)`. | macOS + iOS |
 | `App/Shared` | Models and pieces both apps use: `HomeModel`/`BrowserModel`/`LibraryGridModel`, `PlaybackController`, Now Playing, PiP, subtitle layout, cards and colours. No AppKit or UIKit beyond `#if`. | macOS + iOS |
 | `App/macOS` | The Mac app: `BrowserView` (tabs, keys, quick look), player window, menus. | macOS |
 
@@ -22,11 +22,12 @@ much faster to iterate on.
 ## Commands
 
 ```sh
-scripts/build-ffmpeg.sh      # Vendor/FFmpeg (git-ignored). ~5 min first time, then a no-op.
+scripts/build-ffmpeg.sh      # Vendor/FFmpeg/FFmpeg.xcframework (git-ignored), macOS + iOS. ~10 min first time.
 xcodegen generate            # TinyJellyfin.xcodeproj (git-ignored; regenerate after editing project.yml)
 scripts/make-fixtures.sh     # test videos (git-ignored); needs Homebrew ffmpeg
 swift test --package-path Packages/JellyfinKit
 swift test --package-path Packages/PlayerCore
+scripts/test-ios.sh          # both packages on an iPhone simulator (xcodebuild -downloadPlatform iOS once)
 xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destination 'platform=macOS'
 ```
 
