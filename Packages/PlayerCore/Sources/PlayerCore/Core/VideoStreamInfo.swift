@@ -15,6 +15,8 @@ public struct VideoStreamInfo: Sendable, Equatable {
     public var bitDepth: Int
     /// Pixel aspect ratio (width/height of one pixel); 1 for square pixels, ≠ 1 for anamorphic.
     public var sampleAspectRatio: Double = 1
+    /// Frames per second from the container (see `frameRate(average:real:)`), nil if it doesn't say.
+    public var frameRate: Double?
 
     /// The size the picture should be shown at, with non-square pixels accounted for.
     public var presentationSize: CGSize {
@@ -85,6 +87,16 @@ extension VideoStreamInfo {
         } else {
             dolbyVision = nil
         }
+    }
+
+    /// The stream's frame rate: the average rate, else FFmpeg's guess at the real one. Values no
+    /// display could show (a 1/90000 time base read as a rate) mean "unknown".
+    static func frameRate(average: AVRational, real: AVRational) -> Double? {
+        for rate in [average, real] where rate.num > 0 && rate.den > 0 {
+            let fps = Double(rate.num) / Double(rate.den)
+            if fps >= 1 && fps <= 240 { return fps }
+        }
+        return nil
     }
 
     /// 24-byte mastering display colour volume in SEI order (G, B, R, white point, max, min).

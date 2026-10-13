@@ -34,7 +34,9 @@ struct SeriesView: View {
                 ProgressView()
             }
         }
+        #if !os(tvOS)
         .scrollContentBackground(.hidden)
+        #endif
         .navigationTitle(series.displayName)
         .task {
             guard seasons == nil, let client = model.client else { return }
@@ -92,7 +94,9 @@ struct SeasonView: View {
                 ProgressView()
             }
         }
+        #if !os(tvOS)
         .scrollContentBackground(.hidden)
+        #endif
         .navigationTitle([season.seriesName, season.name].compactMap { $0 }.joined(separator: " — "))
         .task {
             guard episodes == nil, let client = model.client, let seriesId = season.seriesId else { return }

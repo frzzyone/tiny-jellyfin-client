@@ -7,17 +7,17 @@
 
 ## 2. Engine on tvOS
 
-- [ ] 2.1 Engine exposes the stream frame rate and the current video format description; verify with fixture tests (24/25/29.97/60 fps, HDR10, Dolby Vision)
-- [ ] 2.2 Audio session for HDMI: maximum output channels; verify the audio tests on the TV simulator
+- [x] 2.1 Engine exposes the stream frame rate and the current video format description; verify with fixture tests (24/25/29.97/60 fps, HDR10, Dolby Vision)
+- [x] 2.2 Audio session for HDMI: maximum output channels; verify the audio tests on the TV simulator
 
 ## 3. Sign-in
 
-- [ ] 3.1 JellyfinKit Quick Connect calls and `SessionModel` Quick Connect sign-in with polling and cancel; verify against the fake server (approved, pending, disabled, cancelled)
+- [x] 3.1 JellyfinKit Quick Connect calls and `SessionModel` Quick Connect sign-in with polling and cancel; verify against the fake server (approved, pending, disabled, cancelled)
 - [ ] 3.2 TV sign-in screens: address, code, password fallback; verify on the simulator against the server
 
 ## 4. TV app
 
-- [ ] 4.1 `TinyJellyfinTV` target (tvOS 17, team from Signing.xcconfig, layered icon and Top Shelf image); verify it builds for the simulator
+- [x] 4.1 `TinyJellyfinTV` target (tvOS 17, team from Signing.xcconfig, layered icon and Top Shelf image); verify it builds for the simulator
 - [ ] 4.2 Tabs and Home shelves with the hero; verify by screenshot
 - [ ] 4.3 Title pages: film and series (season strip, episode shelf), Mark watched; verify by screenshot
 - [ ] 4.4 Library tabs with pills and genres, Search; verify by screenshot

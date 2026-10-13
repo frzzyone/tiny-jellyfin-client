@@ -70,6 +70,10 @@ final class Pipeline: @unchecked Sendable {
         audioStream = demuxer.bestStream(AVMEDIA_TYPE_AUDIO)
         if let videoStream, let par = demuxer.codecParameters(videoStream) {
             videoInfo = VideoStreamInfo(parameters: par)
+            if let stream = demuxer.stream(videoStream) {
+                videoInfo?.frameRate = VideoStreamInfo.frameRate(average: stream.pointee.avg_frame_rate,
+                                                                 real: stream.pointee.r_frame_rate)
+            }
         }
         if let audioStream, let stream = demuxer.stream(audioStream) {
             audioMode = try makeAudioMode(stream)

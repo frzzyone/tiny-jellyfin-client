@@ -10,6 +10,8 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     var currentTime: Double = 0
     var duration: Double? = 600
     var videoSize: CGSize? = CGSize(width: 1920, height: 800)
+    var videoFormatDescription: CMVideoFormatDescription?
+    var frameRate: Double?
     var tracks: [MediaTrack] = []
     var isPlaying = false
     var volume: Float = 1
@@ -165,6 +167,8 @@ final class FakeLibraryService: LibraryService, @unchecked Sendable {
     var latestItems: [BaseItem] = []
     var similarItems: [BaseItem] = []
     var genreList: [NameGuidPair] = []
+    var seasonList: [BaseItem] = []
+    var episodesBySeason: [String: [BaseItem]] = [:]
     var onItems: (ItemQuery) -> [BaseItem] = { _ in [] }
     var errors: Set<String> = []
     private(set) var queries: [ItemQuery] = []
@@ -186,8 +190,8 @@ final class FakeLibraryService: LibraryService, @unchecked Sendable {
     }
     func similar(to itemId: String, limit: Int) async throws -> [BaseItem] { similarItems }
     func genres(libraryId: String?) async throws -> [NameGuidPair] { genreList }
-    func seasons(seriesId: String) async throws -> [BaseItem] { [] }
-    func episodes(seriesId: String, seasonId: String) async throws -> [BaseItem] { [] }
+    func seasons(seriesId: String) async throws -> [BaseItem] { try check("seasons"); return seasonList }
+    func episodes(seriesId: String, seasonId: String) async throws -> [BaseItem] { episodesBySeason[seasonId] ?? [] }
     func item(id: String) async throws -> BaseItem { BaseItem(id: id) }
     func markPlayed(_ itemId: String, played: Bool) async throws -> UserItemData { UserItemData(played: played) }
     func primaryImageURL(for item: BaseItem, maxHeight: Int) -> URL? { nil }

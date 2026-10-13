@@ -48,6 +48,25 @@ final class EngineTests: XCTestCase {
     func testPlaysAnnexBTransportStream() async throws { try await assertPlays(try Fixtures.url("annexb.ts")) }
     func testPlaysHDR10() async throws { try await assertPlays(try Fixtures.url("hdr10.mkv")) }
 
+    /// What the Apple TV switches its display mode to.
+    func testReportsFrameRateAndFormat() async throws {
+        for (name, codec, pq) in [("h264_aac.mp4", kCMVideoCodecType_H264, false),
+                                  ("hdr10.mkv", kCMVideoCodecType_HEVC, true),
+                                  ("annexb.ts", kCMVideoCodecType_H264, false)] {
+            let engine = engine()
+            defer { engine.stop() }
+            try await engine.prepare(source: MediaSource(url: try Fixtures.url(name)), startAt: 0)
+            engine.play()
+            let known = await waitFor(5) { engine.videoFormatDescription != nil }
+            XCTAssertTrue(known, name)
+            XCTAssertEqual(engine.frameRate ?? 0, 24, accuracy: 0.01, name)
+            guard let format = engine.videoFormatDescription else { continue }
+            XCTAssertEqual(CMFormatDescriptionGetMediaSubType(format), codec, name)
+            let transfer = CMFormatDescriptionGetExtension(format, extensionKey: kCMFormatDescriptionExtension_TransferFunction) as? String
+            XCTAssertEqual(transfer == kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ as String, pq, name)
+        }
+    }
+
     func testPlaysOverHTTPAndHLS() async throws {
         let server = try TestHTTPServer()
         try await assertPlays(server.url("hevc10_eac3.mkv"), headers: TestHTTPServer.authHeaders)

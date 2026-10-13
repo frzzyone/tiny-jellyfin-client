@@ -202,6 +202,19 @@ enum ItemLabels {
         return parts.joined(separator: " · ")
     }
 
+    /// The facts line of a title's page: "S1 E2 · 47 min · Drama, Sci-Fi", "2004 · 2 h 43 min · War".
+    static func facts(_ item: BaseItem) -> String {
+        var parts: [String] = []
+        if item.type == .episode {
+            if let label = item.episodeLabel { parts.append(label.replacingOccurrences(of: " · ", with: " ")) }
+        } else if let year = item.productionYear {
+            parts.append(String(year))
+        }
+        if let runtime = item.runtimeMinutes, item.type != .series { parts.append(minutes(runtime)) }
+        if let genres = item.genres, !genres.isEmpty { parts.append(genres.prefix(2).joined(separator: ", ")) }
+        return parts.joined(separator: " · ")
+    }
+
     /// "1 h 05 min left" for the hero; nil when the item is not partly watched.
     static func timeLeft(_ item: BaseItem) -> String? {
         item.remainingSeconds.map { "\(minutes(Int(($0 / 60).rounded(.up)))) left" }

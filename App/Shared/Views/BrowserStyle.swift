@@ -17,6 +17,13 @@ enum BrowserStyle {
     static let sidePadding: CGFloat = 40
     static let rowGap: CGFloat = 14
     static let corner: CGFloat = 6
+    #if os(tvOS)
+    static let cardTitleSize: CGFloat = 23
+    static let cardDetailSize: CGFloat = 19
+    #else
+    static let cardTitleSize: CGFloat = 14
+    static let cardDetailSize: CGFloat = 12.5
+    #endif
 
     /// Muted tones for posters without artwork, picked by the item's id so the same item always
     /// gets the same one.

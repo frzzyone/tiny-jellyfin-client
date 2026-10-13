@@ -13,7 +13,7 @@ struct Artwork: View {
         BrowserStyle.placeholderTone(for: toneID)
             .overlay(alignment: .bottomLeading) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: BrowserStyle.cardTitleSize, weight: .semibold))
                     .foregroundStyle(BrowserStyle.text)
                     .lineLimit(3)
                     .padding(10)
@@ -100,17 +100,17 @@ struct ItemCard: View {
                 .scaleEffect(hovering ? 1.04 : 1)
                 .animation(.easeOut(duration: 0.15), value: hovering)
             Text(ItemLabels.title(item))
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: BrowserStyle.cardTitleSize, weight: .medium))
                 .foregroundStyle(BrowserStyle.text)
                 .lineLimit(1)
             Text(ItemLabels.detail(item))
-                .font(.system(size: 12.5))
+                .font(.system(size: BrowserStyle.cardDetailSize))
                 .foregroundStyle(BrowserStyle.muted)
                 .lineLimit(1)
         }
         .frame(width: size.width, alignment: .leading)
         .contentShape(Rectangle())
-        .onHover { over in
+        .onPointerHover { over in
             hovering = over
             #if os(macOS)
             if over { NSCursor.pointingHand.push() } else { NSCursor.pop() }
@@ -137,7 +137,7 @@ struct Pill: View {
                 .overlay(Capsule().stroke(on ? BrowserStyle.text : BrowserStyle.line))
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .onPointerHover { hovering = $0 }
     }
 }
 
@@ -167,11 +167,20 @@ struct ActionButton: View {
             .brightness(role == .primary && hovering ? 0.06 : 0)
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .onPointerHover { hovering = $0 }
     }
 }
 
 extension View {
+    /// `onHover` where there is a pointer; the Apple TV has none (focus does the lifting there).
+    func onPointerHover(perform action: @escaping (Bool) -> Void) -> some View {
+        #if os(tvOS)
+        self
+        #else
+        onHover(perform: action)
+        #endif
+    }
+
     /// A card that opens on a click rather than being a Button (a Button would take the
     /// double-click too): VoiceOver reads it as one button and can press it.
     func cardAccessibility(_ open: @escaping () -> Void) -> some View {

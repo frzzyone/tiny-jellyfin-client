@@ -27,6 +27,31 @@ extension JellyfinClient {
         return result
     }
 
+    // Quick Connect: the TV shows a code, the user approves it in another signed-in Jellyfin app.
+
+    /// False when the server has Quick Connect turned off (it is off by default before 10.9).
+    public func quickConnectEnabled() async throws -> Bool {
+        try await get("/QuickConnect/Enabled")
+    }
+
+    public func initiateQuickConnect() async throws -> QuickConnectResult {
+        try await post("/QuickConnect/Initiate", body: Empty())
+    }
+
+    /// The request's state; `authenticated` turns true once someone approves the code.
+    public func quickConnectState(secret: String) async throws -> QuickConnectResult {
+        try await get("/QuickConnect/Connect", query: ["secret": secret])
+    }
+
+    private struct QuickConnectAuthRequest: Encodable { var secret: String }
+
+    public func authenticate(quickConnectSecret secret: String) async throws -> AuthenticationResult {
+        let result: AuthenticationResult = try await post("/Users/AuthenticateWithQuickConnect",
+                                                           body: QuickConnectAuthRequest(secret: secret))
+        setCredentials(token: result.accessToken, userId: result.user.id)
+        return result
+    }
+
     public func logout() async throws {
         try await send("POST", "/Sessions/Logout")
     }

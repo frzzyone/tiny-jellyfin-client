@@ -23,6 +23,14 @@ public enum SessionState: Equatable, Sendable {
     case signedIn(SignedInSession)
 }
 
+public enum QuickConnectState: Equatable, Sendable {
+    case idle
+    /// Show this code; someone signed in to Jellyfin elsewhere approves it.
+    case waiting(code: String)
+    /// Off on the server, or it failed: sign in with a password.
+    case unavailable
+}
+
 /// Drives the connect → sign in → signed in flow, restores sessions on launch,
 /// and returns to sign-in whenever the server rejects the token.
 @MainActor
@@ -31,6 +39,7 @@ public final class SessionModel {
     public private(set) var state: SessionState = .serverEntry(prefill: "", error: nil)
     public private(set) var isBusy = false
     public private(set) var client: JellyfinClient?
+    public private(set) var quickConnect: QuickConnectState = .idle
 
     @ObservationIgnored private let tokens: TokenStore
     @ObservationIgnored private let preferences: AppPreferences
@@ -103,18 +112,59 @@ public final class SessionModel {
         let client = makeClient(server.url)
         do {
             let result = try await client.authenticate(username: username, password: password)
-            try tokens.setToken(result.accessToken, account: Self.account(server: server.url, userId: result.user.id))
-            preferences.serverURL = server.url
-            preferences.userId = result.user.id
-            preferences.userName = result.user.name
-            self.client = client
-            state = .signedIn(SignedInSession(server: server, userId: result.user.id, userName: result.user.name))
+            try finishSignIn(server: server, client: client, result: result)
         } catch JellyfinError.unauthorized {
             state = .signIn(server: server, username: username, error: JellyfinError.unauthorized.errorDescription)
         } catch {
             let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             state = .signIn(server: server, username: username, error: message)
         }
+    }
+
+    /// Quick Connect on the sign-in step: shows a code and polls until someone approves it, then
+    /// signs in. Runs until then; cancel the task to stop (leaving the screen). Expired codes are
+    /// replaced with new ones.
+    public func runQuickConnect(pollInterval: Duration = .seconds(3)) async {
+        guard case .signIn(let server, _, _) = state else { return }
+        let client = makeClient(server.url)
+        func stillSigningIn() -> Bool {
+            if case .signIn(let current, _, _) = state, current == server { return true }
+            return false
+        }
+        do {
+            guard try await client.quickConnectEnabled() else { quickConnect = .unavailable; return }
+            while stillSigningIn() {
+                let request = try await client.initiateQuickConnect()
+                quickConnect = .waiting(code: request.code)
+                var approved = false
+                while !approved {
+                    try await Task.sleep(for: pollInterval)
+                    guard stillSigningIn() else { return }
+                    do {
+                        approved = try await client.quickConnectState(secret: request.secret).authenticated
+                    } catch JellyfinError.server {
+                        break  // expired
+                    }
+                }
+                guard approved, stillSigningIn() else { continue }
+                let result = try await client.authenticate(quickConnectSecret: request.secret)
+                try finishSignIn(server: server, client: client, result: result)
+            }
+        } catch is CancellationError {
+            quickConnect = .idle
+        } catch {
+            quickConnect = .unavailable
+        }
+    }
+
+    private func finishSignIn(server: ConnectedServer, client: JellyfinClient, result: AuthenticationResult) throws {
+        try tokens.setToken(result.accessToken, account: Self.account(server: server.url, userId: result.user.id))
+        preferences.serverURL = server.url
+        preferences.userId = result.user.id
+        preferences.userName = result.user.name
+        self.client = client
+        quickConnect = .idle
+        state = .signedIn(SignedInSession(server: server, userId: result.user.id, userName: result.user.name))
     }
 
     /// Back from sign-in to the server step.

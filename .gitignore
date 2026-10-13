@@ -10,4 +10,5 @@ Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/*
 App/Resources/Info.plist
 build/
 App/Resources/Info-iOS.plist
+App/Resources/Info-tvOS.plist
 App/Signing.local.xcconfig

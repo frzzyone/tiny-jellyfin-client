@@ -70,20 +70,9 @@ struct PhonePlayerView: View {
         .ignoresSafeArea()
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
-        .onAppear {
-            PhoneOrientation.lock(.landscape)
-            let session = AVAudioSession.sharedInstance()
-            try? session.setCategory(.playback, mode: .moviePlayback)
-            // 5.1/7.1 PCM and Dolby reach the system whole, so AirPods can render them spatially.
-            try? session.setSupportsMultichannelContent(true)
-            try? session.setActive(true)
-        }
-        .onDisappear {
-            player.stop()
-            PhoneOrientation.lock(.portrait)
-            // Let music or a podcast the film interrupted carry on.
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        }
+        .playbackAudioSession(player)
+        .onAppear { PhoneOrientation.lock(.landscape) }
+        .onDisappear { PhoneOrientation.lock(.portrait) }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
             // Only real playback hides them: a slow start (buffering counts as "playing") must not.
             if player.status == .playing, controlsVisible, scrubbing == nil, Date().timeIntervalSince(lastActivity) >= 3 {
@@ -94,28 +83,6 @@ struct PhonePlayerView: View {
         .onChange(of: player.status) { _, status in
             // Show the controls for 3 s once the picture is moving.
             if status == .playing { lastActivity = Date() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.routeChangeNotification)) { note in
-            // Headphones unplugged or disconnected: pause, as every player does.
-            let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init)
-            if reason == .oldDeviceUnavailable { player.pause() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { note in
-            // A call or an alarm: pause, and carry on afterwards if the system says to.
-            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
-            switch type {
-            case .began:
-                player.pause()
-            case .ended:
-                let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map(AVAudioSession.InterruptionOptions.init)
-                if options?.contains(.shouldResume) == true {
-                    try? AVAudioSession.sharedInstance().setActive(true)
-                    player.play()
-                }
-            @unknown default:
-                break
-            }
         }
     }
 

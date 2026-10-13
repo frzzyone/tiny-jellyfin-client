@@ -48,6 +48,14 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(PlaybackController.redactedQuery(url), "DeviceId=d&ApiKey=…&MediaSourceId=m&api_key=…")
     }
 
+    func testRemoteScrub() {
+        XCTAssertEqual(RemoteScrub.target(start: 3000, fraction: 1, duration: 7200), 3600, "two hours: a full swipe is 10 min")
+        XCTAssertEqual(RemoteScrub.target(start: 1000, fraction: 0.5, duration: 3000), 1150, "50 min: a tenth")
+        XCTAssertEqual(RemoteScrub.target(start: 100, fraction: -1, duration: 300), 40, "short: at least a minute")
+        XCTAssertEqual(RemoteScrub.target(start: 10, fraction: -1, duration: 3000), 0, "not before the start")
+        XCTAssertEqual(RemoteScrub.target(start: 2990, fraction: 1, duration: 3000), 3000, "not past the end")
+    }
+
     func testSwipeLevel() {
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: -100, height: 400), 0.8125, accuracy: 0.0001, "up raises")
         XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: 100, height: 400), 0.1875, accuracy: 0.0001, "down lowers")

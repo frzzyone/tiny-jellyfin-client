@@ -75,6 +75,10 @@ public protocol PlaybackEngine: AnyObject {
     var duration: Double? { get }
     /// Size the picture should be displayed at, once the stream is open.
     var videoSize: CGSize? { get }
+    /// The video's format (codec, HDR10/HLG/Dolby Vision signalling) and frames per second, for
+    /// switching the display to match. Nil until known, which for MPEG-TS is the first keyframe.
+    var videoFormatDescription: CMVideoFormatDescription? { get }
+    var frameRate: Double? { get }
     var tracks: [MediaTrack] { get }
     var isPlaying: Bool { get }
     var volume: Float { get set }

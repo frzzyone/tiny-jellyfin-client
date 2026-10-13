@@ -34,7 +34,10 @@ struct ErrorBanner: View {
     var body: some View {
         VStack(spacing: 10) {
             Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.white)
-            Button("Retry", action: retry).keyboardShortcut(.defaultAction)
+            Button("Retry", action: retry)
+                #if !os(tvOS)
+                .keyboardShortcut(.defaultAction)
+                #endif
         }
         .padding(18)
         .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 12))
@@ -82,5 +85,14 @@ enum SwipeLevel {
     static func adjusted(start: Double, translation: Double, height: Double) -> Double {
         guard height > 0 else { return start }
         return min(1, max(0, start - translation / (height * 0.8)))
+    }
+}
+
+/// Scrubbing with a swipe on the Siri Remote: a swipe across the whole touch surface moves a
+/// tenth of the film, at least a minute and at most ten, so short and long titles both feel right.
+enum RemoteScrub {
+    static func target(start: Double, fraction: Double, duration: Double) -> Double {
+        let span = min(600, max(60, duration * 0.1))
+        return min(max(0, start + fraction * span), max(duration, 0))
     }
 }

@@ -140,3 +140,83 @@ final class SessionModelTests: XCTestCase {
         XCTAssertTrue(header?.contains("DeviceId=\"\(first)\"") == true)
     }
 }
+
+// MARK: Quick Connect
+
+extension SessionModelTests {
+    func connectedModel() async -> SessionModel {
+        let model = makeModel()
+        await model.connect(address: server.baseURL.absoluteString)
+        return model
+    }
+
+    /// Answers `/QuickConnect/Connect` from a list: pending, pending, …, approved.
+    func approve(after polls: Int, code: String = "482917") {
+        server.on("GET", "/QuickConnect/Enabled", json: "true")
+        server.on("POST", "/QuickConnect/Initiate", json: #"{"Authenticated":false,"Secret":"s1","Code":"\#(code)"}"#)
+        let lock = NSLock()
+        var count = 0
+        server.on("GET", "/QuickConnect/Connect") { _ in
+            lock.lock(); defer { lock.unlock() }
+            count += 1
+            return (200, Data(#"{"Authenticated":\#(count > polls),"Secret":"s1","Code":"\#(code)"}"#.utf8))
+        }
+        server.on("POST", "/Users/AuthenticateWithQuickConnect",
+                  json: #"{"User":{"Id":"u42","Name":"frank"},"AccessToken":"qc-token"}"#)
+    }
+
+    func testQuickConnectApproved() async {
+        approve(after: 2)
+        let model = await connectedModel()
+        await model.runQuickConnect(pollInterval: .milliseconds(5))
+        guard case .signedIn(let session) = model.state else { return XCTFail("\(model.state)") }
+        XCTAssertEqual(session.userName, "frank")
+        XCTAssertEqual(tokens.allTokens, ["https://\(server.host)|u42": "qc-token"])
+        XCTAssertEqual(model.quickConnect, .idle)
+        XCTAssertEqual(jsonBody(server.lastRequest(path: "/Users/AuthenticateWithQuickConnect"))["Secret"] as? String, "s1")
+        XCTAssertEqual(queryValue(server.lastRequest(path: "/QuickConnect/Connect"), "secret"), "s1")
+    }
+
+    func testQuickConnectShowsCodeUntilCancelled() async throws {
+        approve(after: .max)
+        let model = await connectedModel()
+        let task = Task { await model.runQuickConnect(pollInterval: .milliseconds(5)) }
+        for _ in 0..<100 where model.quickConnect == .idle { try await Task.sleep(nanoseconds: 5_000_000) }
+        XCTAssertEqual(model.quickConnect, .waiting(code: "482917"))
+        task.cancel()
+        await task.value
+        XCTAssertEqual(model.quickConnect, .idle)
+        guard case .signIn = model.state else { return XCTFail("\(model.state)") }
+        XCTAssertTrue(tokens.allTokens.isEmpty)
+    }
+
+    func testQuickConnectDisabled() async {
+        server.on("GET", "/QuickConnect/Enabled", json: "false")
+        let model = await connectedModel()
+        await model.runQuickConnect(pollInterval: .milliseconds(5))
+        XCTAssertEqual(model.quickConnect, .unavailable)
+        guard case .signIn = model.state else { return XCTFail("\(model.state)") }
+    }
+
+    func testQuickConnectExpiredCodeIsReplaced() async {
+        approve(after: 0)
+        let lock = NSLock()
+        var initiated = 0
+        server.on("POST", "/QuickConnect/Initiate") { _ in
+            lock.lock(); defer { lock.unlock() }
+            initiated += 1
+            return (200, Data(#"{"Authenticated":false,"Secret":"s\#(initiated)","Code":"00000\#(initiated)"}"#.utf8))
+        }
+        let connect: StubURLProtocol.Handler = { request in
+            let secret = queryValue(request, "secret")
+            // The first code expired before anyone approved it; the second is approved at once.
+            return secret == "s1" ? (404, Data()) : (200, Data(#"{"Authenticated":true,"Secret":"s2","Code":"000002"}"#.utf8))
+        }
+        server.on("GET", "/QuickConnect/Connect", handler: connect)
+        let model = await connectedModel()
+        await model.runQuickConnect(pollInterval: .milliseconds(5))
+        guard case .signedIn = model.state else { return XCTFail("\(model.state)") }
+        XCTAssertEqual(initiated, 2)
+        XCTAssertEqual(jsonBody(server.lastRequest(path: "/Users/AuthenticateWithQuickConnect"))["Secret"] as? String, "s2")
+    }
+}

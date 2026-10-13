@@ -95,6 +95,9 @@ final class PlaybackController {
     @ObservationIgnored private var uiTimer: Timer?
     @ObservationIgnored private var externalCues: [Int: [SubtitleCue]] = [:]
     @ObservationIgnored let nowPlaying = NowPlayingPublisher()
+    /// Runs once the stream is open, before the clock starts: the Apple TV switches the display
+    /// to the video's frame rate and HDR mode here and waits for the TV to resync.
+    @ObservationIgnored var beforePlay: (@MainActor (PlaybackEngine) async -> Void)?
 
     init(engineFactory: @escaping () -> PlaybackEngine, preferences: AppPreferences, capabilities: PlaybackCapabilities) {
         self.engineFactory = engineFactory
@@ -178,6 +181,8 @@ final class PlaybackController {
                                       quality: quality)
             lastKnownPosition = start
             currentTime = start
+            await beforePlay?(engine)
+            try Task.checkCancellation()
             wantsToPlay = true
             engine.play()
             send(.start)

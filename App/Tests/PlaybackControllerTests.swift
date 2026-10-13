@@ -52,6 +52,22 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(controller.pictureBars)
     }
 
+    /// The Apple TV switches the display mode here; the clock must not run until it is done.
+    func testBeforePlayRunsBetweenOpenAndPlay() async {
+        let controller = makeController()
+        var seen: (prepared: Int, playing: Bool)?
+        controller.beforePlay = { engine in
+            let fake = engine as! FakeEngine
+            seen = (fake.prepared.count, fake.isPlaying)
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        controller.start(item: movie(), resume: false, service: FakeService(item: movie()))
+        let ok = await eventually { controller.session != nil && self.engines.last?.isPlaying == true }
+        XCTAssertTrue(ok)
+        XCTAssertEqual(seen?.prepared, 1)
+        XCTAssertEqual(seen?.playing, false)
+    }
+
     func testVideoSizeArrivesAfterOpenForTranscodes() async {
         let controller = makeController()
         let service = FakeService(item: movie())

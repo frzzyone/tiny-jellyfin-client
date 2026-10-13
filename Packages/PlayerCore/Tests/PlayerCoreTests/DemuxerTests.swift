@@ -1,8 +1,18 @@
+import CFFmpeg
 import XCTest
 @testable import PlayerCore
 
 final class DemuxerTests: XCTestCase {
     override class func setUp() { FFmpegLog.configure() }
+
+    func testFrameRate() {
+        func rate(_ num: Int32, _ den: Int32) -> AVRational { AVRational(num: num, den: den) }
+        XCTAssertEqual(VideoStreamInfo.frameRate(average: rate(24000, 1001), real: rate(0, 0))!, 23.976, accuracy: 0.001)
+        XCTAssertEqual(VideoStreamInfo.frameRate(average: rate(25, 1), real: rate(25, 1)), 25)
+        XCTAssertEqual(VideoStreamInfo.frameRate(average: rate(30000, 1001), real: rate(0, 1))!, 29.97, accuracy: 0.001)
+        XCTAssertEqual(VideoStreamInfo.frameRate(average: rate(0, 0), real: rate(60, 1)), 60)
+        XCTAssertNil(VideoStreamInfo.frameRate(average: rate(90000, 1), real: rate(0, 0)))
+    }
 
     func testOpenMP4() throws {
         let demuxer = try openDemuxer(try Fixtures.url("h264_aac.mp4"))

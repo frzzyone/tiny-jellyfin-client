@@ -19,6 +19,12 @@ public struct AuthenticationResult: Codable, Sendable {
     public var serverId: String?
 }
 
+public struct QuickConnectResult: Codable, Sendable, Equatable {
+    public var authenticated: Bool
+    public var secret: String
+    public var code: String
+}
+
 public struct UserItemData: Codable, Sendable, Equatable {
     public var playbackPositionTicks: Int64?
     public var playedPercentage: Double?

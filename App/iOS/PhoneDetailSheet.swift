@@ -88,7 +88,7 @@ struct PhoneDetailSheet: View {
                         Text(series).font(.system(size: 13, weight: .medium)).foregroundStyle(BrowserStyle.dim)
                     }
                     Text(shown.displayName).font(.system(size: 24, weight: .bold)).foregroundStyle(BrowserStyle.text).lineLimit(2)
-                    Text(facts).font(.system(size: 13)).foregroundStyle(BrowserStyle.dim).lineLimit(2)
+                    Text(ItemLabels.facts(shown)).font(.system(size: 13)).foregroundStyle(BrowserStyle.dim).lineLimit(2)
                     if !shown.formatBadges.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(shown.formatBadges, id: \.self) { badge in
@@ -139,18 +139,6 @@ struct PhoneDetailSheet: View {
                 .frame(maxWidth: .infinity).frame(height: 44)
                 .overlay(Capsule().stroke(BrowserStyle.line))
         }
-    }
-
-    private var facts: String {
-        var parts: [String] = []
-        if shown.type == .episode {
-            if let label = shown.episodeLabel { parts.append(label.replacingOccurrences(of: " · ", with: " ")) }
-        } else if let year = shown.productionYear {
-            parts.append(String(year))
-        }
-        if let runtime = shown.runtimeMinutes, shown.type != .series { parts.append(ItemLabels.minutes(runtime)) }
-        if let genres = shown.genres, !genres.isEmpty { parts.append(genres.prefix(2).joined(separator: ", ")) }
-        return parts.joined(separator: " · ")
     }
 
     private func mark(_ played: Bool) async {

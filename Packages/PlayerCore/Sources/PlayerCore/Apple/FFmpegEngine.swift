@@ -60,6 +60,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var snapshotTracks: [MediaTrack] = []
     private var snapshotDuration: Double?
     private var snapshotVideoSize: CGSize?
+    private var snapshotVideoFormat: CMVideoFormatDescription?
+    private var snapshotFrameRate: Double?
     /// Position set by a seek while the clock is stopped. The synchronizer applies a new paused
     /// time slightly late, so report this until the clock runs again.
     private var heldTime: Double?
@@ -89,6 +91,10 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     }
 
     public var videoSize: CGSize? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotVideoSize }
+    public var videoFormatDescription: CMVideoFormatDescription? {
+        snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotVideoFormat
+    }
+    public var frameRate: Double? { snapshotLock.lock(); defer { snapshotLock.unlock() }; return snapshotFrameRate }
     public var currentTime: Double {
         snapshotLock.lock()
         let held = heldTime
@@ -161,6 +167,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             snapshotTracks = pipeline.tracks
             snapshotDuration = pipeline.duration
             snapshotVideoSize = pipeline.presentationSize
+            snapshotVideoFormat = pipeline.videoFormat?.description
+            snapshotFrameRate = pipeline.videoInfo?.frameRate
             snapshotLock.unlock()
             startFeeding()
             startTimer()
@@ -574,6 +582,13 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             snapshotVideoSize = size
             snapshotLock.unlock()
             PlayerLog.engine(String(format: "Video size known after open: %.0f×%.0f", size.width, size.height))
+        }
+        // Known after the first keyframe for MPEG-TS, and a quality switch can change it.
+        if let format = active.videoFormat?.description, format !== videoFormatDescription {
+            snapshotLock.lock()
+            snapshotVideoFormat = format
+            snapshotFrameRate = active.videoInfo?.frameRate
+            snapshotLock.unlock()
         }
         handleRendererFailures()
         if case .failed = state { return }
