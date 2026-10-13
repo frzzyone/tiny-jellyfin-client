@@ -80,8 +80,9 @@ struct OnboardingCard<Content: View>: View {
         }
         .padding(28)
         .frame(maxWidth: 380)
-        .padding(.horizontal, 20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BrowserStyle.ground)
     }
 }

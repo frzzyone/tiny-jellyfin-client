@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct TinyJellyfinPhoneApp: App {
+    @UIApplicationDelegateAdaptor(PhoneAppDelegate.self) private var delegate
     @State private var model = AppModel()
 
     var body: some Scene {

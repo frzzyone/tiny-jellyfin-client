@@ -16,6 +16,10 @@ final class PictureInPictureController: NSObject, AVPictureInPictureSampleBuffer
         guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
         let source = AVPictureInPictureController.ContentSource(sampleBufferDisplayLayer: layer, playbackDelegate: self)
         pip = AVPictureInPictureController(contentSource: source)
+        #if os(iOS)
+        // Swiping home during playback carries on in a PiP window.
+        pip?.canStartPictureInPictureAutomaticallyFromInline = true
+        #endif
     }
 
     func toggle() {

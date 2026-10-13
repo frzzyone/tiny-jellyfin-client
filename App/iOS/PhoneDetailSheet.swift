@@ -1,0 +1,168 @@
+import JellyfinKit
+import SwiftUI
+
+/// What a title opens into on the phone: backdrop and poster, facts, progress, Resume or Play,
+/// Start over, Mark watched, overview. A series offers Open series instead.
+struct PhoneDetailSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(BrowserModel.self) private var browser
+    @Environment(\.dismiss) private var dismiss
+    let item: BaseItem
+    let onPlay: (BaseItem, Bool) -> Void
+    let onUpdate: (BaseItem) -> Void
+    @State private var details: BaseItem?
+    @State private var marking = false
+    @State private var markError: String?
+    @State private var openSeries: BaseItem?
+
+    private var shown: BaseItem {
+        var merged = details ?? item
+        if details != nil { merged.userData = item.userData ?? merged.userData }
+        return merged
+    }
+    private var inProgress: Bool { shown.resumePositionSeconds != nil }
+    private var playable: Bool { shown.type?.isPlayable ?? false }
+    private var watched: Bool { shown.userData?.played == true }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    header
+                    VStack(alignment: .leading, spacing: 14) {
+                        if inProgress, let pct = shown.userData?.playedPercentage {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ProgressLine(fraction: pct / 100).clipShape(Capsule())
+                                if let left = ItemLabels.timeLeft(shown) {
+                                    Text(left).font(.system(size: 12.5)).foregroundStyle(BrowserStyle.muted)
+                                }
+                            }
+                        }
+                        actions
+                        if let markError {
+                            Text(markError).font(.system(size: 13)).foregroundStyle(.red)
+                        }
+                        if let overview = shown.overview, !overview.isEmpty {
+                            Text(overview).font(.system(size: 15)).lineSpacing(3)
+                                .foregroundStyle(Color(red: 0xd6 / 255, green: 0xd2 / 255, blue: 0xcb / 255))
+                        } else if details == nil {
+                            ProgressView()
+                        }
+                    }
+                    .padding(.horizontal, PhoneStyle.side)
+                }
+                .padding(.bottom, 24)
+            }
+            .background(BrowserStyle.raised)
+            .navigationDestination(item: $openSeries) { series in
+                SeriesView(series: series).background(BrowserStyle.ground)
+            }
+        }
+        // Swipe sideways for the neighbouring title in the row the sheet was opened from.
+        .gesture(DragGesture(minimumDistance: 40).onEnded { drag in
+            guard abs(drag.translation.width) > abs(drag.translation.height) * 1.5 else { return }
+            browser.stepQuickLook(forward: drag.translation.width < 0)
+        })
+        .task(id: item.id) {
+            details = nil
+            markError = nil
+            guard let client = model.client else { return }
+            details = try? await client.item(id: item.id)
+        }
+    }
+
+    private var header: some View {
+        ZStack(alignment: .bottomLeading) {
+            Artwork(url: model.client?.backdropImageURL(for: shown, maxWidth: 1000), title: "", toneID: shown.id)
+                .frame(height: 210)
+            LinearGradient(colors: [BrowserStyle.raised.opacity(0), BrowserStyle.raised], startPoint: .center, endPoint: .bottom)
+            HStack(alignment: .bottom, spacing: 14) {
+                Artwork(url: model.client?.primaryImageURL(for: shown, maxHeight: 300), title: ItemLabels.title(shown), toneID: shown.id)
+                    .frame(width: 84, height: 126)
+                    .clipShape(RoundedRectangle(cornerRadius: BrowserStyle.corner))
+                VStack(alignment: .leading, spacing: 4) {
+                    if shown.type == .episode, let series = shown.seriesName {
+                        Text(series).font(.system(size: 13, weight: .medium)).foregroundStyle(BrowserStyle.dim)
+                    }
+                    Text(shown.displayName).font(.system(size: 24, weight: .bold)).foregroundStyle(BrowserStyle.text).lineLimit(2)
+                    Text(facts).font(.system(size: 13)).foregroundStyle(BrowserStyle.dim).lineLimit(2)
+                    if !shown.formatBadges.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(shown.formatBadges, id: \.self) { badge in
+                                Text(badge).font(.system(size: 11, weight: .semibold)).foregroundStyle(BrowserStyle.dim)
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(BrowserStyle.line))
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .padding(.horizontal, PhoneStyle.side)
+        }
+        .frame(height: 210)
+        .clipped()
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        if playable {
+            Button { onPlay(shown, inProgress) } label: {
+                Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity).frame(height: 48)
+                    .foregroundStyle(BrowserStyle.ground)
+                    .background(BrowserStyle.accent, in: Capsule())
+            }
+            HStack(spacing: 10) {
+                if inProgress { wide("Start over") { onPlay(shown, false) } }
+                wide(watched ? "Mark unwatched" : "Mark watched") { Task { await mark(!watched) } }
+                    .disabled(marking)
+            }
+        } else {
+            Button { openSeries = shown } label: {
+                Label("Open series", systemImage: "chevron.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity).frame(height: 48)
+                    .foregroundStyle(BrowserStyle.ground)
+                    .background(BrowserStyle.accent, in: Capsule())
+            }
+        }
+    }
+
+    private func wide(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 15)).foregroundStyle(BrowserStyle.text)
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .overlay(Capsule().stroke(BrowserStyle.line))
+        }
+    }
+
+    private var facts: String {
+        var parts: [String] = []
+        if shown.type == .episode {
+            if let label = shown.episodeLabel { parts.append(label.replacingOccurrences(of: " · ", with: " ")) }
+        } else if let year = shown.productionYear {
+            parts.append(String(year))
+        }
+        if let runtime = shown.runtimeMinutes, shown.type != .series { parts.append(ItemLabels.minutes(runtime)) }
+        if let genres = shown.genres, !genres.isEmpty { parts.append(genres.prefix(2).joined(separator: ", ")) }
+        return parts.joined(separator: " · ")
+    }
+
+    private func mark(_ played: Bool) async {
+        guard let client = model.client else { return }
+        marking = true
+        defer { marking = false }
+        do {
+            let data = try await client.markPlayed(shown.id, played: played)
+            var updated = item
+            updated.userData = data
+            if !played { updated.userData?.playbackPositionTicks = 0 }
+            onUpdate(updated)
+            markError = nil
+        } catch {
+            markError = describe(error)
+        }
+    }
+}
