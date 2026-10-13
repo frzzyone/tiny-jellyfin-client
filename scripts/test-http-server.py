@@ -6,6 +6,7 @@ Serves files from a directory and prints the chosen port on stdout. Supports:
   ?norange=1 ignore Range headers (always 200 with the full body)
   ?status=N  reply with that status code
   ?slow=S    sleep S seconds after every 64 KB sent
+  ?segstatus=N  (on a playlist) every segment it lists replies with status N
 Requests must carry `Authorization: test` unless the path starts with /public/.
 """
 import http.server
@@ -44,6 +45,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = os.path.join(ROOT, urllib.parse.unquote(rel))
         if not os.path.isfile(path):
             return self.empty(404)
+        if "segstatus" in query and path.endswith(".m3u8"):
+            code = query["segstatus"][0]
+            with open(path) as f:
+                lines = [l if l.startswith("#") or not l.strip() else f"{l.rstrip()}?status={code}\n" for l in f]
+            body = "".join(lines).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         size = os.path.getsize(path)
         start, end, partial = 0, size - 1, False
         rng = self.headers.get("Range")

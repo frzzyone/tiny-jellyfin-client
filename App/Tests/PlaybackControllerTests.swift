@@ -289,13 +289,39 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertEqual(controller.session?.quality.id, "480p-1.5", "the cancelled switch never lands")
     }
 
-    func testSwitchTimesOut() async {
-        let (controller, _, engine) = await started()
+    /// When the new stream can't catch up with the playing one (a busy server), the switch is
+    /// made the way a seek is: the old stream stops and the new quality starts from the same
+    /// position, keeping the subtitle and the pause.
+    func testSlowSwitchRestartsAtTheNewQuality() async {
+        let (controller, service, engine) = await started(movie(defaultSubtitle: 2), method: .transcode)
         controller.switchTimeout = 0.2
         engine.switchDelay = 5
+        engine.currentTime = 1800
+        controller.pause()
         controller.selectQuality(QualityPreset.with(id: "720p-4")!)
-        let failed = await eventually(2) { controller.switchError != nil }
+        let restarted = await eventually(2) { controller.session?.quality.id == "720p-4" && self.engines.count == 2 }
+        XCTAssertTrue(restarted, "\(controller.status)")
+        XCTAssertNil(controller.switchError)
+        XCTAssertTrue(engine.stopped, "the old stream stops, so the server encodes one")
+        let fresh = engines.last!
+        XCTAssertEqual(fresh.prepared.first?.1 ?? 0, 1800, accuracy: 0.5)
+        XCTAssertFalse(fresh.isPlaying, "still paused")
+        XCTAssertEqual(controller.selectedSubtitle, 2)
+        XCTAssertEqual(service.resolveCalls.last?.subtitle, -1)
+        XCTAssertEqual(prefs.preferredQualityId(server: service.serverURL), "720p-4")
+        let ended = await eventually { service.recorded.contains("endEncoding:ps1") }
+        XCTAssertTrue(ended, "\(service.recorded)")
+        controller.stop()
+    }
+
+    /// A definite failure (not slowness) keeps the stream that plays.
+    func testSwitchErrorKeepsPlaying() async {
+        let (controller, _, engine) = await started()
+        engine.switchError = EngineError("The server answered HTTP 500.")
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        let failed = await eventually { controller.switchError != nil }
         XCTAssertTrue(failed)
+        XCTAssertEqual(engines.count, 1)
         XCTAssertEqual(controller.session?.quality, .original)
     }
 
@@ -349,8 +375,25 @@ final class PlaybackControllerTests: XCTestCase {
         controller.selectSubtitle(nil)
         let removed = await eventually { controller.session?.burnInSubtitle == nil && !controller.isSwitching }
         XCTAssertTrue(removed)
-        XCTAssertNil(service.resolveCalls.last?.subtitle)
+        XCTAssertEqual(service.resolveCalls.last?.subtitle, -1, "Off asks for none: nil lets the server burn in its default")
         XCTAssertEqual(controller.session?.playMethod, .directPlay)
+    }
+
+    /// The server burns in its default picture subtitle when asked for none in particular. The
+    /// player used to start a second, identical stream to burn the same track in.
+    func testDefaultPictureSubtitleStartsOneStream() async {
+        let controller = makeController()
+        let service = FakeService(item: movie(defaultSubtitle: 3))
+        service.serverDefaultBurnIn = 3
+        controller.start(item: service.item, resume: false, service: service)
+        let started = await eventually { controller.session != nil }
+        XCTAssertTrue(started)
+        XCTAssertEqual(controller.selectedSubtitle, 3)
+        XCTAssertEqual(controller.session?.burnInSubtitle, 3)
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(service.resolveCalls.count, 1, "no second stream: \(service.resolveCalls)")
+        XCTAssertTrue(engines.last!.switches.isEmpty)
+        controller.stop()
     }
 
     func testSubtitleSurvivesQualitySwitch() async {

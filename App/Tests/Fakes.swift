@@ -68,6 +68,8 @@ final class FakeService: PlaybackService, @unchecked Sendable {
     var resolveCalls: [(quality: QualityPreset, start: Double, subtitle: Int?)] = []
     var nextMethod: PlayMethod = .directPlay
     var resolveError: Error?
+    /// The picture subtitle the server burns in when the request names none (its default).
+    var serverDefaultBurnIn: Int?
     var srt = "1\n00:00:01,000 --> 00:00:02,000\nServer cue\n"
     private(set) var events: [String] = []
     private var counter = 0
@@ -87,10 +89,11 @@ final class FakeService: PlaybackService, @unchecked Sendable {
             return counter
         }
         if let resolveError { throw resolveError }
-        let method: PlayMethod = subtitleStreamIndex != nil ? .transcode : (quality.isOriginal ? nextMethod : .transcode)
+        let burned = (subtitleStreamIndex ?? serverDefaultBurnIn).flatMap { $0 >= 0 ? $0 : nil }
+        let method: PlayMethod = burned != nil ? .transcode : (quality.isOriginal ? nextMethod : .transcode)
         return ResolvedStream(url: URL(string: "https://jf.test/stream\(n)")!, playMethod: method,
                               mediaSource: item.mediaSources![0], mediaSourceId: "src",
-                              playSessionId: "ps\(n)", timelineOffset: 0)
+                              playSessionId: "ps\(n)", timelineOffset: 0, burnedInSubtitle: burned)
     }
 
     func subtitleData(itemId: String, mediaSourceId: String, streamIndex: Int) async throws -> Data {

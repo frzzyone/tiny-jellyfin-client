@@ -17,6 +17,9 @@ public struct HTTPStatusError: LocalizedError, CustomStringConvertible {
 /// request timeout) and resumed with a new Range request when the reader catches up.
 public final class HTTPByteSource: ByteSource, @unchecked Sendable {
     public static let retryDelays: [TimeInterval] = [1, 2, 4]
+    /// Statuses that mean "try again shortly": timeouts, rate limits, and a proxy that can't
+    /// reach the server.
+    static let retriedStatuses: Set<Int> = [408, 429, 502, 503, 504]
     static let defaultMaxBuffered = 16 * 1024 * 1024
     /// Forward gaps smaller than this are read through instead of reconnecting.
     static let skipWindow: Int64 = 1024 * 1024
@@ -82,8 +85,9 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
                 && offset <= end + Self.skipWindow
             if !positionedHere {
                 if let failure, !(failure is ByteSourceCancelled) {
-                    // Retry from where we are, unless the error is a definitive HTTP status.
-                    if let status = failure as? HTTPStatusError, status.status != 408, status.status < 500 {
+                    // Retry from where we are, unless the error is a definitive HTTP status. A 500
+                    // is the server failing (Jellyfin's FFmpeg would not start), not a busy gateway.
+                    if let status = failure as? HTTPStatusError, !Self.retriedStatuses.contains(status.status) {
                         throw failure
                     }
                     guard attempt < retryDelays.count else { throw failure }

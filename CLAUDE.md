@@ -83,6 +83,12 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
 - **Probing consumes packets.** After `Demuxer.open(seekBeforeProbe:)` the read position is past the
   target, so unsegmented inputs are repositioned afterwards (cheap) and segmented ones are not —
   the engine instead starts the clock at the first queued packet.
+- **A request that fails for good stops FFmpeg.** `MediaIO.fail` records it and sets the
+  interrupt; otherwise FFmpeg's HLS demuxer skips the segment and tries every next one (each
+  failing the same way) while the spinner turns. Only 408, 429 and 502–504 are retried: a 500 is
+  Jellyfin's FFmpeg failing to start. `testFailingSegmentsFailTheOpenFast` guards this.
+- **Asking for no subtitle in particular lets the server burn in its default.** Read
+  `ResolvedStream.burnedInSubtitle`, and send `-1` for Off.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
   lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and

@@ -45,15 +45,30 @@ public struct ResolvedStream: Sendable, Equatable {
     /// Seconds the stream's own timeline is offset from the item timeline (non-zero when the
     /// server starts a transcode part-way into the item).
     public var timelineOffset: Double
+    /// The picture subtitle the server draws into this stream, if any. Asked for no subtitle in
+    /// particular, the server burns in its default track for the user.
+    public var burnedInSubtitle: Int?
 
     public init(url: URL, playMethod: PlayMethod, mediaSource: MediaSourceInfo, mediaSourceId: String,
-                playSessionId: String?, timelineOffset: Double) {
+                playSessionId: String?, timelineOffset: Double, burnedInSubtitle: Int? = nil) {
         self.url = url
         self.playMethod = playMethod
         self.mediaSource = mediaSource
         self.mediaSourceId = mediaSourceId
         self.playSessionId = playSessionId
         self.timelineOffset = timelineOffset
+        self.burnedInSubtitle = burnedInSubtitle
+    }
+
+    /// `SubtitleStreamIndex` of a transcoding URL whose `SubtitleMethod` is `Encode`.
+    public static func burnedInSubtitle(transcodingUrl: String) -> Int? {
+        guard let items = URLComponents(string: transcodingUrl)?.queryItems else { return nil }
+        func value(_ name: String) -> String? {
+            items.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
+        }
+        guard value("SubtitleMethod")?.caseInsensitiveCompare("Encode") == .orderedSame,
+              let index = value("SubtitleStreamIndex").flatMap(Int.init), index >= 0 else { return nil }
+        return index
     }
 }
 
@@ -137,7 +152,8 @@ extension JellyfinClient {
         let offset = isHLS ? (mp4Segments ? 0 : -Self.hlsSegmentTimestampDelay) : startSeconds
         return ResolvedStream(url: url, playMethod: PlayMethodClassifier.classify(transcodingUrl: transcodingUrl),
                               mediaSource: source, mediaSourceId: sourceId, playSessionId: response.playSessionId,
-                              timelineOffset: offset)
+                              timelineOffset: offset,
+                              burnedInSubtitle: ResolvedStream.burnedInSubtitle(transcodingUrl: transcodingUrl))
     }
 
     /// Seconds by which packets in Jellyfin's MPEG-TS HLS segments are stamped later than the

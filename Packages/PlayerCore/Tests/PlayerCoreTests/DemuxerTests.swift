@@ -161,6 +161,26 @@ final class HTTPTests: XCTestCase {
         }
     }
 
+    /// A 500 is the server failing (Jellyfin's FFmpeg would not start): retrying only adds waits.
+    /// A gateway that can't reach the server (502–504) is worth retrying.
+    func testServerErrorsAreNotRetriedButGatewayErrorsAre() throws {
+        let server = try TestHTTPServer()
+        func source(status: Int) -> HTTPByteSource {
+            let source = HTTPByteSource(url: server.url("h264_aac.mp4?status=\(status)"), headers: TestHTTPServer.authHeaders,
+                                        session: HTTPByteSource.makeSession())
+            source.retryDelays = [0.3, 0.3]
+            return source
+        }
+        var started = Date()
+        XCTAssertThrowsError(try source(status: 500).read(at: 0, maxLength: 10)) { error in
+            XCTAssertEqual((error as? HTTPStatusError)?.status, 500)
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 0.3, "no retry for a 500")
+        started = Date()
+        XCTAssertThrowsError(try source(status: 503).read(at: 0, maxLength: 10))
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.6, "a 503 is retried")
+    }
+
     func testServerIgnoringRangeStillWorks() throws {
         let server = try TestHTTPServer()
         var components = URLComponents(url: server.url("h264_aac.mp4"), resolvingAgainstBaseURL: false)!

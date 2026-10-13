@@ -37,7 +37,12 @@ public enum EngineEvent: Sendable {
 
 public struct EngineError: LocalizedError, CustomStringConvertible {
     public let description: String
-    public init(_ description: String) { self.description = description }
+    /// The stream was too slow, rather than broken: worth trying again another way.
+    public let isTimeout: Bool
+    public init(_ description: String, isTimeout: Bool = false) {
+        self.description = description
+        self.isTimeout = isTimeout
+    }
     public var errorDescription: String? { description }
 }
 

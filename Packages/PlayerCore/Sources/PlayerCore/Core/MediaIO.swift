@@ -13,6 +13,7 @@ final class MediaIO {
     private let realScheme: String
     private let lock = NSLock()
     private var openSources: [ObjectIdentifier: ByteSource] = [:]
+    private var failure: Error?
 
     init(factory: ByteSourceFactory, realScheme: String) {
         self.factory = factory
@@ -33,6 +34,21 @@ final class MediaIO {
         if components.scheme == "http" { components.scheme = realScheme }
         return components.url
     }
+
+    /// The first request that failed for good (after its retries). It stops FFmpeg at once:
+    /// the HLS demuxer would otherwise skip the segment and try the next, each failing the same
+    /// way, while the player waits.
+    var ioFailure: Error? { lock.lock(); defer { lock.unlock() }; return failure }
+
+    func fail(_ error: Error) {
+        lock.lock()
+        if failure == nil { failure = error }
+        lock.unlock()
+        interrupt.set(true)
+    }
+
+    /// A new attempt (a seek): forget the failure.
+    func clearFailure() { lock.lock(); failure = nil; lock.unlock() }
 
     /// Interrupts every blocked read (seek, switch, close).
     func interruptReads() {
@@ -124,6 +140,7 @@ private func avioRead(_ opaque: UnsafeMutableRawPointer?, _ buffer: UnsafeMutabl
     } catch is ByteSourceCancelled {
         return cff_averror_exit()
     } catch {
+        box.io?.fail(error)
         return cff_averror_eio()
     }
 }
@@ -160,6 +177,7 @@ private func ioOpen(_ s: UnsafeMutablePointer<AVFormatContext>?, _ pb: UnsafeMut
         pb.pointee = context
         return 0
     } catch {
+        io.fail(error)
         return cff_averror_eio()
     }
 }

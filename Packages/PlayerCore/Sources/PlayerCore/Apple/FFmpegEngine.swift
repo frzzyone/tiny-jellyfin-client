@@ -19,6 +19,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     /// Seconds buffered ahead before (re)starting playback, and the low-water mark that pauses it.
     var startThreshold = 1.0
+    /// How long opening a stream may take before giving up. A server that never answers would
+    /// otherwise hold the spinner for minutes (each request waits 60 s, and is retried).
+    var openTimeout: TimeInterval = 60
     var stallThreshold = 0.1
     /// How far ahead of the clock samples are handed to the renderers. Bounding this keeps a
     /// quality switch able to splice right after what is already enqueued.
@@ -144,7 +147,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         let pipeline = Pipeline(source: source, allowDolbyVision: allowDolbyVision)
         let generation = queue.sync { self.generation }
         do {
-            try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+            try await open(pipeline, startAt: startAt)
             pipeline.start()
             try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30, generation: generation)
         } catch {
@@ -255,7 +258,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public func switchSource(_ source: MediaSource, startAt: Double) async throws {
         let pipeline = Pipeline(source: source, allowDolbyVision: queue.sync { allowDolbyVision })
         do {
-            try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+            try await open(pipeline, startAt: startAt)
             pipeline.start()
             try await waitForBuffer(pipeline, seconds: 3, timeout: 20)
         } catch {
@@ -687,6 +690,23 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         setState(.failed(videoRenderer.error?.localizedDescription ?? "The video could not be decoded."))
     }
 
+    /// Opens `pipeline` (blocking, off the main thread), stopping it after `openTimeout`.
+    private func open(_ pipeline: Pipeline, startAt: Double) async throws {
+        let limit = openTimeout
+        let watchdog = Task.detached {
+            try await Task.sleep(nanoseconds: UInt64(limit * 1_000_000_000))
+            pipeline.stop()
+        }
+        defer { watchdog.cancel() }
+        let started = Date()
+        do {
+            try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+        } catch {
+            guard Date().timeIntervalSince(started) >= limit else { throw error }
+            throw EngineError("The server took too long to start the video.", isTimeout: true)
+        }
+    }
+
     /// With `generation`, gives up as soon as `stop()` runs.
     private func waitForBuffer(_ pipeline: Pipeline, seconds: Double, timeout: TimeInterval,
                                generation: Int? = nil) async throws {
@@ -694,7 +714,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         while pipeline.bufferedDuration < seconds && !pipeline.reachedEnd {
             if let generation, queue.sync(execute: { self.generation }) != generation { throw CancellationError() }
             if let failure = pipeline.hasFailed { throw EngineError(failure) }
-            if Date() > deadline { throw EngineError("Timed out while loading the stream.") }
+            if Date() > deadline { throw EngineError("Timed out while loading the stream.", isTimeout: true) }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         if pipeline.reachedEnd && pipeline.bufferedDuration == 0, let failure = pipeline.hasFailed {

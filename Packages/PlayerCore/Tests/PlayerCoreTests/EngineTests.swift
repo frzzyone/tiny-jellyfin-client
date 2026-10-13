@@ -73,6 +73,42 @@ final class EngineTests: XCTestCase {
         try await assertPlays(server.url("hls/main.m3u8"), headers: TestHTTPServer.authHeaders)
     }
 
+    /// Jellyfin answers 500 when its FFmpeg won't start. FFmpeg's HLS demuxer would skip the
+    /// segment and try every next one; the player must give up at once and say why.
+    func testFailingSegmentsFailTheOpenFast() async throws {
+        let server = try TestHTTPServer()
+        let engine = engine()
+        defer { engine.stop() }
+        let started = Date()
+        do {
+            try await engine.prepare(source: MediaSource(url: server.url("hls/main.m3u8?segstatus=500"),
+                                                         headers: TestHTTPServer.authHeaders), startAt: 0)
+            XCTFail("opened a stream whose segments all fail")
+        } catch {
+            XCTAssertEqual((error as? HTTPStatusError)?.status, 500, "\(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+        guard case .failed(let message) = engine.state else { return XCTFail("\(engine.state)") }
+        XCTAssertTrue(message.contains("500"), message)
+    }
+
+    /// A server that never finishes sending must not hold the spinner for minutes.
+    func testOpenGivesUpAfterTheDeadline() async throws {
+        let server = try TestHTTPServer()
+        let engine = engine()
+        engine.openTimeout = 1
+        defer { engine.stop() }
+        let started = Date()
+        do {
+            try await engine.prepare(source: MediaSource(url: server.url("h264_aac.mp4?slow=30"),
+                                                         headers: TestHTTPServer.authHeaders), startAt: 0)
+            XCTFail("opened a stream that never arrives")
+        } catch {
+            XCTAssertEqual((error as? EngineError)?.isTimeout, true, "\(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 4)
+    }
+
     func testResumeStartsAtPosition() async throws {
         let engine = engine()
         defer { engine.stop() }

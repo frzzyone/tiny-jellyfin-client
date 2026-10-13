@@ -234,7 +234,9 @@ final class Pipeline: @unchecked Sendable {
                     audioQueue.markEndOfStream()
                 }
             } catch {
-                condition.lock(); failure = String(describing: error); condition.unlock()
+                PlayerLog.engine("Reader failed: \(error)")
+                let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+                condition.lock(); failure = message; condition.unlock()
                 videoQueue.markEndOfStream()
                 audioQueue.markEndOfStream()
             }

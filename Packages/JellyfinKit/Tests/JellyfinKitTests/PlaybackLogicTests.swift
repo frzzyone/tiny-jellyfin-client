@@ -157,6 +157,20 @@ final class PlaybackInfoTests: XCTestCase {
                        "MPEG-TS segments are stamped 10 s late; the playlist still covers the whole item")
     }
 
+    /// Asked for no subtitle in particular, the server burns in its default picture track; the
+    /// player must know, or it starts a second, identical stream to burn the same track in.
+    func testReportsTheSubtitleTheServerBurnsIn() throws {
+        let server = StubServer()
+        let url = "/videos/m1/master.m3u8?MediaSourceId=src&SubtitleStreamIndex=3&SubtitleMethod=Encode&PlaySessionId=ps1"
+        let response = fixture(#"{"Id":"src","SupportsDirectPlay":false,"SupportsTranscoding":true,"TranscodingUrl":"\#(url)"}"#)
+        let stream = try server.client().resolveStream(itemId: "m1", response: response, startSeconds: 0)
+        XCTAssertEqual(stream.burnedInSubtitle, 3)
+        XCTAssertNil(ResolvedStream.burnedInSubtitle(transcodingUrl: "/v/master.m3u8?SubtitleStreamIndex=2&SubtitleMethod=Hls"),
+                     "text subtitles go alongside the stream")
+        XCTAssertNil(ResolvedStream.burnedInSubtitle(transcodingUrl: "/v/master.m3u8?SubtitleStreamIndex=-1&SubtitleMethod=Encode"))
+        XCTAssertNil(ResolvedStream.burnedInSubtitle(transcodingUrl: "/v/master.m3u8?VideoCodec=hevc"))
+    }
+
     func testFMP4SegmentsKeepItemTime() throws {
         let server = StubServer()
         let url = "/videos/m1/master.m3u8?MediaSourceId=src&VideoCodec=hevc&AudioCodec=aac&SegmentContainer=mp4&PlaySessionId=ps1"

@@ -27,6 +27,15 @@ final class Demuxer {
     ///   (a cheap range request); segmented ones are not, and begin at the first packet probing
     ///   left behind.
     func open(seekBeforeProbe: Double? = nil) throws {
+        do {
+            try openInput(seekBeforeProbe: seekBeforeProbe)
+        } catch {
+            // Report what the server said rather than FFmpeg's "interrupted" or "I/O error".
+            throw io.ioFailure ?? error
+        }
+    }
+
+    private func openInput(seekBeforeProbe: Double?) throws {
         guard var ctx = avformat_alloc_context() else { throw FFmpegError(cff_averror_eio(), "alloc context") }
         io.install(on: ctx)
         let source: ByteSource
@@ -98,7 +107,10 @@ final class Demuxer {
         io.interruptReads()
     }
 
-    func clearInterrupt() { io.interrupt.set(false) }
+    func clearInterrupt() {
+        io.clearFailure()
+        io.interrupt.set(false)
+    }
 
     func setTimelineOffset(_ offset: Double) { timelineOffset = offset }
 
@@ -152,6 +164,7 @@ final class Demuxer {
             var p: UnsafeMutablePointer<AVPacket>? = packet
             av_packet_free(&p)
             if result == cff_averror_eof() { return nil }
+            if let failure = io.ioFailure { throw failure }
             throw FFmpegError(result, "read")
         }
         let timeBase = ctx.pointee.streams[Int(packet.pointee.stream_index)]!.pointee.time_base

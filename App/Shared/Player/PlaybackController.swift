@@ -133,7 +133,15 @@ final class PlaybackController {
         startTask = Task { await begin(item: item, from: .at(position), quality: quality) }
     }
 
-    private func begin(item: BaseItem, from position: StartPosition, quality requested: QualityPreset?) async {
+    /// What a restart keeps from the stream it replaces (see `restart`).
+    private struct Carryover {
+        var burnIn: Int?
+        var subtitle: Int?
+        var paused: Bool
+    }
+
+    private func begin(item: BaseItem, from position: StartPosition, quality requested: QualityPreset?,
+                       carry: Carryover? = nil) async {
         guard let service else { return }
         do {
             // Always ask the server for the item: a card can be minutes old, and its saved
@@ -158,7 +166,7 @@ final class PlaybackController {
             let stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
                                                          startSeconds: start,
                                                          mediaSourceId: full.mediaSources?.first?.id,
-                                                         subtitleStreamIndex: nil)
+                                                         subtitleStreamIndex: carry.map { $0.burnIn ?? -1 })
             try Task.checkCancellation()
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
@@ -178,19 +186,24 @@ final class PlaybackController {
             videoSize = engine.videoSize.flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
-                                      quality: quality)
+                                      quality: quality, burnInSubtitle: stream.burnedInSubtitle)
             lastKnownPosition = start
             currentTime = start
             await beforePlay?(engine)
             try Task.checkCancellation()
-            wantsToPlay = true
-            engine.play()
+            if carry?.paused != true {
+                wantsToPlay = true
+                engine.play()
+            }
             send(.start)
             startTimers()
             nowPlaying.begin(controller: self, item: full, artworkURL: service.primaryImageURL(for: full))
 
-            // Default subtitle track recommended by the server for the user's preferences.
-            if let track = SubtitleSelection.defaultTrack(for: stream.mediaSource) {
+            if let carry {
+                if let subtitle = carry.subtitle { selectSubtitle(subtitle) }
+            } else if let track = SubtitleSelection.defaultTrack(for: stream.mediaSource) {
+                // The server's default for the user's preferences. A picture track is already burnt
+                // into the stream (`burnedInSubtitle`), so selecting it starts no second stream.
                 selectSubtitle(track.index)
             }
         } catch is CancellationError {
@@ -341,7 +354,7 @@ final class PlaybackController {
                 let stream = try await service.resolveStream(itemId: item.id, quality: quality,
                                                              capabilities: self.capabilities, startSeconds: start,
                                                              mediaSourceId: session.mediaSourceId,
-                                                             subtitleStreamIndex: burnIn)
+                                                             subtitleStreamIndex: burnIn ?? -1)
                 if stream.playMethod != .directPlay { unused = stream.playSessionId }
                 try Task.checkCancellation()
                 let source = MediaSource(url: stream.url, headers: service.streamHeaders,
@@ -372,6 +385,11 @@ final class PlaybackController {
                 completion?()
             } catch is CancellationError {
                 // A newer switch replaced this one; it owns the spinner.
+            } catch where Self.isTimeout(error) && self.engine === engine {
+                // The new stream couldn't catch up with the playing one (a busy server). Switch the
+                // way a seek works instead: a short wait, and the server only encodes one stream.
+                PlayerLog.engine("Controller: \(quality.label) didn't catch up in time; restarting at it from here")
+                self.restart(quality: quality, burnIn: burnIn, persistQuality: persistQuality)
             } catch {
                 self.isSwitching = false
                 self.switchError = "Couldn't switch quality. Playing at \(session.quality.label)."
@@ -381,6 +399,23 @@ final class PlaybackController {
     }
 
     func dismissSwitchError() { switchError = nil }
+
+    static func isTimeout(_ error: Error) -> Bool {
+        error is TimeoutError || (error as? EngineError)?.isTimeout == true
+    }
+
+    /// Stops the playing stream and starts `quality` from the same position, keeping the
+    /// subtitle and paused state: the fallback when a seamless switch can't be made.
+    private func restart(quality: QualityPreset, burnIn: Int?, persistQuality: Bool) {
+        guard let item, let service else { return }
+        let carry = Carryover(burnIn: burnIn, subtitle: selectedSubtitle, paused: !wantsToPlay)
+        let position = self.position
+        if persistQuality { preferences.setPreferredQualityId(quality.id, server: service.serverURL) }
+        stopEngine(report: true)
+        status = .loading
+        startUITimer()
+        startTask = Task { await begin(item: item, from: .at(position), quality: quality, carry: carry) }
+    }
 
     // MARK: Subtitles
 
