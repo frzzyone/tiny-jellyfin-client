@@ -1,5 +1,6 @@
 import AVFoundation
 import JellyfinKit
+import MediaPlayer
 import PlayerCore
 import SwiftUI
 import UIKit
@@ -29,7 +30,10 @@ struct PhonePlayerView: View {
                 if let engine = player.engine {
                     PhoneVideoLayer(layer: engine.displayLayer, gravity: zoomed ? .resizeAspectFill : .resizeAspect)
                         .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
+                        .id(ObjectIdentifier(engine)) // a new engine (retry, next title) gets PiP too
                 }
+                // In the hierarchy so the volume swipe moves the device volume without the system HUD.
+                SystemVolume().frame(width: 1, height: 1).opacity(0.01).allowsHitTesting(false)
                 // Zoomed, the picture is cropped to the screen, so the screen is the picture.
                 SubtitleOverlay(text: player.subtitleText, videoSize: zoomed ? nil : player.videoSize,
                                 bars: zoomed ? nil : player.pictureBars)
@@ -77,6 +81,8 @@ struct PhonePlayerView: View {
         .onDisappear {
             player.stop()
             PhoneOrientation.lock(.portrait)
+            // Let music or a podcast the film interrupted carry on.
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
             // Only real playback hides them: a slow start (buffering counts as "playing") must not.
@@ -94,10 +100,27 @@ struct PhonePlayerView: View {
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init)
             if reason == .oldDeviceUnavailable { player.pause() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { note in
+            // A call or an alarm: pause, and carry on afterwards if the system says to.
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+            switch type {
+            case .began:
+                player.pause()
+            case .ended:
+                let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt).map(AVAudioSession.InterruptionOptions.init)
+                if options?.contains(.shouldResume) == true {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    player.play()
+                }
+            @unknown default:
+                break
+            }
+        }
     }
 
     /// Single tap toggles the controls; double tap on a side third skips. A vertical swipe on the
-    /// left half sets the screen brightness and on the right half the volume, controls up or not.
+    /// left half sets the screen brightness and on the right half the device volume, controls up or not.
     private func touchLayer(size: CGSize) -> some View {
         let width = size.width
         return Color.clear
@@ -106,11 +129,11 @@ struct PhonePlayerView: View {
                 if swipe == nil {
                     guard abs(drag.translation.height) > abs(drag.translation.width) else { return }
                     let left = drag.startLocation.x < width / 2
-                    swipe = (left, left ? Double(PhoneScreen.brightness) : Double(player.volume))
+                    swipe = (left, left ? Double(PhoneScreen.brightness) : Double(SystemVolume.level))
                 }
                 guard let swipe else { return }
                 let value = SwipeLevel.adjusted(start: swipe.start, translation: drag.translation.height, height: size.height)
-                if swipe.brightness { PhoneScreen.brightness = CGFloat(value) } else { player.volume = Float(value); player.isMuted = false }
+                if swipe.brightness { PhoneScreen.brightness = CGFloat(value) } else { SystemVolume.level = Float(value) }
                 level = (swipe.brightness, value)
                 lastActivity = Date()
             }.onEnded { _ in
@@ -226,6 +249,8 @@ struct PhonePlayerView: View {
                 }
             }
             .tint(BrowserStyle.accent)
+            .accessibilityLabel("Position")
+            .accessibilityValue(TimeFormat.clock(scrubbing ?? player.currentTime))
             Text("-" + TimeFormat.clock(max(0, player.duration - (scrubbing ?? player.currentTime)))).monospacedDigit()
         }
         .font(.system(size: 12.5))
@@ -283,6 +308,28 @@ struct PhoneVideoLayer: UIViewRepresentable {
             CATransaction.commit()
         }
     }
+}
+
+/// The device volume, as the hardware buttons set it. The only public way to set it is the
+/// slider inside an `MPVolumeView`, which is how other players do it too.
+struct SystemVolume: UIViewRepresentable {
+    @MainActor private static weak var view: MPVolumeView?
+
+    @MainActor static var level: Float {
+        get { AVAudioSession.sharedInstance().outputVolume }
+        set {
+            let slider = view?.subviews.lazy.compactMap { $0 as? UISlider }.first
+            slider?.value = min(max(newValue, 0), 1)
+        }
+    }
+
+    func makeUIView(context: Context) -> MPVolumeView {
+        let view = MPVolumeView()
+        Self.view = view
+        return view
+    }
+
+    func updateUIView(_ view: MPVolumeView, context: Context) {}
 }
 
 /// The screen the app is on, for the brightness swipe.

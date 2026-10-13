@@ -25,7 +25,13 @@ struct TinyJellyfinApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             PlaybackCommands(controller: model.player)
+            CommandGroup(after: .appInfo) { AcknowledgementsCommand() }
         }
+
+        Window("Acknowledgements", id: "acknowledgements") {
+            AcknowledgementsView().frame(minWidth: 560, minHeight: 400)
+        }
+        .defaultSize(width: 680, height: 640)
 
         Window("Player", id: AppModel.playerWindowID) {
             PlayerWindowView()
@@ -34,5 +40,13 @@ struct TinyJellyfinApp: App {
         }
         .defaultSize(width: 1280, height: 720)
         .windowStyle(.hiddenTitleBar)
+    }
+}
+
+struct AcknowledgementsCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Acknowledgements") { openWindow(id: "acknowledgements") }
     }
 }

@@ -5,6 +5,14 @@ import XCTest
 
 @MainActor
 final class AppLogicTests: XCTestCase {
+    /// FFmpeg's LGPL needs its notice and licence text inside the app (shown under Acknowledgements).
+    func testLicencesShipInTheApp() throws {
+        for name in ["THIRD_PARTY_NOTICES.md", "BUILD-INFO", "COPYING.LGPLv2.1"] {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil), name)
+            XCTAssertFalse(try String(contentsOf: url, encoding: .utf8).isEmpty, name)
+        }
+    }
+
     func testSubtitlePictureRectLetterboxAndPillarbox() {
         let screen = CGSize(width: 1920, height: 1080)
         let scope = SubtitleLayout.pictureRect(video: CGSize(width: 2390, height: 1000), in: screen)

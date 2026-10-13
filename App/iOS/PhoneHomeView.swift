@@ -7,13 +7,20 @@ struct PhoneHomeView: View {
     @Environment(BrowserModel.self) private var browser
     let home: HomeModel
     let session: SignedInSession
+    /// The library tabs failed to load: say so here, since there is no tab to show it in.
+    var librariesError: String?
+    var onRetryLibraries: () -> Void = {}
     let onPlay: (BaseItem, Bool) -> Void
     @State private var surpriseError: String?
+    @State private var showAcknowledgements = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                if let librariesError {
+                    InlineError(message: "Couldn't load your libraries. \(librariesError)", retry: onRetryLibraries)
+                }
                 if let hero = home.hero {
                     PhoneHero(item: hero, onPlay: onPlay, onOpen: { browser.openQuickLook(hero, in: [hero]) })
                 } else if let error = home.heroError {
@@ -48,6 +55,12 @@ struct PhoneHomeView: View {
         .background(BrowserStyle.ground)
         .refreshable { await home.load() }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showAcknowledgements) {
+            NavigationStack {
+                AcknowledgementsView()
+                    .toolbar { Button("Done") { showAcknowledgements = false } }
+            }
+        }
     }
 
     private var header: some View {
@@ -58,6 +71,7 @@ struct PhoneHomeView: View {
             Menu {
                 Text(session.userName)
                 Text(session.server.name)
+                Button("Acknowledgements") { showAcknowledgements = true }
                 Button("Sign Out", role: .destructive) { Task { await model.session.signOut() } }
             } label: {
                 Text(String(session.userName.prefix(1)).uppercased())

@@ -22,7 +22,8 @@ struct HomeView: View {
                         ProgressView().frame(maxWidth: .infinity).frame(height: 200)
                     }
                     ForEach(home.visibleRows) { row in
-                        RowView(row: row, onOpen: onOpenSeries, onGenre: { id in Task { await home.selectGenre(id) } })
+                        RowView(row: row, onOpen: onOpenSeries, onGenre: { id in Task { await home.selectGenre(id) } },
+                                onRetry: { Task { await home.load() } })
                             .id(row.id)
                     }
                     SurpriseView(onSurprise: onSurprise)
@@ -127,6 +128,7 @@ struct RowView: View {
     let row: HomeRow
     let onOpen: (BaseItem) -> Void
     let onGenre: (String) -> Void
+    let onRetry: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -141,7 +143,7 @@ struct RowView: View {
                 }
             }
             if let error = row.error {
-                InlineError(message: error) { }
+                InlineError(message: error, retry: onRetry)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -152,6 +154,7 @@ struct RowView: View {
                                     .id(item.id)
                                     .onTapGesture { browser.openQuickLook(item, in: row.items) }
                                     .onTapGesture(count: 2) { onOpen(item) }
+                                    .cardAccessibility { browser.openQuickLook(item, in: row.items) }
                             }
                         }
                         .padding(4) // room for the selection outline

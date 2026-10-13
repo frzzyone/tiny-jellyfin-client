@@ -13,7 +13,6 @@ struct PhoneDetailSheet: View {
     @State private var details: BaseItem?
     @State private var marking = false
     @State private var markError: String?
-    @State private var openSeries: BaseItem?
 
     private var shown: BaseItem {
         var merged = details ?? item
@@ -54,8 +53,12 @@ struct PhoneDetailSheet: View {
                 .padding(.bottom, 24)
             }
             .background(BrowserStyle.raised)
-            .navigationDestination(item: $openSeries) { series in
-                SeriesView(series: series).background(BrowserStyle.ground)
+            // Open series, then a season from it.
+            .navigationDestination(for: BaseItem.self) { item in
+                Group {
+                    if item.type == .season { SeasonView(season: item) } else { SeriesView(series: item) }
+                }
+                .background(BrowserStyle.ground)
             }
         }
         // Swipe sideways for the neighbouring title in the row the sheet was opened from.
@@ -120,7 +123,7 @@ struct PhoneDetailSheet: View {
                     .disabled(marking)
             }
         } else {
-            Button { openSeries = shown } label: {
+            NavigationLink(value: shown) {
                 Label("Open series", systemImage: "chevron.right")
                     .font(.system(size: 16, weight: .semibold))
                     .frame(maxWidth: .infinity).frame(height: 48)

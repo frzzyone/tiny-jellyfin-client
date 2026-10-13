@@ -9,6 +9,7 @@ struct PhoneTabsView: View {
     @State private var browser = BrowserModel()
     @State private var home: HomeModel?
     @State private var libraries: [BaseItem] = []
+    @State private var librariesError: String?
     @State private var showPlayer = false
     @State private var lastPlayedID: String?
     @State private var tab = "home"
@@ -17,8 +18,8 @@ struct PhoneTabsView: View {
         TabView(selection: $tab) {
             NavigationStack {
                 if let home {
-                    PhoneHomeView(home: home, session: session, onPlay: play)
-                        .navigationDestination(for: BaseItem.self, destination: destination)
+                    PhoneHomeView(home: home, session: session, librariesError: librariesError,
+                                  onRetryLibraries: { Task { await loadLibraries() } }, onPlay: play)
                 } else {
                     ProgressView()
                 }
@@ -29,7 +30,6 @@ struct PhoneTabsView: View {
             ForEach(libraries) { library in
                 NavigationStack {
                     PhoneLibraryView(parentId: library.id, title: library.displayName, onPlay: play)
-                        .navigationDestination(for: BaseItem.self, destination: destination)
                 }
                 .tabItem { Label(library.displayName, systemImage: library.collectionType == "tvshows" ? "tv" : "film") }
                 .tag(library.id)
@@ -37,7 +37,6 @@ struct PhoneTabsView: View {
 
             NavigationStack {
                 PhoneSearchView(onPlay: play)
-                    .navigationDestination(for: BaseItem.self, destination: destination)
             }
             .tabItem { Label("Search", systemImage: "magnifyingglass") }
             .tag("search")
@@ -65,9 +64,9 @@ struct PhoneTabsView: View {
             guard home == nil, let client = model.client else { return }
             let home = HomeModel(service: client)
             self.home = home
-            async let libs = (try? client.libraries()) ?? []
+            async let libs: Void = loadLibraries()
             await home.load()
-            libraries = await libs
+            await libs
             #if DEBUG
             // Screenshot hooks (simctl launch with SIMCTL_CHILD_…): TJ_BROWSER_TAB=<library name>,
             // TJ_BROWSER_QUICKLOOK=hero.
@@ -79,11 +78,13 @@ struct PhoneTabsView: View {
         }
     }
 
-    @ViewBuilder
-    private func destination(_ item: BaseItem) -> some View {
-        switch item.type {
-        case .season?: SeasonView(season: item)
-        default: SeriesView(series: item)
+    private func loadLibraries() async {
+        guard let client = model.client else { return }
+        do {
+            libraries = try await client.libraries()
+            librariesError = nil
+        } catch {
+            librariesError = describe(error)
         }
     }
 

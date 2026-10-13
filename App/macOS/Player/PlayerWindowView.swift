@@ -21,6 +21,7 @@ struct PlayerWindowView: View {
                 VideoLayerView(layer: engine.displayLayer, aspectRatio: player.videoSize)
                     .onAppear { pip.attach(layer: engine.displayLayer, playback: player) }
                     .onTapGesture(count: 2) { toggleFullScreen() }
+                    .id(ObjectIdentifier(engine)) // a new engine (retry, next title) gets PiP too
             }
             SubtitleOverlay(text: player.subtitleText, videoSize: player.videoSize, bars: player.pictureBars)
             if player.status == .loading || player.status == .buffering {
@@ -255,6 +256,7 @@ struct PlayerControls: View {
                     SubtitleMenu(player: player)
                     Button { pip.toggle() } label: { Image(systemName: "pip.enter") }
                         .help("Picture in Picture")
+                        .accessibilityLabel("Picture in Picture")
                 }
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(.black.opacity(0.45), in: Capsule())
@@ -278,24 +280,32 @@ struct PlayerControls: View {
                             }
                         }
                     }
+                    .accessibilityLabel("Position")
+                    .accessibilityValue(TimeFormat.clock(scrubbing ?? player.currentTime))
                     Text("-" + TimeFormat.clock(max(0, player.duration - (scrubbing ?? player.currentTime))))
                         .monospacedDigit()
                 }
                 HStack(spacing: 18) {
                     Button { player.skip(by: -10) } label: { Image(systemName: "gobackward.10") }
+                        .accessibilityLabel("Back 10 seconds")
                     Button { player.togglePlayPause() } label: {
                         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill").font(.title)
                     }
+                    .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
                     Button { player.skip(by: 30) } label: { Image(systemName: "goforward.30") }
+                        .accessibilityLabel("Forward 30 seconds")
                     Spacer()
                     Button { player.isMuted.toggle() } label: {
                         Image(systemName: player.isMuted || player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                     }
+                    .accessibilityLabel(player.isMuted ? "Unmute" : "Mute")
                     Slider(value: $player.volume, in: 0...1).frame(width: 110)
+                        .accessibilityLabel("Volume")
                     Button(action: toggleFullScreen) {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                     }
                     .help("Full Screen (F)")
+                    .accessibilityLabel("Full Screen")
                 }
                 .font(.title3)
             }
@@ -324,6 +334,7 @@ struct QualityMenu: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Quality")
+        .accessibilityLabel("Quality")
     }
 }
 
@@ -340,6 +351,7 @@ struct SubtitleMenu: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Subtitles")
+        .accessibilityLabel("Subtitles")
         .disabled(player.subtitleOptions.isEmpty)
     }
 }

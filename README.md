@@ -46,7 +46,13 @@ xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration D
 open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/TinyJellyfin.app
 ```
 
-Use `-configuration Release` and the `Release` folder for an optimised build.
+Use `-configuration Release` and the `Release` folder for an optimised build. Release builds are
+signed by your team: put `DEVELOPMENT_TEAM = <your team id>` in `App/Signing.local.xcconfig`
+(git-ignored), or pass `CODE_SIGNING_ALLOWED=NO` for an unsigned build.
+
+To hand the Mac app to someone else, use **Product › Archive** in Xcode, then **Distribute App ›
+Direct Distribution**: Xcode re-signs it with your Developer ID and has Apple notarise it, so it
+opens without a Gatekeeper warning. That needs a paid Apple Developer Program membership.
 
 A few things worth knowing:
 

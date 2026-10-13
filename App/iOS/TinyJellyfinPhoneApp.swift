@@ -12,6 +12,11 @@ struct TinyJellyfinPhoneApp: App {
                 .environment(model)
                 .preferredColorScheme(.dark)
                 .task { model.session.restore() }
+                // Swiped away from the app switcher mid-film (background audio keeps the app
+                // running): tell the server, or it keeps transcoding for nobody.
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                    model.player.stopForTermination()
+                }
         }
     }
 }

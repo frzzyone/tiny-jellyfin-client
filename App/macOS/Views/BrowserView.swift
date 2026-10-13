@@ -105,6 +105,13 @@ struct BrowserView: View {
                 ForEach(Array((libraries?.state.value ?? []).enumerated()), id: \.element.id) { index, library in
                     tab(library.displayName, .library(library.id), index: index + 1)
                 }
+                if case .failed(let message)? = libraries?.state {
+                    Button("Libraries didn't load · Retry") { Task { await libraries?.load() } }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundStyle(BrowserStyle.muted)
+                        .help(message)
+                }
             }
             Spacer()
             searchField

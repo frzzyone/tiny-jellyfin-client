@@ -31,6 +31,7 @@ struct LibraryTabView: View {
                                 ItemCard(item: item, shape: .poster, selected: selected)
                                     .id(item.id)
                                     .onTapGesture { browser.openQuickLook(item, in: grid.items) }
+                                    .cardAccessibility { browser.openQuickLook(item, in: grid.items) }
                                     .task { await grid.itemAppeared(item) }
                             }
                         }

@@ -170,3 +170,13 @@ struct ActionButton: View {
         .onHover { hovering = $0 }
     }
 }
+
+extension View {
+    /// A card that opens on a click rather than being a Button (a Button would take the
+    /// double-click too): VoiceOver reads it as one button and can press it.
+    func cardAccessibility(_ open: @escaping () -> Void) -> some View {
+        accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, open)
+    }
+}
