@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the FFmpeg subset PlayerCore needs, for macOS 14+ (arm64 + x86_64), as one dynamic
-# library: Vendor/FFmpeg/lib/libffmpeg.dylib with headers in Vendor/FFmpeg/include.
+# Builds the FFmpeg subset PlayerCore needs as one dynamic framework per Apple platform, bundled as
+# Vendor/FFmpeg/FFmpeg.xcframework (macOS 14+ arm64/x86_64, iOS 17+ arm64, iOS Simulator arm64),
+# with the headers in Vendor/FFmpeg/include.
 #
 # - LGPL only: --disable-gpl --disable-nonfree, no external libraries besides zlib/bzip2.
 # - Demuxing plus audio and text-subtitle decoding only. Video is decoded by VideoToolbox.
@@ -13,7 +14,14 @@ set -euo pipefail
 
 FFMPEG_VERSION="7.1.1"
 MACOS_MIN="14.0"
-ARCHS=(arm64 x86_64)
+IOS_MIN="17.0"
+# platform:arch:sdk:clang target. macOS builds keep their old directory names (build-<arch>).
+SLICES=(
+  "macos:arm64:macosx:arm64-apple-macos$MACOS_MIN"
+  "macos:x86_64:macosx:x86_64-apple-macos$MACOS_MIN"
+  "ios:arm64:iphoneos:arm64-apple-ios$IOS_MIN"
+  "iossim:arm64:iphonesimulator:arm64-apple-ios$IOS_MIN-simulator"
+)
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/Vendor/FFmpeg"
@@ -26,7 +34,7 @@ if [[ -f "$STAMP" ]] && grep -q "$SCRIPT_HASH" "$STAMP"; then
   exit 0
 fi
 
-[[ "$(uname)" == "Darwin" ]] || { echo "This script builds for macOS and must run on macOS." >&2; exit 1; }
+[[ "$(uname)" == "Darwin" ]] || { echo "This script builds for Apple platforms and must run on macOS." >&2; exit 1; }
 
 mkdir -p "$WORK"
 cd "$WORK"
@@ -54,56 +62,102 @@ CONFIGURE_FLAGS=(
   --enable-static --disable-shared --enable-pic
 )
 
-for arch in "${ARCHS[@]}"; do
-  build="$WORK/build-$arch"
+builddir() { [[ "$1" == macos ]] && echo "$WORK/build-$2" || echo "$WORK/build-$1-$2"; }
+
+for slice in "${SLICES[@]}"; do
+  IFS=: read -r platform arch sdk target <<< "$slice"
+  build="$(builddir "$platform" "$arch")"
   if [[ -f "$build/install/lib/libavformat.a" ]]; then continue; fi
   mkdir -p "$build"
   (
     cd "$build"
+    sysroot="$(xcrun --sdk "$sdk" --show-sdk-path)"
     extra=()
-    if [[ "$arch" != "$(uname -m)" ]]; then extra+=(--enable-cross-compile); fi
+    if [[ "$platform" != macos || "$arch" != "$(uname -m)" ]]; then extra+=(--enable-cross-compile); fi
     if [[ "$arch" == "x86_64" ]]; then extra+=(--disable-x86asm); fi
     "$SRC/configure" --prefix="$build/install" --arch="$arch" --target-os=darwin \
-      --cc="clang -arch $arch" \
-      --extra-cflags="-mmacosx-version-min=$MACOS_MIN" --extra-ldflags="-mmacosx-version-min=$MACOS_MIN" \
+      --cc="$(xcrun --sdk "$sdk" -f clang) -target $target -isysroot $sysroot" \
+      --extra-ldflags="-target $target -isysroot $sysroot" \
       ${extra[@]+"${extra[@]}"} "${CONFIGURE_FLAGS[@]}"
     make -j"$(sysctl -n hw.ncpu)"
     make install
   )
 done
 
-# One universal dynamic library containing all four FFmpeg libraries.
-mkdir -p "$OUT/lib"
+# One dynamic library per slice with all four FFmpeg libraries, wrapped as FFmpeg.framework per
+# platform (versioned bundle on macOS, shallow on iOS), then one XCFramework.
 LIBS=(libavformat libavcodec libswresample libavutil)
-for arch in "${ARCHS[@]}"; do
-  inputs=()
-  for lib in "${LIBS[@]}"; do inputs+=("$WORK/build-$arch/install/lib/$lib.a"); done
-  clang -arch "$arch" -dynamiclib -mmacosx-version-min="$MACOS_MIN" \
-    -install_name @rpath/libffmpeg.dylib -compatibility_version 1 -current_version 1 \
-    -Wl,-all_load "${inputs[@]}" -lz -lbz2 -o "$WORK/libffmpeg-$arch.dylib"
+rm -rf "$WORK/frameworks" "$OUT/FFmpeg.xcframework" "$OUT/lib"
+xcargs=()
+for platform in macos ios iossim; do
+  dylibs=()
+  for slice in "${SLICES[@]}"; do
+    IFS=: read -r p arch sdk target <<< "$slice"
+    [[ "$p" == "$platform" ]] || continue
+    build="$(builddir "$p" "$arch")"
+    inputs=()
+    for lib in "${LIBS[@]}"; do inputs+=("$build/install/lib/$lib.a"); done
+    if [[ "$platform" == macos ]]; then install=@rpath/FFmpeg.framework/Versions/A/FFmpeg; else install=@rpath/FFmpeg.framework/FFmpeg; fi
+    xcrun --sdk "$sdk" clang -target "$target" -isysroot "$(xcrun --sdk "$sdk" --show-sdk-path)" -dynamiclib \
+      -install_name "$install" -compatibility_version 1 -current_version 1 \
+      -Wl,-all_load "${inputs[@]}" -lz -lbz2 -o "$WORK/ffmpeg-$platform-$arch.dylib"
+    dylibs+=("$WORK/ffmpeg-$platform-$arch.dylib")
+  done
+  fw="$WORK/frameworks/$platform/FFmpeg.framework"
+  if [[ "$platform" == macos ]]; then
+    mkdir -p "$fw/Versions/A/Resources"
+    lipo -create "${dylibs[@]}" -output "$fw/Versions/A/FFmpeg"
+    plist="$fw/Versions/A/Resources/Info.plist"
+    ln -s A "$fw/Versions/Current"; ln -s Versions/Current/FFmpeg "$fw/FFmpeg"; ln -s Versions/Current/Resources "$fw/Resources"
+    minkey=LSMinimumSystemVersion; minver=$MACOS_MIN
+  else
+    mkdir -p "$fw"
+    lipo -create "${dylibs[@]}" -output "$fw/FFmpeg"
+    plist="$fw/Info.plist"
+    minkey=MinimumOSVersion; minver=$IOS_MIN
+  fi
+  cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>FFmpeg</string>
+  <key>CFBundleIdentifier</key><string>org.ffmpeg.FFmpeg</string>
+  <key>CFBundleName</key><string>FFmpeg</string>
+  <key>CFBundlePackageType</key><string>FMWK</string>
+  <key>CFBundleShortVersionString</key><string>$FFMPEG_VERSION</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>$minkey</key><string>$minver</string>
+</dict></plist>
+PLIST
+  xcargs+=(-framework "$fw")
 done
-lipo -create "$WORK"/libffmpeg-*.dylib -output "$OUT/lib/libffmpeg.dylib"
+xcodebuild -create-xcframework "${xcargs[@]}" -output "$OUT/FFmpeg.xcframework"
 
 # Headers are architecture-independent for these little-endian targets.
 rm -rf "$OUT/include"
-cp -R "$WORK/build-${ARCHS[0]}/install/include" "$OUT/include"
+cp -R "$WORK/build-arm64/install/include" "$OUT/include"
 cp "$SRC/COPYING.LGPLv2.1" "$OUT/COPYING.LGPLv2.1"
 
-if nm -gU "$OUT/lib/libffmpeg.dylib" | grep -q " _avformat_open_input$"; then
-  echo "Exports OK"
-else
-  echo "libffmpeg.dylib does not export avformat_open_input" >&2
-  exit 1
-fi
-if grep -q "enable-gpl" "$WORK/build-${ARCHS[0]}/ffbuild/config.mak"; then
-  echo "GPL components enabled — refusing." >&2
-  exit 1
-fi
+for platform in macos ios iossim; do
+  # Not grep -q: it stops reading early and nm then fails on a broken pipe under pipefail.
+  if [[ "$(nm -gU "$WORK/frameworks/$platform/FFmpeg.framework/FFmpeg" | grep -c " _avformat_open_input$")" == 0 ]]; then
+    echo "FFmpeg.framework ($platform) does not export avformat_open_input" >&2
+    exit 1
+  fi
+done
+echo "Exports OK"
+for slice in "${SLICES[@]}"; do
+  IFS=: read -r platform arch _ _ <<< "$slice"
+  if grep -q "enable-gpl" "$(builddir "$platform" "$arch")/ffbuild/config.mak"; then
+    echo "GPL components enabled ($platform $arch) — refusing." >&2
+    exit 1
+  fi
+done
 
 {
-  echo "FFmpeg $FFMPEG_VERSION for macOS $MACOS_MIN+ (${ARCHS[*]})"
+  echo "FFmpeg $FFMPEG_VERSION: macOS $MACOS_MIN+ (arm64 x86_64), iOS $IOS_MIN+ (arm64), iOS Simulator (arm64)"
   echo "script-sha256: $SCRIPT_HASH"
-  echo "license: $(grep '#define FFMPEG_LICENSE' "$WORK/build-${ARCHS[0]}/config.h" | cut -d'"' -f2)"
+  echo "license: $(grep '#define FFMPEG_LICENSE' "$WORK/build-arm64/config.h" | cut -d'"' -f2)"
   echo "configure: ${CONFIGURE_FLAGS[*]}"
 } > "$STAMP"
 cat "$STAMP"

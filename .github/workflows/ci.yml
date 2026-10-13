@@ -27,6 +27,8 @@ jobs:
         run: scripts/make-fixtures.sh
       - name: PlayerCore tests
         run: swift test --package-path Packages/PlayerCore
+      - name: Package tests on an iPhone simulator
+        run: scripts/test-ios.sh
 
   macos:
     name: macOS (packages + app)
@@ -60,6 +62,8 @@ jobs:
         run: swift test --package-path Packages/JellyfinKit
       - name: PlayerCore tests
         run: swift test --package-path Packages/PlayerCore
+      - name: Package tests on an iPhone simulator
+        run: scripts/test-ios.sh
       - name: Generate Xcode project
         run: xcodegen generate
       - name: App build and tests

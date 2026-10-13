@@ -31,10 +31,6 @@ targets:
     dependencies:
       - package: JellyfinKit
       - package: PlayerCore
-      # Our LGPL FFmpeg build (scripts/build-ffmpeg.sh), dynamically linked and embedded.
-      - framework: Vendor/FFmpeg/lib/libffmpeg.dylib
-        embed: true
-        codeSign: true
     info:
       path: App/Resources/Info.plist
       properties:

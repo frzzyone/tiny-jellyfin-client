@@ -2,8 +2,8 @@
 
 ## 1. Platform groundwork
 
-- [ ] 1.1 `build-ffmpeg.sh --ios`: device and simulator slices plus the macOS slice in `FFmpeg.xcframework`, same LGPL configure flags; verify `xcodebuild -create-xcframework` output lists three platforms and the script still refuses GPL options
-- [ ] 1.2 PlayerCore `CFFmpeg` as a `binaryTarget` on the XCFramework; packages declare `.iOS(.v17)`; verify the Mac app and all package tests are unchanged and green
+- [x] 1.1 `build-ffmpeg.sh --ios`: device and simulator slices plus the macOS slice in `FFmpeg.xcframework`, same LGPL configure flags; verify `xcodebuild -create-xcframework` output lists three platforms and the script still refuses GPL options
+- [x] 1.2 PlayerCore `CFFmpeg` as a `binaryTarget` on the XCFramework; packages declare `.iOS(.v17)`; verify the Mac app and all package tests are unchanged and green
 - [ ] 1.3 Run JellyfinKit and PlayerCore tests on the iOS simulator (fixtures served by the existing HTTP test server); verify green and add both to CI
 
 ## 2. Engine on iOS

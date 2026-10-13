@@ -23,9 +23,10 @@ files (`BrowserView`, `KeyMonitor`, `PlayerWindowView`, `NowPlaying`, `SubtitleL
 and `arm64-apple-ios17.0-simulator`, links each into a dynamic framework (`FFmpeg.framework`, so the
 LGPL "replaceable library" form survives as far as iOS allows), and bundles them with the macOS
 dylib into `Vendor/FFmpeg/FFmpeg.xcframework`. PlayerCore's `CFFmpeg` target switches from
-`unsafeFlags` to a `binaryTarget` pointing at the XCFramework, which also cleans up the Mac build.
-Risk: `unsafeFlags` blocks nothing locally but a binaryTarget is the only form that works for
-both platforms, so this migration is the first task.
+`unsafeFlags` linking to a `binaryTarget` on the XCFramework (through a symlink, since SwiftPM wants
+binary targets inside the package), which also cleans up the Mac build: Xcode now embeds and signs
+`FFmpeg.framework` itself. Headers stay where they were (`Vendor/FFmpeg/include`, identical on
+every Apple platform), still passed with `-I`.
 
 ### D2. Audio
 On iOS the audio renderer has no passthrough. iOS has system decoders for AC-3 and E-AC-3, so the
