@@ -151,3 +151,18 @@ when transcoding. The choice SHALL survive quality switches.
 #### Scenario: Quality switch keeps the track
 - **WHEN** the user then switches to 720p 4 Mbps
 - **THEN** the transcode carries the Spanish track
+
+### Requirement: Playback speed
+The player SHALL offer 0.75×, 1×, 1.25×, 1.5× and 2×, keeping the audio's pitch, and start each new item at 1×.
+
+#### Scenario: Faster through a talk
+- **WHEN** the user picks 1.5× during playback
+- **THEN** the film plays half as fast again with voices at their normal pitch, and the next film starts at 1×
+
+### Requirement: Chapters
+When the server lists two or more chapters for an item, the player SHALL list them with their start times and
+jump to a chosen one.
+
+#### Scenario: Jump to a chapter
+- **WHEN** the user picks "The Heist" (05:00) from the chapter list
+- **THEN** playback continues from 05:00

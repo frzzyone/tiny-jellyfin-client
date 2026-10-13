@@ -133,7 +133,8 @@ over and Mark watched; arrows move between rows and titles.
 
 In the Mac player: click to pause, double-click for full screen, swipe sideways with two fingers on a
 trackpad to scrub. Keys: Space play/pause, ← → −10 s / +30 s, ↑ ↓ volume, F full screen, M mute,
-S next subtitle (then off), 0–9 jump to that tenth of the film.
+S next subtitle (then off), 0–9 jump to that tenth of the film. The control bar also has Audio (when there are several
+tracks), Chapters (when the server lists them) and the speed (0.75×–2×).
 
 ## Quality presets
 

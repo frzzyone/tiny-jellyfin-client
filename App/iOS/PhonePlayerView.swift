@@ -28,7 +28,7 @@ struct PhonePlayerView: View {
     @State private var openMenu: PlayerMenu?
 
     enum PlayerMenu: String, Identifiable {
-        case quality = "Quality", audio = "Audio", subtitles = "Subtitles"
+        case quality = "Quality", audio = "Audio", subtitles = "Subtitles", chapters = "Chapters", speed = "Speed"
         var id: String { rawValue }
     }
 
@@ -274,6 +274,14 @@ struct PhonePlayerView: View {
                 SubtitleMenuItems(player: player) { openMenu = nil }
             }
             .disabled(player.subtitleOptions.isEmpty)
+            if !player.chapters.isEmpty {
+                menuButton(.chapters, title: "Chapters") {
+                    ChapterMenuItems(player: player) { openMenu = nil }
+                }
+            }
+            menuButton(.speed, title: SpeedLabel.text(player.speed)) {
+                SpeedMenuItems(player: player) { openMenu = nil }
+            }
             round(zoomed ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right", size: 44,
                   label: zoomed ? "Fit to screen" : "Fill screen") {
                 zoomed.toggle()

@@ -19,7 +19,8 @@ struct TVPlayerView: View {
     private var player: PlaybackController { model.player }
 
     enum PanelTab: String, CaseIterable, Identifiable {
-        case info = "Info", subtitles = "Subtitles", quality = "Quality", audio = "Audio"
+        case info = "Info", subtitles = "Subtitles", quality = "Quality", audio = "Audio", chapters = "Chapters",
+             speed = "Speed"
         var id: String { rawValue }
     }
 
@@ -193,7 +194,7 @@ struct TVPlayerView: View {
     private func panelView(_ tab: PanelTab) -> some View {
         VStack(spacing: 18) {
             HStack(spacing: 6) {
-                ForEach(PanelTab.allCases) { item in
+                ForEach(PanelTab.allCases.filter { $0 != .chapters || !player.chapters.isEmpty }) { item in
                     TVPill(title: item.rawValue, on: item == tab) { panel = item }
                         .focused($focus, equals: item)
                 }
@@ -204,6 +205,8 @@ struct TVPlayerView: View {
                 case .subtitles: options { SubtitleMenuItems(player: player) }
                 case .quality: options { QualityMenuItems(player: player) }
                 case .audio: audio
+                case .chapters: options { ChapterMenuItems(player: player) }
+                case .speed: options { SpeedMenuItems(player: player) }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

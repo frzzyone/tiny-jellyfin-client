@@ -91,6 +91,7 @@ public protocol PlaybackEngine: AnyObject {
     var isPlaying: Bool { get }
     var volume: Float { get set }
     var isMuted: Bool { get set }
+    var speed: Float { get set }
     var onEvent: (@MainActor (EngineEvent) -> Void)? { get set }
 
     /// Opens the source, positions it at `startAt` and buffers. Playback starts paused.

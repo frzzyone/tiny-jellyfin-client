@@ -16,6 +16,7 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     var isPlaying = false
     var volume: Float = 1
     var isMuted = false
+    var speed: Float = 1
     var onEvent: (@MainActor (EngineEvent) -> Void)?
 
     var prepared: [(MediaSource, Double)] = []
@@ -125,6 +126,8 @@ final class FakeService: PlaybackService, @unchecked Sendable {
 func movie(height: Int = 1080, resumeAt seconds: Double? = nil, defaultSubtitle: Int? = nil, defaultAudio: Int = 1) -> BaseItem {
     let json = """
     {"Id":"m1","Name":"Movie","Type":"Movie","RunTimeTicks":6000000000,
+     "Chapters":[{"StartPositionTicks":0,"Name":"Opening"},{"StartPositionTicks":1200000000,"Name":""},
+                 {"StartPositionTicks":3000000000,"Name":"Finale"}],
      "UserData":{"PlaybackPositionTicks":\(Int64((seconds ?? 0) * 10_000_000))},
      "MediaSources":[{"Id":"src","DefaultSubtitleStreamIndex":\(defaultSubtitle ?? -1),"DefaultAudioStreamIndex":\(defaultAudio),"MediaStreams":[
        {"Type":"Video","Index":0,"Codec":"hevc","Height":\(height)},

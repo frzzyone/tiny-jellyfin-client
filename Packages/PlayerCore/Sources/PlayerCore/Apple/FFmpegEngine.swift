@@ -39,6 +39,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var videoSwitched = false
     private var audioSwitched = false
     private var desiredRate: Float = 0
+    /// The rate `play()` runs at.
+    private var speedValue: Float = 1
     private var preRollTarget: Double?
     private var lastVideoEnd: Double = 0
     private var lastAudioEnd: Double = 0
@@ -75,6 +77,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         synchronizer.addRenderer(videoRenderer)
         synchronizer.addRenderer(audioRenderer)
         displayLayer.videoGravity = .resizeAspect
+        audioRenderer.audioTimePitchAlgorithm = .spectral   // keep voices' pitch away from 1×
         allowDolbyVision = capabilities.dolbyVision
     }
 
@@ -124,6 +127,19 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public var isMuted: Bool {
         get { audioRenderer.isMuted }
         set { audioRenderer.isMuted = newValue }
+    }
+
+    /// Playback speed, 1 being normal; takes effect at once when playing.
+    public var speed: Float {
+        get { queue.sync { speedValue } }
+        set {
+            queue.async { [self] in
+                speedValue = newValue
+                guard desiredRate > 0 else { return }
+                desiredRate = newValue
+                if synchronizer.rate > 0 { synchronizer.setRate(newValue, time: SampleBuffers.time(currentTime)) }
+            }
+        }
     }
 
     private func setState(_ newState: EngineState) {
@@ -185,7 +201,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     public func play() {
         queue.async { [self] in
-            desiredRate = 1
+            desiredRate = speedValue
             if case .ended = state {
                 return
             }

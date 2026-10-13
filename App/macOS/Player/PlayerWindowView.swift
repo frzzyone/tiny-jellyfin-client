@@ -351,6 +351,19 @@ struct PlayerControls: View {
                     QualityMenu(player: player)
                     if player.audioOptions.count > 1 { AudioMenu(player: player) }
                     SubtitleMenu(player: player)
+                    if !player.chapters.isEmpty {
+                        PlayerMenu(icon: "list.bullet", help: "Chapters") { ChapterMenuItems(player: player) }
+                    }
+                    Menu {
+                        SpeedMenuItems(player: player)
+                    } label: {
+                        Text(SpeedLabel.text(player.speed)).font(.callout.monospacedDigit())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .help("Speed")
+                    .accessibilityLabel("Speed \(SpeedLabel.text(player.speed))")
                     Button { pip.toggle() } label: { Image(systemName: "pip.enter") }
                         .help("Picture in Picture")
                         .accessibilityLabel("Picture in Picture")
@@ -437,6 +450,22 @@ struct QualityMenu: View {
     }
 }
 
+/// An icon in the control bar that opens a menu.
+struct PlayerMenu<Items: View>: View {
+    let icon: String
+    let help: String
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        Menu { items() } label: { Image(systemName: icon) }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(help)
+            .accessibilityLabel(help)
+    }
+}
+
 struct AudioMenu: View {
     @Bindable var player: PlaybackController
 
@@ -499,6 +528,19 @@ struct PlaybackCommands: Commands {
                 }
             }
             .disabled(controller.audioOptions.count < 2)
+            Menu("Speed") {
+                ForEach(PlaybackController.speeds, id: \.self) { speed in
+                    Toggle(SpeedLabel.text(speed), isOn: Binding(get: { controller.speed == speed },
+                                                                 set: { if $0 { controller.speed = speed } }))
+                }
+            }
+            .disabled(controller.engine == nil)
+            Menu("Chapters") {
+                ForEach(controller.chapters) { chapter in
+                    Button("\(chapter.name)  \(TimeFormat.clock(chapter.start))") { controller.jump(to: chapter) }
+                }
+            }
+            .disabled(controller.chapters.isEmpty)
             Menu("Subtitles") {
                 Toggle("Off", isOn: Binding(get: { controller.selectedSubtitle == nil },
                                             set: { if $0 { controller.selectSubtitle(nil) } }))

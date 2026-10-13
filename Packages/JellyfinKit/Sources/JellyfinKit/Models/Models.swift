@@ -74,6 +74,13 @@ public enum ItemKind: String, Codable, Sendable {
     public var isPlayable: Bool { self == .movie || self == .episode || self == .video }
 }
 
+public struct ChapterInfo: Codable, Sendable, Equatable {
+    public var startPositionTicks: Int64?
+    public var name: String?
+
+    public var startSeconds: Double { Ticks.seconds(startPositionTicks ?? 0) }
+}
+
 public struct BaseItem: Codable, Sendable, Identifiable, Equatable {
     public var id: String
     public var name: String?
@@ -99,6 +106,8 @@ public struct BaseItem: Codable, Sendable, Identifiable, Equatable {
     public var genreItems: [NameGuidPair]?
     public var mediaSources: [MediaSourceInfo]?
     public var mediaStreams: [MediaStream]?
+    /// From the single-item request; list requests leave it out.
+    public var chapters: [ChapterInfo]?
 
     public init(id: String, name: String? = nil, type: ItemKind? = nil) {
         self.id = id

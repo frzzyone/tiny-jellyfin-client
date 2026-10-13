@@ -361,6 +361,26 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(service.recorded.contains("subtitle:2"))
     }
 
+    func testChaptersFromTheServer() async {
+        let (controller, _, engine) = await started()
+        XCTAssertEqual(controller.chapters.map(\.name), ["Opening", "Chapter 2", "Finale"])
+        engine.currentTime = 150
+        XCTAssertEqual(controller.currentChapter?.name, "Chapter 2")
+        controller.jump(to: controller.chapters[2])
+        let jumped = await eventually { engine.seeks.last == 300 }
+        XCTAssertTrue(jumped, "\(engine.seeks)")
+    }
+
+    func testSpeedReachesTheEngineAndResetsForTheNextItem() async {
+        let (controller, service, engine) = await started()
+        controller.speed = 1.5
+        XCTAssertEqual(engine.speed, 1.5)
+        controller.start(item: movie(), resume: false, service: service)
+        _ = await eventually { self.engines.count == 2 && controller.session != nil }
+        XCTAssertEqual(controller.speed, 1)
+        XCTAssertEqual(engines.last?.speed, 1)
+    }
+
     /// The server's audio pick for the user's language, not the file's own default.
     func testDirectPlayStartsOnTheServersAudioPick() async {
         let (controller, _, engine) = await started(movie(defaultAudio: 5))

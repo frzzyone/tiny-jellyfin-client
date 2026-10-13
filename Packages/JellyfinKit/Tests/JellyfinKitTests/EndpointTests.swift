@@ -127,7 +127,8 @@ final class BrowsingEndpointTests: XCTestCase {
             {"Type":"Subtitle","Index":2,"Codec":"subrip","Language":"eng","IsTextSubtitleStream":true},
             {"Type":"Subtitle","Index":3,"Codec":"PGSSUB","Language":"spa","IsTextSubtitleStream":false},
             {"Type":"Attachment","Index":4}
-         ]}]}
+         ]}],
+         "Chapters":[{"StartPositionTicks":0,"Name":"Opening"},{"StartPositionTicks":3000000000,"Name":"The Heist"}]}
         """)
         let item = try await server.client().item(id: "m1")
         XCTAssertEqual(item.dateLabel, "2019")
@@ -135,6 +136,8 @@ final class BrowsingEndpointTests: XCTestCase {
         XCTAssertEqual(source.videoStream?.height, 2160)
         XCTAssertEqual(source.subtitleStreams.map(\.isImageSubtitle), [false, true])
         XCTAssertEqual(source.mediaStreams?.last?.type, .other)
+        XCTAssertEqual(item.chapters?.map(\.name), ["Opening", "The Heist"])
+        XCTAssertEqual(item.chapters?.last?.startSeconds, 300)
     }
 
     func testImageURL() {

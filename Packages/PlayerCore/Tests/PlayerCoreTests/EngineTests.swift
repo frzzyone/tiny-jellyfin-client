@@ -298,6 +298,26 @@ final class EngineTests: XCTestCase {
         }
     }
 
+    /// 1.5×: the clock runs half as fast again, with audio (E-AC-3 here) still playing.
+    func testSpeedChangesTheClock() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: try Fixtures.url("hevc10_eac3.mkv")), startAt: 0)
+        engine.speed = 1.5
+        engine.play()
+        _ = await waitFor(3) { engine.state == .playing && engine.currentTime > 0.3 }
+        let start = (Date(), engine.currentTime)
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let rate = (engine.currentTime - start.1) / Date().timeIntervalSince(start.0)
+        XCTAssertEqual(rate, 1.5, accuracy: 0.1, engine.debugSummary)
+        XCTAssertNotEqual(engine.audioRenderer.status, .failed)
+        engine.speed = 1
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let back = (Date(), engine.currentTime)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertEqual((engine.currentTime - back.1) / Date().timeIntervalSince(back.0), 1, accuracy: 0.1)
+    }
+
     /// Direct Play: the other track of the same file without a second download.
     func testAudioTrackChangesInPlace() async throws {
         let engine = engine()

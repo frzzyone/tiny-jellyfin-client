@@ -124,6 +124,50 @@ struct AudioMenuItems: View {
     }
 }
 
+/// The film's chapters with their start times, the current one checked.
+struct ChapterMenuItems: View {
+    let player: PlaybackController
+    var onPick: () -> Void = {}
+
+    var body: some View {
+        let current = player.currentChapter
+        ForEach(player.chapters) { chapter in
+            Button {
+                player.jump(to: chapter)
+                onPick()
+            } label: {
+                let title = "\(chapter.name)  \(TimeFormat.clock(chapter.start))"
+                if chapter == current { Label(title, systemImage: "checkmark") } else { Text(title) }
+            }
+        }
+    }
+}
+
+/// 0.75× to 2×, the current one checked.
+struct SpeedMenuItems: View {
+    let player: PlaybackController
+    var onPick: () -> Void = {}
+
+    var body: some View {
+        ForEach(PlaybackController.speeds, id: \.self) { speed in
+            Button {
+                player.speed = speed
+                onPick()
+            } label: {
+                if speed == player.speed { Label(SpeedLabel.text(speed), systemImage: "checkmark") } else { Text(SpeedLabel.text(speed)) }
+            }
+        }
+    }
+}
+
+enum SpeedLabel {
+    /// "1×", "1.25×", "0.75×".
+    static func text(_ speed: Float) -> String {
+        let number = speed.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(speed)) : String(format: "%g", speed)
+        return number + "×"
+    }
+}
+
 /// Off plus every subtitle track, the current one checked.
 struct SubtitleMenuItems: View {
     let player: PlaybackController

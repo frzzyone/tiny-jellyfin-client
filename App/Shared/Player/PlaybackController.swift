@@ -20,6 +20,13 @@ struct AudioOption: Identifiable, Equatable {
     let label: String
 }
 
+/// A chapter of the item, from the server.
+struct ChapterMark: Identifiable, Equatable {
+    let id: Int
+    let start: Double
+    let name: String
+}
+
 /// What is currently being delivered.
 struct PlaybackSession: Equatable {
     var itemId: String
@@ -57,6 +64,8 @@ final class PlaybackController {
     private(set) var subtitleOptions: [SubtitleOption] = []
     private(set) var selectedSubtitle: Int?
     private(set) var audioOptions: [AudioOption] = []
+    /// Empty when the file has fewer than two (a single "chapter" is no help).
+    private(set) var chapters: [ChapterMark] = []
     private(set) var selectedAudio: Int?
     private(set) var subtitleText: String?
     /// A picture subtitle (PGS, DVD, DVB) the app draws itself during Direct Play.
@@ -70,6 +79,9 @@ final class PlaybackController {
 
     var volume: Float = 1 { didSet { engine?.volume = volume } }
     var isMuted = false { didSet { engine?.isMuted = isMuted } }
+    /// Playback speed; back to 1× for each new item.
+    var speed: Float = 1 { didSet { engine?.speed = speed } }
+    static let speeds: [Float] = [0.75, 1, 1.25, 1.5, 2]
     /// Black bars encoded into the frames, once two looks at the picture agree; subtitles sit above them.
     private(set) var pictureBars: PictureBars?
     /// How often the displayed frame is examined for bars while playing.
@@ -128,6 +140,8 @@ final class PlaybackController {
         stop()
         self.service = service
         self.item = item
+        speed = 1
+        chapters = []
         status = .loading
         startUITimer()
         startTask = Task { await begin(item: item, from: resume ? .resume : .beginning, quality: nil) }
@@ -167,6 +181,7 @@ final class PlaybackController {
             case .beginning: start = 0
             case .at(let time): start = time
             }
+            chapters = Self.chapters(full)
             let sourceHeight = full.mediaSources?.first?.videoStream?.height
             qualityOptions = QualitySelection.visibleOptions(sourceHeight: sourceHeight)
             let quality = requested ?? QualitySelection.startingQuality(
@@ -194,6 +209,7 @@ final class PlaybackController {
             let engine = engineFactory()
             engine.volume = volume
             engine.isMuted = isMuted
+            engine.speed = speed
             engine.onEvent = { [weak self] event in self?.handle(event) }
             self.engine = engine
             try await engine.prepare(source: MediaSource(url: stream.url, headers: service.streamHeaders,
@@ -374,6 +390,21 @@ final class PlaybackController {
             return
         }
         performSwitch(quality: session.quality, burnIn: selectedPictureSubtitle, audio: index, persistQuality: false)
+    }
+
+    static func chapters(_ item: BaseItem) -> [ChapterMark] {
+        let marks = (item.chapters ?? []).enumerated().map { index, chapter in
+            ChapterMark(id: index, start: chapter.startSeconds,
+                        name: chapter.name.flatMap { $0.isEmpty ? nil : $0 } ?? "Chapter \(index + 1)")
+        }
+        return marks.count > 1 ? marks : []
+    }
+
+    /// The chapter the position is in.
+    var currentChapter: ChapterMark? { chapters.last { $0.start <= position + 0.5 } }
+
+    func jump(to chapter: ChapterMark) {
+        Task { await seek(to: chapter.start) }
     }
 
     static func audioOptions(_ source: MediaSourceInfo) -> [AudioOption] {
