@@ -43,6 +43,8 @@ of `NSFont` so it is shared. `NowPlaying` already uses MediaPlayer; only its art
 (`NSImage`/`UIImage`) behind a typealias.
 
 ### D4. iPhone UI
+Mockups: the "Tiny Jellyfin · iPhone" row of https://claude.ai/artifact/N34ygeBdXoi63aVu2vADfB
+(Home, detail sheet, Movies tab, landscape player).
 SwiftUI `TabView` (Home, Movies, Shows, Search). Home is a `ScrollView` of the same `HomeModel`
 rows as horizontal `ScrollView`s with the Mac's card proportions scaled to the phone (posters
 110 pt wide, stills 220 pt). The quick look becomes a `.sheet` with detents; Mark watched and the
