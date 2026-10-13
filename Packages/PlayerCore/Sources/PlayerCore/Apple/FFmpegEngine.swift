@@ -51,6 +51,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var audioSampleFailures = 0
     private var selectedSubtitle: Int?
     private var externalSubtitles: SubtitleTrackStore?
+    /// Bumped by `stop()`, so a `prepare` that finishes afterwards knows it was abandoned.
+    private var generation = 0
 
     // Snapshot for main-thread readers.
     private let snapshotLock = NSLock()
@@ -134,16 +136,22 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         stop()
         setState(.loading)
         let pipeline = Pipeline(source: source, allowDolbyVision: allowDolbyVision)
+        let generation = queue.sync { self.generation }
         do {
             try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+            pipeline.start()
+            try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30, generation: generation)
         } catch {
             pipeline.stop()
-            setState(.failed(String(describing: error)))
+            if !(error is CancellationError) { setState(.failed(String(describing: error))) }
             throw error
         }
-        pipeline.start()
-        try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30)
-        queue.sync {
+        try queue.sync {
+            // stop() ran or the task was cancelled while this was loading (the player closed).
+            guard self.generation == generation, !Task.isCancelled else {
+                pipeline.stop()
+                throw CancellationError()
+            }
             active = pipeline
             // Segmented streams start at a segment boundary, and probing consumes packets, so the
             // media can begin after the requested position. Start the clock where it actually
@@ -180,6 +188,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     public func stop() {
         queue.sync {
+            generation += 1
             timer?.cancel()
             timer = nil
             stopFeeding()
@@ -651,9 +660,12 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         setState(.failed(videoRenderer.error?.localizedDescription ?? "The video could not be decoded."))
     }
 
-    private func waitForBuffer(_ pipeline: Pipeline, seconds: Double, timeout: TimeInterval) async throws {
+    /// With `generation`, gives up as soon as `stop()` runs.
+    private func waitForBuffer(_ pipeline: Pipeline, seconds: Double, timeout: TimeInterval,
+                               generation: Int? = nil) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while pipeline.bufferedDuration < seconds && !pipeline.reachedEnd {
+            if let generation, queue.sync(execute: { self.generation }) != generation { throw CancellationError() }
             if let failure = pipeline.hasFailed { throw EngineError(failure) }
             if Date() > deadline { throw EngineError("Timed out while loading the stream.") }
             try await Task.sleep(nanoseconds: 50_000_000)

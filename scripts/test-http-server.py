@@ -5,12 +5,14 @@ Serves files from a directory and prints the chosen port on stdout. Supports:
   ?drop=N    the first request for this path is cut off after N bytes
   ?norange=1 ignore Range headers (always 200 with the full body)
   ?status=N  reply with that status code
+  ?slow=S    sleep S seconds after every 64 KB sent
 Requests must carry `Authorization: test` unless the path starts with /public/.
 """
 import http.server
 import os
 import socketserver
 import sys
+import time
 import urllib.parse
 
 ROOT = sys.argv[1]
@@ -78,6 +80,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
                 self.wfile.write(chunk)
                 sent += len(chunk)
+                if "slow" in query:
+                    time.sleep(float(query["slow"][0]))
 
 
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):

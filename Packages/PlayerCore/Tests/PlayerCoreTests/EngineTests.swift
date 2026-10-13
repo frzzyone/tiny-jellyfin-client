@@ -170,6 +170,32 @@ final class EngineTests: XCTestCase {
         }
     }
 
+    func testStopDuringPrepareAbandonsIt() async throws {
+        let server = try TestHTTPServer()
+        let slow = server.url("hevc10_eac3.mkv").appending(queryItems: [URLQueryItem(name: "slow", value: "1")])
+        let engine = engine()
+        let loading = Task { try await engine.prepare(source: MediaSource(url: slow, headers: TestHTTPServer.authHeaders),
+                                                      startAt: 0) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        engine.stop()
+        do {
+            try await loading.value
+            XCTFail("prepare finished after stop: \(engine.state)")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(engine.state, .idle)
+
+        // Cancelling the loading task (the player closing) ends it the same way, not as a failure.
+        let cancelled = Task { try await engine.prepare(source: MediaSource(url: slow, headers: TestHTTPServer.authHeaders),
+                                                        startAt: 0) }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        cancelled.cancel()
+        _ = try? await cancelled.value
+        if case .failed(let message) = engine.state { XCTFail(message) }
+        engine.stop()
+    }
+
     func testEmbeddedSubtitlesFollowTheClock() async throws {
         let engine = engine()
         defer { engine.stop() }
