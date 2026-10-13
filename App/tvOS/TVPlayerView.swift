@@ -63,10 +63,16 @@ struct TVPlayerView: View {
         .onChange(of: player.status) { _, status in if status == .playing { showTransport() } }
         #if DEBUG
         .task {
-            // Screenshot hook: TJ_TV_PANEL=Info|Subtitles|Quality|Audio opens the panel once playing.
-            if let name = ProcessInfo.processInfo.environment["TJ_TV_PANEL"], let tab = PanelTab(rawValue: name) {
+            // Screenshot hooks: TJ_TV_PANEL=Info|Subtitles|Quality|Audio opens the panel once playing;
+            // TJ_AUTOSTOP=<seconds> closes the player as Back would, so the server stops transcoding.
+            let env = ProcessInfo.processInfo.environment
+            if let name = env["TJ_TV_PANEL"], let tab = PanelTab(rawValue: name) {
                 try? await Task.sleep(for: .seconds(4))
                 openPanel(tab)
+            }
+            if let seconds = env["TJ_AUTOSTOP"].flatMap(Double.init) {
+                try? await Task.sleep(for: .seconds(seconds))
+                onClose()
             }
         }
         #endif

@@ -52,7 +52,8 @@ struct TVHomeView: View {
             }
             .padding(.bottom, 80)
         }
-        .ignoresSafeArea(edges: .top)
+        // Backdrops run to the screen's edges; content keeps its own 90 pt margins.
+        .ignoresSafeArea(edges: [.top, .horizontal])
         .navigationDestination(item: $surprise) { TVDetailView(item: $0) }
         .sheet(isPresented: $showAcknowledgements) { AcknowledgementsView() }
     }
@@ -93,6 +94,7 @@ struct TVHero: View {
     @Environment(AppModel.self) private var model
     @Environment(\.tvPlay) private var play
     let item: BaseItem
+    @FocusState private var primaryFocused: Bool
 
     private var inProgress: Bool { item.resumePositionSeconds != nil }
     private var playable: Bool { item.type?.isPlayable ?? false }
@@ -115,6 +117,7 @@ struct TVHero: View {
                         Button { play(item, resume: inProgress) } label: {
                             Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
                         }
+                        .focused($primaryFocused)
                         if inProgress { Button("Start over") { play(item, resume: false) } }
                     }
                     NavigationLink("Details", value: item)
@@ -127,6 +130,8 @@ struct TVHero: View {
             .padding(.bottom, 20)
         }
         .frame(height: 760)
+        // One click from launch resumes the film.
+        .defaultFocus($primaryFocused, true)
     }
 }
 

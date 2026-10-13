@@ -22,14 +22,14 @@ struct TVDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
                 ZStack(alignment: .bottomLeading) {
-                    TVBackdrop(item: shown).frame(height: isSeries ? 720 : 1000)
+                    TVBackdrop(item: shown).frame(height: isSeries ? 640 : 1000)
                     info.padding(.horizontal, TVStyle.side).padding(.bottom, isSeries ? 20 : 120)
                 }
                 if let series { episodes(series) }
             }
             .padding(.bottom, 80)
         }
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea(edges: [.top, .horizontal])
         .task(id: playbackEnded) {
             guard let client = model.client else { return }
             details = (try? await client.item(id: item.id)) ?? details
@@ -99,7 +99,7 @@ struct TVDetailView: View {
     }
 
     private func episodes(_ series: SeriesModel) -> some View {
-        VStack(alignment: .leading, spacing: 26) {
+        VStack(alignment: .leading, spacing: 10) {
             if let error = series.error {
                 InlineError(message: error) { Task { await series.load() } }
             }
@@ -114,7 +114,8 @@ struct TVDetailView: View {
                 .padding(.horizontal, TVStyle.side).padding(.vertical, 12)
             }
             .scrollClipDisabled()
-            TVShelf(title: series.season?.displayName ?? "Episodes", items: series.episodes, shape: .still)
+            TVShelf(title: "", items: series.episodes, shape: .still,
+                    inSeries: true)
         }
     }
 

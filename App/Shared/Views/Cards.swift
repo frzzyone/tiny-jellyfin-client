@@ -53,7 +53,19 @@ struct ItemCard: View {
     let shape: RowShape
     let selected: Bool
     var width: CGFloat? = nil
+    /// On a series' own page: the episode's still and "2 · Title" instead of the series'.
+    var inSeries = false
     @State private var hovering = false
+
+    private var title: String {
+        guard inSeries else { return ItemLabels.title(item) }
+        return [item.indexNumber.map(String.init), item.displayName].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private var detail: String {
+        guard inSeries else { return ItemLabels.detail(item) }
+        return ItemLabels.timeLeft(item) ?? item.runtimeMinutes.map(ItemLabels.minutes) ?? ""
+    }
 
     private var size: CGSize {
         let base = shape == .poster ? BrowserStyle.posterSize : BrowserStyle.stillSize
@@ -68,10 +80,10 @@ struct ItemCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            let art = shape == .poster
+            let art = shape == .poster || inSeries
                 ? model.client?.primaryImageURL(for: item, maxHeight: 450)
                 : model.client?.backdropImageURL(for: item, maxWidth: 800) ?? model.client?.primaryImageURL(for: item, maxHeight: 450)
-            Artwork(url: art, title: ItemLabels.title(item), toneID: item.id)
+            Artwork(url: art, title: title, toneID: item.id)
                 .frame(width: size.width, height: size.height)
                 .overlay(alignment: .bottom) { if let fraction { ProgressLine(fraction: fraction) } }
                 .overlay(alignment: .topTrailing) {
@@ -99,11 +111,11 @@ struct ItemCard: View {
                 .shadow(color: .black.opacity(hovering ? 0.5 : 0), radius: 12, y: 6)
                 .scaleEffect(hovering ? 1.04 : 1)
                 .animation(.easeOut(duration: 0.15), value: hovering)
-            Text(ItemLabels.title(item))
+            Text(title)
                 .font(.system(size: BrowserStyle.cardTitleSize, weight: .medium))
                 .foregroundStyle(BrowserStyle.text)
                 .lineLimit(1)
-            Text(ItemLabels.detail(item))
+            Text(detail)
                 .font(.system(size: BrowserStyle.cardDetailSize))
                 .foregroundStyle(BrowserStyle.muted)
                 .lineLimit(1)

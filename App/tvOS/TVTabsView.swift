@@ -63,10 +63,19 @@ struct TVTabsView: View {
             await libs
             #if DEBUG
             // Screenshot hooks (simctl launch with SIMCTL_CHILD_…): TJ_BROWSER_TAB=<library name>|Search,
-            // TJ_AUTOPLAY=1 plays the hero.
+            // TJ_AUTOPLAY=1 plays the hero (TJ_TV_PANEL in the player opens the panel).
             let env = ProcessInfo.processInfo.environment
             if let name = env["TJ_BROWSER_TAB"] { tab = libraries.first { $0.displayName == name }?.id ?? name.lowercased() }
             if env["TJ_AUTOPLAY"] != nil, let hero = home.hero { play(hero, resume: true) }
+            // TJ_TV_OPEN=hero opens the hero's page, =series the series of the first Next up episode.
+            switch env["TJ_TV_OPEN"] {
+            case "hero"?: if let hero = home.hero { homePath.append(hero) }
+            case "series"?:
+                if let episode = home.rows.first(where: { $0.id == "nextUp" })?.items.first, let id = episode.seriesId {
+                    homePath.append(BaseItem(id: id, name: episode.seriesName, type: .series))
+                }
+            default: break
+            }
             #endif
         }
     }
@@ -142,14 +151,17 @@ struct TVShelf: View {
     let title: String
     let items: [BaseItem]
     let shape: RowShape
+    var inSeries = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Text(title).font(.system(size: 34, weight: .semibold)).foregroundStyle(BrowserStyle.text)
-                .padding(.horizontal, TVStyle.side)
+            if !title.isEmpty {
+                Text(title).font(.system(size: 34, weight: .semibold)).foregroundStyle(BrowserStyle.text)
+                    .padding(.horizontal, TVStyle.side)
+            }
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .top, spacing: TVStyle.cardGap) {
-                    ForEach(items) { item in TVCard(item: item, shape: shape) }
+                    ForEach(items) { item in TVCard(item: item, shape: shape, inSeries: inSeries) }
                 }
                 .padding(.horizontal, TVStyle.side)
                 .padding(.vertical, 30) // room for the lift
@@ -164,11 +176,12 @@ struct TVShelf: View {
 struct TVCard: View {
     let item: BaseItem
     let shape: RowShape
+    var inSeries = false
 
     var body: some View {
         NavigationLink(value: item) {
             ItemCard(item: item, shape: shape, selected: false,
-                     width: shape == .poster ? TVStyle.posterWidth : TVStyle.stillWidth)
+                     width: shape == .poster ? TVStyle.posterWidth : TVStyle.stillWidth, inSeries: inSeries)
         }
         .buttonStyle(TVCardButtonStyle())
     }
