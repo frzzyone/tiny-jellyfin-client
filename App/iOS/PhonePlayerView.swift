@@ -16,6 +16,9 @@ struct PhonePlayerView: View {
     @State private var pip = PictureInPictureController()
     /// Fill the screen (cropping the picture) instead of fitting it; remembered between films.
     @AppStorage("playerZoomed") private var zoomed = false
+    /// A vertical swipe in progress: which side, and the level it started from.
+    @State private var swipe: (brightness: Bool, start: Double)?
+    @State private var level: (brightness: Bool, value: Double)?
 
     private var player: PlaybackController { model.player }
 
@@ -32,7 +35,7 @@ struct PhonePlayerView: View {
                                 bars: zoomed ? nil : player.pictureBars)
                     .padding(.bottom, controlsVisible ? 56 : 0)
                     .animation(.easeOut(duration: 0.2), value: controlsVisible)
-                touchLayer(width: geo.size.width)
+                touchLayer(size: geo.size)
                 if player.status == .loading || player.status == .buffering {
                     VStack(spacing: 10) {
                         ProgressView().controlSize(.large).tint(.white)
@@ -57,6 +60,7 @@ struct PhonePlayerView: View {
                         .transition(.opacity)
                 }
                 if controlsVisible { controls.transition(.opacity) }
+                if let level { levelIndicator(level, width: geo.size.width).transition(.opacity) }
             }
         }
         .ignoresSafeArea()
@@ -92,10 +96,28 @@ struct PhonePlayerView: View {
         }
     }
 
-    /// Single tap toggles the controls; double tap on a side third skips.
-    private func touchLayer(width: CGFloat) -> some View {
-        Color.clear
+    /// Single tap toggles the controls; double tap on a side third skips. With the controls up, a
+    /// vertical swipe on the left half sets the screen brightness and on the right half the volume.
+    private func touchLayer(size: CGSize) -> some View {
+        let width = size.width
+        return Color.clear
             .contentShape(Rectangle())
+            .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
+                guard controlsVisible else { return }
+                if swipe == nil {
+                    guard abs(drag.translation.height) > abs(drag.translation.width) else { return }
+                    let left = drag.startLocation.x < width / 2
+                    swipe = (left, left ? Double(PhoneScreen.brightness) : Double(player.volume))
+                }
+                guard let swipe else { return }
+                let value = SwipeLevel.adjusted(start: swipe.start, translation: drag.translation.height, height: size.height)
+                if swipe.brightness { PhoneScreen.brightness = CGFloat(value) } else { player.volume = Float(value); player.isMuted = false }
+                level = (swipe.brightness, value)
+                lastActivity = Date()
+            }.onEnded { _ in
+                swipe = nil
+                withAnimation(.easeIn(duration: 0.3).delay(0.4)) { level = nil }
+            })
             .gesture(
                 SpatialTapGesture(count: 2).onEnded { tap in
                     let x = tap.location.x
@@ -116,6 +138,29 @@ struct PhonePlayerView: View {
             try? await Task.sleep(for: .milliseconds(700))
             withAnimation(.easeIn(duration: 0.25)) { skipFlash = nil }
         }
+    }
+
+    private func levelIndicator(_ level: (brightness: Bool, value: Double), width: CGFloat) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: level.brightness ? "sun.max.fill"
+                  : level.value == 0 ? "speaker.slash.fill" : level.value < 0.5 ? "speaker.wave.1.fill" : "speaker.wave.3.fill")
+                .font(.system(size: 18, weight: .semibold))
+            GeometryReader { geo in
+                ZStack(alignment: .bottom) {
+                    Capsule().fill(.white.opacity(0.25))
+                    Capsule().fill(.white).frame(height: geo.size.height * level.value)
+                }
+            }
+            .frame(width: 6, height: 120)
+        }
+        .foregroundStyle(.white)
+        .padding(.vertical, 14).frame(width: 52)
+        .background(.black.opacity(0.5), in: Capsule())
+        .frame(maxWidth: .infinity, alignment: level.brightness ? .leading : .trailing)
+        .padding(.horizontal, width * 0.1)
+        .allowsHitTesting(false)
+        .accessibilityLabel(level.brightness ? "Brightness" : "Volume")
+        .accessibilityValue("\(Int(level.value * 100)) percent")
     }
 
     private var controls: some View {
@@ -238,6 +283,18 @@ struct PhoneVideoLayer: UIViewRepresentable {
             videoLayer?.frame = bounds
             CATransaction.commit()
         }
+    }
+}
+
+/// The screen the app is on, for the brightness swipe.
+enum PhoneScreen {
+    @MainActor static var brightness: CGFloat {
+        get { screen?.brightness ?? 0.5 }
+        set { screen?.brightness = newValue }
+    }
+
+    @MainActor private static var screen: UIScreen? {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen
     }
 }
 

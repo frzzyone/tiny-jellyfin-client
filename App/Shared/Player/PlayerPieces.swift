@@ -75,3 +75,12 @@ struct SubtitleMenuItems: View {
         }
     }
 }
+
+/// A level (brightness, volume) dragged up or down: a drag over 80% of the screen's height covers
+/// the whole range, so a thumb's reach is enough.
+enum SwipeLevel {
+    static func adjusted(start: Double, translation: Double, height: Double) -> Double {
+        guard height > 0 else { return start }
+        return min(1, max(0, start - translation / (height * 0.8)))
+    }
+}

@@ -40,6 +40,14 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(PlaybackController.redactedQuery(url), "DeviceId=d&ApiKey=…&MediaSourceId=m&api_key=…")
     }
 
+    func testSwipeLevel() {
+        XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: -100, height: 400), 0.8125, accuracy: 0.0001, "up raises")
+        XCTAssertEqual(SwipeLevel.adjusted(start: 0.5, translation: 100, height: 400), 0.1875, accuracy: 0.0001, "down lowers")
+        XCTAssertEqual(SwipeLevel.adjusted(start: 0.9, translation: -400, height: 400), 1, "clamped at the top")
+        XCTAssertEqual(SwipeLevel.adjusted(start: 0.1, translation: 400, height: 400), 0, "clamped at the bottom")
+        XCTAssertEqual(SwipeLevel.adjusted(start: 0.4, translation: 50, height: 0), 0.4)
+    }
+
     func testSubtitleFontScalesWithThePicture() {
         XCTAssertEqual(CTFontGetSize(SubtitleFont.font(forPictureHeight: 1080)), 48)
         XCTAssertEqual(CTFontCopyPostScriptName(SubtitleFont.font(forPictureHeight: 1080)) as String, "HelveticaNeue")
