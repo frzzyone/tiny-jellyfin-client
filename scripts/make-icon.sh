@@ -64,8 +64,8 @@ cat > App/Resources/Assets.xcassets/Contents.json <<'JSON'
 JSON
 echo "wrote $(ls "$SET" | wc -l | tr -d ' ') files to $SET"
 
-# Apple TV: a layered icon (amber back, the character in front, so the focus parallax moves the
-# character over the tile) and the Top Shelf images (graphite, an amber character), in their own
+# Apple TV: a layered icon (amber back, the mark in front, so the focus parallax moves the
+# mark over the tile) and the Top Shelf images (graphite, an amber mark), in their own
 # catalog for the TV target.
 TV=App/Resources/TV.xcassets
 BRAND="$TV/App Icon & Top Shelf Image.brandassets"
@@ -82,8 +82,8 @@ let graphite = NSColor(srgbRed: 0x23 / 255.0, green: 0x28 / 255.0, blue: 0x2f / 
 let amber = NSGradient(starting: NSColor(srgbRed: 0xe3 / 255.0, green: 0x92 / 255.0, blue: 0x2e / 255.0, alpha: 1),
                        ending: NSColor(srgbRed: 1, green: 0xd9 / 255.0, blue: 0x78 / 255.0, alpha: 1))!
 enum Back { case none, amber, graphite }
-/// A w×h PNG: an amber, graphite or clear back with the character centred in a square of
-/// `markHeight` of the height (the character fills 66% of its box); amber on graphite.
+/// A w×h PNG: an amber, graphite or clear back with the mark centred in a square of
+/// `markHeight` of the height (as in the 1024 icon); amber on graphite.
 func render(_ w: Int, _ h: Int, back: Back, markHeight: Double?, to path: String) {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8,
                                samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -101,7 +101,7 @@ func render(_ w: Int, _ h: Int, back: Back, markHeight: Double?, to path: String
     if let markHeight {
         let side = Double(h) * markHeight
         let box = NSRect(x: (Double(w) - side) / 2, y: (Double(h) - side) / 2, width: side, height: side)
-        // On graphite the character is amber: drawn as a mask, then coloured in.
+        // On graphite the mark is amber: drawn as a mask, then coloured in.
         let image = back != .graphite ? glyph : NSImage(size: box.size, flipped: false) { r in
             glyph.draw(in: r)
             NSGraphicsContext.current?.compositingOperation = .sourceAtop
@@ -116,7 +116,7 @@ func render(_ w: Int, _ h: Int, back: Back, markHeight: Double?, to path: String
 for (stack, sizes) in [("App Icon", [(400, 240, "1x"), (800, 480, "2x")]), ("App Icon - App Store", [(1280, 768, "1x")])] {
     for (w, h, scale) in sizes {
         render(w, h, back: .amber, markHeight: nil, to: "\(brand)/\(stack).imagestack/Back.imagestacklayer/Content.imageset/back_\(scale).png")
-        render(w, h, back: .none, markHeight: 0.9, to: "\(brand)/\(stack).imagestack/Front.imagestacklayer/Content.imageset/front_\(scale).png")
+        render(w, h, back: .none, markHeight: 1.0, to: "\(brand)/\(stack).imagestack/Front.imagestacklayer/Content.imageset/front_\(scale).png")
     }
 }
 for (set, w) in [("Top Shelf Image", 1920), ("Top Shelf Image Wide", 2320)] {

@@ -17,11 +17,3 @@ libswresample) under the GNU Lesser General Public License version 2.1 or later.
   repository above against your own FFmpeg build.
 - FFmpeg source code: https://ffmpeg.org/download.html (version pinned in the build script).
 - Licence text: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
-
-## App icon
-
-The icon is the character 映 ("screening") from the Zhi Mang Xing typeface, converted to outlines
-(`App/Resources/AppIcon.svg`, `Glyph.svg`).
-
-- Zhi Mang Xing, copyright the Zhi Mang Xing project authors, licensed under the SIL Open Font
-  License 1.1: https://openfontlicense.org (from Google Fonts).
