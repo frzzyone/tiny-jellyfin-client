@@ -28,9 +28,11 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     var prepareError: Error?
     var switchError: Error?
     var switchDelay: TimeInterval = 0
+    var prepareDelay: TimeInterval = 0
 
     func prepare(source: MediaSource, startAt: Double) async throws {
         prepared.append((source, startAt))
+        if prepareDelay > 0 { try await Task.sleep(nanoseconds: UInt64(prepareDelay * 1_000_000_000)) }
         if let prepareError { throw prepareError }
         currentTime = startAt
         state = .paused

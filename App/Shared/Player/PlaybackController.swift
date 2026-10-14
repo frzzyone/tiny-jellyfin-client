@@ -177,6 +177,9 @@ final class PlaybackController {
     private func begin(item: BaseItem, from position: StartPosition, quality requested: QualityPreset?,
                        carry: Carryover? = nil) async {
         guard let service else { return }
+        // A transcode asked for but not yet playing: the server is encoding it for nobody if this
+        // start is abandoned (the player closed while opening) or fails.
+        var unadopted: ResolvedStream?
         do {
             // Always ask the server for the item: a card can be minutes old, and its saved
             // position is what Resume means.
@@ -211,6 +214,7 @@ final class PlaybackController {
                                                          startSeconds: start, mediaSourceId: full.mediaSources?.first?.id,
                                                          subtitleStreamIndex: -1, audioStreamIndex: nil)
             }
+            unadopted = stream
             try Task.checkCancellation()
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
@@ -238,6 +242,7 @@ final class PlaybackController {
             session = PlaybackSession(itemId: item.id, mediaSourceId: stream.mediaSourceId,
                                       playSessionId: stream.playSessionId, playMethod: stream.playMethod,
                                       quality: quality, burnInSubtitle: stream.burnedInSubtitle, audio: audio)
+            unadopted = nil   // the session reports its stop and ends its encoding from here
             lastKnownPosition = start
             currentTime = start
             await beforePlay?(engine)
@@ -260,7 +265,9 @@ final class PlaybackController {
                 selectSubtitle(track.index)
             }
         } catch is CancellationError {
+            Self.endEncoding(unadopted, service)
         } catch {
+            Self.endEncoding(unadopted, service)
             PlayerLog.engine("Controller: playback failed to start: \(error)")
             loadingDetail = nil
             status = .failed(describe(error))
@@ -501,6 +508,11 @@ final class PlaybackController {
 
     func dismissSwitchError() { switchError = nil }
 
+    private static func endEncoding(_ stream: ResolvedStream?, _ service: PlaybackService) {
+        guard let stream, stream.playMethod != .directPlay, let id = stream.playSessionId else { return }
+        Task.detached { try? await service.endEncoding(playSessionId: id) }
+    }
+
     static func isTimeout(_ error: Error) -> Bool {
         error is TimeoutError || (error as? EngineError)?.isTimeout == true
     }
@@ -628,7 +640,7 @@ final class PlaybackController {
                 if self.selectedSubtitle == index { self.drawnPictureFile = file }
             } catch {
                 guard let self, !Task.isCancelled else { return }
-                PlayerLog.engine("Controller: subtitle \(index) has no extracted copy on the server (\(error)); burning it in")
+                PlayerLog.engine("Controller: subtitle \(index) has no extracted copy on the server (\(error.localizedDescription)); burning it in")
                 self.pictureFileMissing.insert(index)
                 // A restart, not a seamless switch: a stream that burns subtitles in rarely catches
                 // up with the playing one (about 35 s on a 4K remux, against 15 s this way).

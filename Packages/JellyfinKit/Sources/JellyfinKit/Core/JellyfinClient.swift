@@ -91,6 +91,9 @@ public final class JellyfinClient: @unchecked Sendable {
             throw CancellationError()
         } catch {
             if (error as? URLError)?.code == .cancelled { throw CancellationError() }
+            if let code = (error as? URLError)?.code, Self.certificateErrors.contains(code) {
+                throw JellyfinError.untrustedCertificate
+            }
             throw JellyfinError.network(error.localizedDescription)
         }
         guard let http = response as? HTTPURLResponse else {
@@ -103,9 +106,21 @@ public final class JellyfinClient: @unchecked Sendable {
             onUnauthorized?()
             throw JellyfinError.unauthorized
         default:
-            let message = String(data: data, encoding: .utf8).flatMap { $0.isEmpty ? nil : String($0.prefix(200)) }
-            throw JellyfinError.server(status: http.statusCode, message: message)
+            throw JellyfinError.server(status: http.statusCode, message: Self.readableMessage(data))
         }
+    }
+
+    static let certificateErrors: Set<URLError.Code> = [
+        .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot,
+        .serverCertificateNotYetValid, .secureConnectionFailed,
+    ]
+
+    /// A server error's body, when it is a short line of text. A reverse proxy's HTML page or a
+    /// stack trace is no message for the user; the status code says enough.
+    static func readableMessage(_ data: Data) -> String? {
+        guard let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty, !text.hasPrefix("<"), !text.contains("\n"), text.count <= 200 else { return nil }
+        return text
     }
 
     func get<T: Decodable>(_ path: String, query: [String: String?] = [:], as type: T.Type = T.self) async throws -> T {

@@ -58,6 +58,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var externalSubtitles: SubtitleTrackStore?
     /// Bumped by `stop()`, so a `prepare` that finishes afterwards knows it was abandoned.
     private var generation = 0
+    /// Counts seeks: only the newest one resets the clock, and a switch started before one is abandoned.
+    private var seekSerial = 0
 
     // Snapshot for main-thread readers.
     private let snapshotLock = NSLock()
@@ -171,7 +173,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             try await waitForBuffer(pipeline, seconds: startThreshold, timeout: 30, generation: generation)
         } catch {
             pipeline.stop()
-            if !(error is CancellationError) { setState(.failed(String(describing: error))) }
+            if !(error is CancellationError) {
+                setState(.failed((error as? LocalizedError)?.errorDescription ?? String(describing: error)))
+            }
             throw error
         }
         try queue.sync {
@@ -250,13 +254,14 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     public func selectAudioTrack(_ id: Int) async {
         await seek(to: currentTime, audioTrack: id)
         let track = queue.sync { active?.audioStream }
-        snapshotLock.lock(); snapshotAudioTrack = track; snapshotLock.unlock()
+        snapshotLock.withLock { snapshotAudioTrack = track }
     }
 
     private func seek(to time: Double, audioTrack: Int?) async {
         let target = max(0, time)
-        guard let pipeline = queue.sync(execute: { () -> Pipeline? in
+        guard let (pipeline, serial) = queue.sync(execute: { () -> (Pipeline, Int)? in
             guard let active else { return nil }
+            seekSerial += 1
             stopFeeding()
             synchronizer.rate = 0
             videoRenderer.flush()
@@ -264,17 +269,20 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             cancelSplice()
             pendingAudio.removeAll()
             if case .decode(let decoder) = active.audioMode { decoder.flush() }
+            setHeldTime(target)   // the position shows the target while the reader repositions
             setState(.buffering)
-            return active
+            return (active, seekSerial)
         }) else { return }
         await pipeline.seek(to: target, audioStream: audioTrack)
-        queue.sync {
-            guard active === pipeline else { return }
+        // Two quick skips finish in either order: only the newest sets the clock.
+        let latest = queue.sync { () -> Bool in
+            guard active === pipeline, seekSerial == serial else { return false }
             resetTimeline(at: target)
             startFeeding()
             if desiredRate == 0 { setState(.paused) }
+            return true
         }
-        emit(.jumped(target))
+        if latest { emit(.jumped(target)) }
     }
 
     private func resetTimeline(at time: Double) {
@@ -288,7 +296,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     // MARK: Quality switch (prepare-then-splice)
 
     public func switchSource(_ source: MediaSource, startAt: Double) async throws {
-        let pipeline = Pipeline(source: source, allowDolbyVision: queue.sync { allowDolbyVision })
+        let (allowDV, serial) = queue.sync { (allowDolbyVision, seekSerial) }
+        let pipeline = Pipeline(source: source, allowDolbyVision: allowDV)
         do {
             try await open(pipeline, startAt: startAt)
             pipeline.start()
@@ -297,6 +306,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             pipeline.stop()
             throw error
         }
+        // A seek since the switch began moved the clock away from where the new stream starts:
+        // give the switch up (the controller restarts at the new position, as after a timeout).
+        let interrupted = EngineError("A seek interrupted the switch.", isTimeout: true)
 
         // Splice at the first keyframe of the new stream that comes after everything already
         // handed to the renderers; wait briefly for the new stream to reach one.
@@ -305,6 +317,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         while true {
             if Task.isCancelled { pipeline.stop(); throw CancellationError() }
             let outcome: Bool? = try queue.sync {
+                guard seekSerial == serial else { pipeline.stop(); throw interrupted }
                 guard let active else { pipeline.stop(); throw EngineError("Nothing is playing.") }
                 let bound = max(currentTime + 0.3, hasVideo ? lastVideoEnd : 0, hasAudio ? lastAudioEnd : 0)
                 let keyframe = pipeline.videoStream == nil
@@ -340,8 +353,19 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             let deadline = Date().addingTimeInterval(30)
             waiting: while true {
                 let cancelled = Task.isCancelled
-                let backedOut: Bool? = queue.sync {
-                    guard incoming === pipeline else { return false }
+                let backedOut: Bool? = try queue.sync {
+                    guard seekSerial == serial else { pipeline.stop(); throw interrupted }
+                    // Done when the new stream is the playing one; anything else gave the switch up.
+                    guard incoming === pipeline else {
+                        if active === pipeline { return false }
+                        pipeline.stop()
+                        throw interrupted
+                    }
+                    if let failure = pipeline.hasFailed {
+                        // The new stream broke before the splice: keep playing the old one.
+                        cancelSplice()
+                        throw EngineError(failure)
+                    }
                     // The caller gave up (the controller's timeout): keep the old stream rather than
                     // finish the switch after it has said the switch failed.
                     if cancelled { cancelSplice(); return true }
@@ -743,8 +767,15 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         defer { watchdog.cancel() }
         let started = Date()
         do {
-            try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+            // The detached open ignores cancellation; stopping the pipeline interrupts FFmpeg.
+            try await withTaskCancellationHandler {
+                try await Task.detached(priority: .userInitiated) { try pipeline.open(startAt: startAt) }.value
+            } onCancel: {
+                pipeline.stop()
+            }
+            try Task.checkCancellation()
         } catch {
+            if Task.isCancelled { throw CancellationError() }
             guard Date().timeIntervalSince(started) >= limit else { throw error }
             throw EngineError("The server took too long to start the video.", isTimeout: true)
         }

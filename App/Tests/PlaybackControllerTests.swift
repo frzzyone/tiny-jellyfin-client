@@ -268,6 +268,25 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(prefs.preferredQualityId(server: service.serverURL))
     }
 
+    /// Closing the player while a transcode is still opening: nothing will report its stop, so
+    /// the controller tells the server to end the encoding itself.
+    func testClosingWhileOpeningEndsTheTranscode() async {
+        let controller = PlaybackController(engineFactory: { [unowned self] in
+            let engine = FakeEngine()
+            engine.prepareDelay = 5
+            self.engines.append(engine)
+            return engine
+        }, preferences: prefs, capabilities: PlaybackCapabilities(av1: false))
+        let service = FakeService(item: movie())
+        service.nextMethod = .transcode
+        controller.start(item: service.item, resume: false, service: service)
+        let opening = await eventually { !self.engines.isEmpty && !self.engines[0].prepared.isEmpty }
+        XCTAssertTrue(opening)
+        controller.stop()
+        let ended = await eventually { service.recorded.contains("endEncoding:ps1") }
+        XCTAssertTrue(ended, "\(service.recorded)")
+    }
+
     func testFailedSwitchStopsItsTranscode() async {
         let (controller, service, engine) = await started(method: .transcode)
         engine.switchError = EngineError("boom")

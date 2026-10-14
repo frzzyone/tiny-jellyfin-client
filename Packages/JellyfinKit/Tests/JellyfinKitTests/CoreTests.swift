@@ -31,6 +31,19 @@ final class ClientIdentityTests: XCTestCase {
 final class ServerAddressTests: XCTestCase {
     func n(_ s: String) throws -> String { try ServerAddress.normalize(s).absoluteString }
 
+    func testPlainHTTPFallbackOnlyWithoutAScheme() {
+        XCTAssertEqual(ServerAddress.plainHTTPFallback(for: " media.lan:8096/jf/ ")?.absoluteString, "http://media.lan:8096/jf")
+        XCTAssertNil(ServerAddress.plainHTTPFallback(for: "https://media.lan"))
+        XCTAssertNil(ServerAddress.plainHTTPFallback(for: "http://media.lan"))
+    }
+
+    func testServerErrorPagesAreNotShownAsMessages() {
+        XCTAssertEqual(JellyfinClient.readableMessage(Data("Item not found".utf8)), "Item not found")
+        XCTAssertNil(JellyfinClient.readableMessage(Data("<html><body>502 Bad Gateway</body></html>".utf8)))
+        XCTAssertNil(JellyfinClient.readableMessage(Data("System.Exception: boom\n   at Jellyfin.Api…".utf8)))
+        XCTAssertNil(JellyfinClient.readableMessage(Data()))
+    }
+
     func testAddsHTTPSWhenNoScheme() throws {
         XCTAssertEqual(try n("media.example.com:8096"), "https://media.example.com:8096")
     }

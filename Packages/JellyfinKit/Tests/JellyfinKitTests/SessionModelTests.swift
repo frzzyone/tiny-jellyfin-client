@@ -52,6 +52,30 @@ final class SessionModelTests: XCTestCase {
         XCTAssertEqual(connected.url.scheme, "http")
     }
 
+    /// A home server on plain HTTP, typed without a scheme: https fails, http answers.
+    func testAddressWithoutSchemeFallsBackToHTTP() async {
+        let server = StubServer()
+        server.on("GET", "/System/Info/Public") { request in
+            guard request.url?.scheme == "http" else { throw URLError(.cannotConnectToHost) }
+            return (200, Data(#"{"ServerName":"LAN","Version":"10.9.0","Id":"x"}"#.utf8))
+        }
+        let model = SessionModel(tokens: tokens, preferences: prefs, deviceName: "Mac", appVersion: "1", urlSession: server.session)
+        await model.connect(address: server.host + ":8096")
+        guard case .signIn(let connected, _, _) = model.state else { return XCTFail("\(model.state)") }
+        XCTAssertEqual(connected.url.absoluteString, "http://\(server.host):8096")
+        XCTAssertEqual(server.requests.map { $0.url?.scheme }, ["https", "http"])
+    }
+
+    func testExplicitHTTPSIsNotDowngraded() async {
+        let server = StubServer()
+        server.on("GET", "/System/Info/Public") { _ in throw URLError(.serverCertificateUntrusted) }
+        let model = SessionModel(tokens: tokens, preferences: prefs, deviceName: "Mac", appVersion: "1", urlSession: server.session)
+        await model.connect(address: "https://" + server.host)
+        guard case .serverEntry(_, let error) = model.state else { return XCTFail("\(model.state)") }
+        XCTAssertEqual(error, JellyfinError.untrustedCertificate.errorDescription, "a self-signed server is not 'not Jellyfin'")
+        XCTAssertEqual(server.requests.count, 1, "no http retry when https was asked for")
+    }
+
     func testUnreachableServerStaysOnServerStep() async {
         let model = makeModel()
         await model.connect(address: "https://nowhere.invalid-host.test")

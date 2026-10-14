@@ -441,6 +441,63 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(advancing, "old stream stopped: \(engine.debugSummary)")
     }
 
+    /// Scrubbing while a quality switch is under way: the switch is given up (the controller
+    /// restarts at the new position) and the old stream plays on from where the seek took it.
+    func testSeekDuringSwitchAbandonsIt() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
+        engine.play()
+        let task = Task { try await engine.switchSource(MediaSource(url: try Fixtures.url("h264_aac_low.mp4")), startAt: 1) }
+        let chosen = await waitFor(5) { !engine.debugSummary.hasSuffix("splice=-") }
+        XCTAssertTrue(chosen, "no splice point: \(engine.debugSummary)")
+        await engine.seek(to: 5)
+        do {
+            try await task.value
+            XCTFail("the switch finished after a seek")
+        } catch {
+            XCTAssertEqual((error as? EngineError)?.isTimeout, true, "\(error)")
+        }
+        XCTAssertTrue(engine.debugSummary.hasSuffix("splice=-"), engine.debugSummary)
+        let moving = await waitFor(3) { engine.currentTime > 5.3 }
+        XCTAssertTrue(moving, "old stream didn't play on from the seek: \(engine.debugSummary)")
+        XCTAssertLessThan(engine.currentTime, 8)
+    }
+
+    /// Two skips in a row: the clock ends at the second, whichever reposition finishes last.
+    func testOverlappingSeeksLandOnTheNewest() async throws {
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), startAt: 0)
+        let first = Task { await engine.seek(to: 2) }
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let second = Task { await engine.seek(to: 6) }
+        _ = await (first.value, second.value)
+        XCTAssertEqual(engine.currentTime, 6, accuracy: 0.3, engine.debugSummary)
+    }
+
+    /// Closing the player while a slow server is still answering: the open stops at once.
+    func testCancelledOpenStopsAtOnce() async throws {
+        let server = try TestHTTPServer()
+        let engine = engine()
+        defer { engine.stop() }
+        let task = Task {
+            try await engine.prepare(source: MediaSource(url: server.url("h264_aac.mp4?slow=3"),
+                                                         headers: TestHTTPServer.authHeaders), startAt: 0)
+        }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let cancelled = Date()
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("opened despite the cancel")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(cancelled), 1)
+        if case .failed(let message) = engine.state { XCTFail("closing is not a playback error: \(message)") }
+    }
+
     func testFailedSwitchKeepsPlaying() async throws {
         let engine = engine()
         defer { engine.stop() }

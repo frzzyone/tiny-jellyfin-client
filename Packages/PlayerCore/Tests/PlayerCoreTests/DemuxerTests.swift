@@ -181,6 +181,19 @@ final class HTTPTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.6, "a 503 is retried")
     }
 
+    /// Transcode URLs carry the access token; a failed request's error reaches logs and the screen.
+    func testFailedRequestErrorsDontCarryTheURL() throws {
+        let source = HTTPByteSource(url: URL(string: "http://127.0.0.1:1/master.m3u8?api_key=secret-token")!,
+                                    headers: [:], session: HTTPByteSource.makeSession())
+        source.retryDelays = []
+        XCTAssertThrowsError(try source.read(at: 0, maxLength: 10)) { error in
+            XCTAssertEqual((error as? URLError)?.code, .cannotConnectToHost)
+            for text in [String(describing: error), error.localizedDescription, "\(error as NSError)"] {
+                XCTAssertFalse(text.contains("secret-token"), text)
+            }
+        }
+    }
+
     func testServerIgnoringRangeStillWorks() throws {
         let server = try TestHTTPServer()
         var components = URLComponents(url: server.url("h264_aac.mp4"), resolvingAgainstBaseURL: false)!

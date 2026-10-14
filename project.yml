@@ -7,6 +7,9 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # One version for every target; bump CURRENT_PROJECT_VERSION for each upload.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
@@ -29,6 +32,8 @@ targets:
       - path: App/Shared
       - path: App/macOS
       - path: App/Resources/Assets.xcassets
+      - path: App/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
       # FFmpeg's licence and build record, shown under Acknowledgements (written by build-ffmpeg.sh).
@@ -43,11 +48,13 @@ targets:
       path: App/Resources/Info.plist
       properties:
         CFBundleDisplayName: Kinema
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSApplicationCategoryType: public.app-category.entertainment
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "FFmpeg is used under the LGPL v2.1 — see Kinema › Acknowledgements."
+        NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
         # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
@@ -80,6 +87,8 @@ targets:
       - path: App/Shared
       - path: App/iOS
       - path: App/Resources/Assets.xcassets
+      - path: App/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
       # FFmpeg's licence and build record, shown under Acknowledgements (written by build-ffmpeg.sh).
@@ -94,8 +103,9 @@ targets:
       path: App/Resources/Info-iOS.plist
       properties:
         CFBundleDisplayName: Kinema
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UIBackgroundModes: [audio]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
@@ -126,6 +136,8 @@ targets:
       - path: App/tvOS
       - path: App/Resources/Assets.xcassets
       - path: App/Resources/TV.xcassets
+      - path: App/Resources/tvOS/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: THIRD_PARTY_NOTICES.md
         buildPhase: resources
       - path: Vendor/FFmpeg/COPYING.LGPLv2.1
@@ -147,8 +159,9 @@ targets:
       path: App/Resources/Info-tvOS.plist
       properties:
         CFBundleDisplayName: Kinema
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
         # Top Shelf links: tinyjellyfin://item/<id>, tinyjellyfin://play/<id>.
@@ -157,6 +170,7 @@ targets:
             CFBundleURLSchemes: [tinyjellyfin]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.tv
@@ -177,6 +191,8 @@ targets:
       - path: App/tvOS/TVShared.swift
       - path: App/Shared/KeychainTokenStore.swift
       - path: App/Shared/TopShelfLink.swift
+      - path: App/Resources/tvOS/PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: JellyfinKit
       - sdk: TVServices.framework
@@ -189,13 +205,14 @@ targets:
       path: App/Resources/Info-TopShelf.plist
       properties:
         CFBundleDisplayName: Kinema Top Shelf
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.tv-top-shelf
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ContentProvider
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.tv.topshelf

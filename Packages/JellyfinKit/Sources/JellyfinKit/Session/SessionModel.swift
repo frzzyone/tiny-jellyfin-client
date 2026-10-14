@@ -108,13 +108,20 @@ public final class SessionModel {
             state = .serverEntry(prefill: address, error: (error as? JellyfinError)?.errorDescription)
             return
         }
-        do {
-            let info = try await makeClient(url).publicSystemInfo()
-            let server = ConnectedServer(url: url, name: info.serverName ?? url.host ?? url.absoluteString)
-            state = .signIn(server: server, username: "", error: nil)
-        } catch {
-            state = .serverEntry(prefill: address, error: JellyfinError.notJellyfin.errorDescription)
+        // No scheme typed: https first, then plain http (a home server usually has no certificate).
+        var failure: Error?
+        for candidate in [url] + [ServerAddress.plainHTTPFallback(for: address)].compactMap({ $0 }) {
+            do {
+                let info = try await makeClient(candidate).publicSystemInfo()
+                let server = ConnectedServer(url: candidate, name: info.serverName ?? candidate.host ?? candidate.absoluteString)
+                state = .signIn(server: server, username: "", error: nil)
+                return
+            } catch {
+                failure = failure ?? error
+            }
         }
+        let reason: JellyfinError = failure as? JellyfinError == .untrustedCertificate ? .untrustedCertificate : .notJellyfin
+        state = .serverEntry(prefill: address, error: reason.errorDescription)
     }
 
     public func signIn(username: String, password: String) async {

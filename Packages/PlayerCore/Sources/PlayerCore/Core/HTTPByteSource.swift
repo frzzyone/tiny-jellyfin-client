@@ -234,7 +234,9 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         guard task === self.task else { return }
         if let error {
             if (error as? URLError)?.code != .cancelled, failure == nil {
-                failure = error
+                // The code only: URLSession's error carries the URL, and a transcode's URLs carry
+                // the access token (`api_key`); this error ends up in logs and on screen.
+                failure = (error as? URLError).map { URLError($0.code) } ?? error
                 PlayerLog.network("HTTP error \(url.path) at byte \(bufferOffset + Int64(buffer.count)): \(error.localizedDescription)")
             }
         } else if failure == nil {

@@ -25,4 +25,12 @@ public enum ServerAddress {
         guard let url = components.url else { throw JellyfinError.invalidAddress }
         return url
     }
+
+    /// The plain-HTTP address to try when `input` named no scheme and `https://` failed: a server
+    /// on a home network usually has no certificate. nil when the user chose a scheme.
+    public static func plainHTTPFallback(for input: String) -> URL? {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.contains("://") else { return nil }
+        return try? normalize("http://" + text)
+    }
 }

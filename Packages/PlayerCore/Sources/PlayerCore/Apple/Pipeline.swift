@@ -280,7 +280,9 @@ final class Pipeline: @unchecked Sendable {
         let fresh = Demuxer(url: source.url, factory: DefaultByteSourceFactory(headers: source.headers))
         fresh.setTimelineOffset(old.timelineOffset)
         do {
-            try fresh.open()
+            // Opened at the target, as the first open is: probing from the start would make the
+            // server encode from 0 before the seek.
+            try fresh.open(seekBeforeProbe: target)
             if target > 0.5 { try? fresh.seek(to: target) }
         } catch {
             try? old.seek(to: target)

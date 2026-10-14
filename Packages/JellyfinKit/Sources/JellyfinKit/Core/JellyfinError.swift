@@ -13,6 +13,8 @@ public enum JellyfinError: Error, Equatable, Sendable {
     case invalidAddress
     /// The server reachable at the address does not look like Jellyfin.
     case notJellyfin
+    /// The server's TLS certificate isn't trusted (self-signed, expired, wrong name).
+    case untrustedCertificate
     /// The server could not produce any stream this client can play.
     case noPlayableStream(String?)
 }
@@ -26,6 +28,8 @@ extension JellyfinError: LocalizedError {
         case .decoding: return "The server sent a response this app does not understand."
         case .invalidAddress: return "That doesn't look like a server address."
         case .notJellyfin: return "The server could not be reached, or it is not a Jellyfin server."
+        case .untrustedCertificate:
+            return "The server's certificate isn't trusted. Use its http:// address, or give it a certificate from a trusted authority."
         case .noPlayableStream(let reason):
             return "This video can't be played." + (reason.map { " (\($0))" } ?? "")
         }
