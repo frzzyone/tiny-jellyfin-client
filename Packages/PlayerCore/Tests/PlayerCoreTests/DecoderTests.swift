@@ -31,6 +31,9 @@ final class AudioDecoderTests: XCTestCase {
         let halfSample = 0.5 / Double(first.sampleRate)
         let overlaps = zip(frames, frames.dropFirst()).filter { $1.pts < $0.pts + $0.duration - halfSample }.count
         XCTAssertEqual(overlaps, 0, "\(name): frames overlapping the one before", file: file, line: line)
+        // The renderer plays very short buffers as silence (TrueHD frames are 40 samples).
+        XCTAssertEqual(frames.filter { $0.frameCount < AudioDecoder.minimumFrames }.count, 0,
+                       "\(name): frames shorter than \(AudioDecoder.minimumFrames) samples", file: file, line: line)
     }
 
     func testDTS51() throws { try assertDecodes("h264_dts.mkv", channels: 6) }

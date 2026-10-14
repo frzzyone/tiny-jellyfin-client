@@ -29,6 +29,11 @@ final class AudioDecoder {
     private let lock = NSLock()
     /// Above a millisecond's rounding, below one frame of most codecs (AC-3 32 ms, DTS 10.7 ms).
     static let stampTolerance = 0.005
+    /// Shorter frames are joined up to this: AVSampleBufferAudioRenderer plays buffers of a few
+    /// dozen samples (TrueHD's 40) as silence, and takes 512 (DTS) fine.
+    static let minimumFrames = 1024
+    /// Frames waiting to be joined into one of at least `minimumFrames`.
+    private var held: AudioFrame?
 
     init(parameters: UnsafePointer<AVCodecParameters>, timeBase: AVRational, timelineOffset: Double) throws {
         self.timeBase = timeBase
@@ -57,7 +62,7 @@ final class AudioDecoder {
         if avcodec_send_packet(codec, packet.pointer) < 0 { return [] }
         var output: [AudioFrame] = []
         while avcodec_receive_frame(codec, frame) >= 0 {
-            if let converted = convert(frame) { output.append(converted) }
+            if let converted = convert(frame) { output += join(converted) }
             av_frame_unref(frame)
         }
         return output
@@ -67,6 +72,26 @@ final class AudioDecoder {
         lock.lock(); defer { lock.unlock() }
         if let codec { avcodec_flush_buffers(codec) }
         nextPTS = nil
+        held = nil
+    }
+
+    /// Holds short frames back until they add up to `minimumFrames`. A frame that doesn't follow on
+    /// from the held ones (another format, or a gap) sends the held ones out as they are.
+    private func join(_ frame: AudioFrame) -> [AudioFrame] {
+        var out: [AudioFrame] = []
+        var next = frame
+        if let held {
+            if held.sampleRate == frame.sampleRate, held.channels == frame.channels, held.channelMask == frame.channelMask,
+               abs(held.pts + held.duration - frame.pts) < 0.5 / Double(frame.sampleRate) {
+                next = AudioFrame(pts: held.pts, sampleRate: held.sampleRate, channels: held.channels,
+                                  channelMask: held.channelMask, frameCount: held.frameCount + frame.frameCount,
+                                  samples: held.samples + frame.samples)
+            } else {
+                out.append(held)
+            }
+        }
+        if next.frameCount >= Self.minimumFrames { out.append(next); held = nil } else { held = next }
+        return out
     }
 
     private func convert(_ frame: UnsafeMutablePointer<AVFrame>) -> AudioFrame? {

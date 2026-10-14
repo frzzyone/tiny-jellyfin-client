@@ -106,10 +106,12 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   a store that keeps the latest 80 events. Selecting a track re-reads from the clock, or the
   events between the clock and the reader are missed. PGS events have no end time: each lasts
   until the next event or clear.
-- **Decoded audio is stamped sample-exact.** Matroska rounds timestamps to the millisecond and a
-  TrueHD frame is 0.83 ms, so container stamps made every TrueHD buffer overlap the last and the
-  renderer played silence (Avatar). `AudioDecoder` carries on from the previous frame's end unless
-  the stamp is more than `stampTolerance` away; `assertDecodes` checks no frame overlaps.
+- **Decoded audio reaches the renderer in buffers of 1024+ samples, stamped sample-exact.**
+  `AVSampleBufferAudioRenderer` plays buffers of a few dozen samples as silence, with no error and
+  status "rendering": TrueHD frames are 40 samples, so Avatar played silent. `AudioDecoder` joins
+  short frames up to `minimumFrames`, and carries each frame on from the last one's end unless the
+  container's stamp (Matroska rounds to the millisecond) is more than `stampTolerance` away.
+  `assertDecodes` checks both for every codec.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
   lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and
