@@ -136,7 +136,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   `TJ_PHONE_MENU=Quality|Subtitles` and `TJ_AUTOSTOP` in the player.
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
-  stops looking once the bars have held for ten looks (`Picture bars settled …`).
+  stops looking once the bars have held for ten looks (`Picture bars settled …`). A reading that is
+  off centre or wider than 2.8:1 is a dark scene and is ignored; one once settled at 31%/25% and
+  lifted the subtitles into the picture.
 - Running `xcodebuild` from a terminal while Xcode has the project open: pass `-derivedDataPath`
   somewhere else. Sharing Xcode's DerivedData has produced stale test bundles, stale package
   frameworks, and a code-sign failure while the app was running from Xcode.

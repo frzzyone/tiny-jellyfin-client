@@ -35,7 +35,8 @@ final class LetterboxTests: XCTestCase {
     func testFindsBarsInEightBitFrames() {
         XCTAssertEqual(detector.bars(in: frame(top: 45, bottom: 45)), PictureBars(top: 0.125, bottom: 0.125))
         XCTAssertEqual(detector.bars(in: frame(top: 0, bottom: 0)), PictureBars(top: 0, bottom: 0))
-        XCTAssertEqual(detector.bars(in: frame(top: 36, bottom: 0)), PictureBars(top: 0.1, bottom: 0))
+        XCTAssertEqual(detector.bars(in: frame(top: 46, bottom: 44)), PictureBars(top: 46.0 / 360, bottom: 44.0 / 360),
+                       "a row or two off centre")
     }
 
     func testFindsBarsInTenBitFrames() {
@@ -94,6 +95,14 @@ final class LetterboxTests: XCTestCase {
         XCTAssertEqual(bars.bottom, 0.125, accuracy: 0.01)
         XCTAssertEqual(detector.bars(in: bgraFrame(top: 0, bottom: 0)), PictureBars(top: 0, bottom: 0),
                        "scaling the copy must not darken its edge rows")
+    }
+
+    /// A dark scene lights only part of the frame: not a centred picture of a film's shape.
+    func testDarkSceneIsNotBars() {
+        XCTAssertNil(detector.bars(in: frame(top: 110, bottom: 90)), "uneven: 31% and 25%")
+        XCTAssertNil(detector.bars(in: frame(top: 36, bottom: 0)), "one side only")
+        XCTAssertNil(detector.bars(in: frame(top: 90, bottom: 90)), "a 3.6:1 picture")
+        XCTAssertNotNil(detector.bars(in: frame(top: 54, bottom: 54)), "2.55:1")
     }
 
     func testMostlyBlackFrameSaysNothing() {

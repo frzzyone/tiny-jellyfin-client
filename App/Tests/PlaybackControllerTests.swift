@@ -38,16 +38,16 @@ final class PlaybackControllerTests: XCTestCase {
         let (controller, _, engine) = await started()
         engine.send(.state(.playing))
         controller.barSampleInterval = 0.05
-        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 50, bottom: 50)
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 30, bottom: 30)
         let dark = await eventually(1) { controller.pictureBars != nil }
         XCTAssertTrue(dark)
-        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25))
-        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 25, bottom: 30)
-        let narrowed = await eventually(1) { controller.pictureBars == PictureBars(top: 0.125, bottom: 0.15) }
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 30.0 / 180, bottom: 30.0 / 180))
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 22, bottom: 24)
+        let narrowed = await eventually(1) { controller.pictureBars == PictureBars(top: 22.0 / 180, bottom: 24.0 / 180) }
         XCTAssertTrue(narrowed, "\(String(describing: controller.pictureBars))")
-        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 90, bottom: 90)
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 28, bottom: 28)
         try? await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.125, bottom: 0.15), "a darker frame never widens the bars")
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 22.0 / 180, bottom: 24.0 / 180), "a darker frame never widens the bars")
         controller.stop()
         XCTAssertNil(controller.pictureBars)
     }
@@ -111,13 +111,13 @@ final class PlaybackControllerTests: XCTestCase {
         engine.send(.state(.playing))
         controller.barSampleInterval = 0.02
         controller.barSettledLooks = 5
-        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 50, bottom: 50)
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 30, bottom: 30)
         let settled = await eventually(3) { controller.barsSettled }
         XCTAssertTrue(settled)
-        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25))
-        engine.displayedFrame = letterboxedFrame(width: 320, height: 200, top: 10, bottom: 10)
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 30.0 / 180, bottom: 30.0 / 180))
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 10, bottom: 10)
         try? await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(controller.pictureBars, PictureBars(top: 0.25, bottom: 0.25), "no longer looking at the frames")
+        XCTAssertEqual(controller.pictureBars, PictureBars(top: 30.0 / 180, bottom: 30.0 / 180), "no longer looking at the frames")
     }
 
     func testResumeUsesTheServersPositionNotTheCards() async {

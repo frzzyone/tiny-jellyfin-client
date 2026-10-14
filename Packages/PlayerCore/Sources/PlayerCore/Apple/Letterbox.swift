@@ -32,6 +32,11 @@ public final class LetterboxDetector {
     static let columnStep = 8
     /// Frames darker than this (fade to black, a credits card) say nothing about the bars.
     static let minimumPictureShare = 0.3
+    /// Letterboxing centres the picture, and no film is wider than 2.76:1. Lit rows of any other
+    /// shape are a dark scene: a night shot once read as 31% and 25% bars and moved the subtitles
+    /// up into the picture.
+    static let maximumImbalance = 0.02
+    static let maximumAspect = 2.8
     /// Width of the readable copy; its rows give the bars to better than 1% of the height.
     static let copyWidth = 320
 
@@ -114,7 +119,10 @@ public final class LetterboxDetector {
 
         guard let first = (0..<height).first(where: isPicture), let last = (0..<height).last(where: isPicture) else { return nil }
         guard Double(last - first + 1) >= Double(height) * minimumPictureShare else { return nil }
-        return PictureBars(top: Double(first) / Double(height), bottom: Double(height - 1 - last) / Double(height))
+        let bars = PictureBars(top: Double(first) / Double(height), bottom: Double(height - 1 - last) / Double(height))
+        guard abs(bars.top - bars.bottom) <= maximumImbalance,
+              Double(width) / Double(height) / (1 - bars.top - bars.bottom) <= maximumAspect else { return nil }
+        return bars
     }
 }
 #endif
