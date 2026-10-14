@@ -165,9 +165,11 @@ extension JellyfinClient {
     /// segments are not affected. Verified against Jellyfin 12.2 and reproduced with FFmpeg 9.
     public static let hlsSegmentTimestampDelay: Double = 10
 
-    /// URL for an external (sidecar) text subtitle, converted by the server to SRT.
-    public func externalSubtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int) -> URL {
-        url("/Videos/\(itemId)/\(mediaSourceId)/Subtitles/\(streamIndex)/0/Stream.srt")
+    /// URL for a subtitle track as a file: text converted by the server to SRT, or a picture track
+    /// as the `.sup` it extracts.
+    public func externalSubtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int,
+                                    format: String = "srt") -> URL {
+        url("/Videos/\(itemId)/\(mediaSourceId)/Subtitles/\(streamIndex)/0/Stream.\(format)")
     }
 }
 

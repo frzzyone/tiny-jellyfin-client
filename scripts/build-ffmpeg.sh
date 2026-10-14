@@ -53,7 +53,8 @@ DECODERS+=",pcm_s16le,pcm_s16be,pcm_s24le,pcm_s24be,pcm_s32le,pcm_s32be,pcm_f32l
 DECODERS+=",srt,subrip,ass,ssa,webvtt,mov_text,text"
 # Picture subtitles (Blu-ray PGS, DVD, DVB), drawn by the app instead of burnt in by the server.
 DECODERS+=",pgssub,dvdsub,dvbsub"
-DEMUXERS="matroska,mov,mpegts,hls,srt,ass,webvtt,flac,wav,aac,ac3,eac3,mp3,dts,truehd"
+# `sup`: the PGS track Jellyfin extracted, drawn by the app during transcodes.
+DEMUXERS="matroska,mov,mpegts,hls,srt,ass,webvtt,sup,flac,wav,aac,ac3,eac3,mp3,dts,truehd"
 PARSERS="h264,hevc,av1,aac,aac_latm,ac3,dca,mlp,flac,opus,vorbis,mpegaudio,dvdsub,dvbsub"
 
 CONFIGURE_FLAGS=(

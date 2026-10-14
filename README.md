@@ -155,8 +155,8 @@ The player shows how the stream is delivered:
 
 - **Direct Play** — the file as-is.
 - **Direct Stream** — video unchanged; the server converts the container or audio.
-- **Transcode** — the server re-encodes the video (a lower preset, an unsupported codec, or burned-in image
-  subtitles).
+- **Transcode** — the server re-encodes the video (a lower preset, an unsupported codec, or image subtitles
+  the server hasn't extracted, which it burns in).
 
 ## Supported formats
 
@@ -168,7 +168,9 @@ Played locally, without server conversion:
 - **Subtitles:** SRT, WebVTT, MP4 timed text, SSA/ASS (shown as plain text); embedded or external.
   Drawn inside the picture (black bars encoded into the frames are detected and skipped), in
   Helvetica Neue sized for the picture. Blu-ray (PGS), DVD and DVB picture subtitles are drawn by
-  the app, where the disc places them, so remuxes play as they are (a transcode burns them in)
+  the app, where the disc places them, so remuxes play as they are. During a transcode the app draws
+  the copy the server extracted, so turn on subtitle extraction in Jellyfin; a track without one is
+  burnt in
 
 Anything else (for example VC-1, MPEG-2 or VP9 video) is converted by the server,
 because the app only advertises what it can play.

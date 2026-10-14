@@ -259,5 +259,7 @@ final class SubtitleSelectionTests: XCTestCase {
         let server = StubServer()
         let url = server.client().externalSubtitleURL(itemId: "m1", mediaSourceId: "src", streamIndex: 5)
         XCTAssertEqual(url.path, "/Videos/m1/src/Subtitles/5/0/Stream.srt")
+        XCTAssertEqual(server.client().externalSubtitleURL(itemId: "m1", mediaSourceId: "src", streamIndex: 5, format: "sup").path,
+                       "/Videos/m1/src/Subtitles/5/0/Stream.sup")
     }
 }

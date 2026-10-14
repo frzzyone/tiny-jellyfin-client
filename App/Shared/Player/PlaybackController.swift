@@ -118,6 +118,13 @@ final class PlaybackController {
     @ObservationIgnored private var progressTimer: Timer?
     @ObservationIgnored private var uiTimer: Timer?
     @ObservationIgnored private var externalCues: [Int: [SubtitleCue]] = [:]
+    /// The last picture subtitle track fetched from the server (`.sup`), kept across restarts of the
+    /// same item; the tracks the server had not extracted are burnt in instead.
+    @ObservationIgnored private var pictureFile: (index: Int, file: PictureSubtitleFile)?
+    @ObservationIgnored private var pictureFileMissing: Set<Int> = []
+    @ObservationIgnored private var drawnPictureFile: PictureSubtitleFile?
+    /// How long the server may take to start sending a `.sup`: one it already extracted starts at once.
+    @ObservationIgnored var pictureFileWait: TimeInterval = 5
     @ObservationIgnored let nowPlaying = NowPlayingPublisher()
     /// Runs once the stream is open, before the clock starts: the Apple TV switches the display
     /// to the video's frame rate and HDR mode here and waits for the TV to resync.
@@ -191,11 +198,19 @@ final class PlaybackController {
             PlayerLog.engine("Capabilities: av1=\(capabilities.av1) hevc10=\(capabilities.hevc10Bit) "
                              + "dolbyVision=\(capabilities.dolbyVision)")
             PlayerLog.engine("Controller: requesting stream for \(item.id) at \(quality.label), start \(start)")
-            let stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
+            var stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
                                                          startSeconds: start,
                                                          mediaSourceId: full.mediaSources?.first?.id,
                                                          subtitleStreamIndex: carry.map { $0.burnIn ?? -1 },
                                                          audioStreamIndex: carry?.audio)
+            let serverBurnIn = stream.burnedInSubtitle
+            if carry == nil, let burnt = serverBurnIn, !pictureFileMissing.contains(burnt) {
+                // The server's default picture subtitle would be burnt in. Ask again without it (no
+                // transcode has started yet) and draw it from the server's extracted copy.
+                stream = try await service.resolveStream(itemId: item.id, quality: quality, capabilities: capabilities,
+                                                         startSeconds: start, mediaSourceId: full.mediaSources?.first?.id,
+                                                         subtitleStreamIndex: -1, audioStreamIndex: nil)
+            }
             try Task.checkCancellation()
             mediaSource = stream.mediaSource
             subtitleOptions = Self.subtitleOptions(stream.mediaSource)
@@ -238,11 +253,10 @@ final class PlaybackController {
             PlayerLog.engine("Controller: server's default subtitle \(stream.mediaSource.defaultSubtitleStreamIndex.map(String.init) ?? "none"), burnt in \(stream.burnedInSubtitle.map(String.init) ?? "none")")
             if let carry {
                 if let subtitle = carry.subtitle { selectSubtitle(subtitle) }
-            } else if let track = SubtitleSelection.defaultTrack(for: stream.mediaSource) ?? stream.burnedInSubtitle.flatMap({ index in
-                stream.mediaSource.subtitleStreams.first { $0.index == index }
-            }) {
-                // The server's default for the user's preferences. A picture track is already burnt
-                // into the stream (`burnedInSubtitle`), so selecting it starts no second stream.
+            } else if let track = serverBurnIn.flatMap({ index in stream.mediaSource.subtitleStreams.first { $0.index == index } })
+                        ?? SubtitleSelection.defaultTrack(for: stream.mediaSource) {
+                // The server's default for the user's preferences. A picture track it burns in is
+                // already in the stream, so selecting it starts no second stream.
                 selectSubtitle(track.index)
             }
         } catch is CancellationError {
@@ -262,6 +276,8 @@ final class PlaybackController {
         subtitleTask?.cancel()
         stopEngine(report: true)
         item = nil
+        pictureFile = nil
+        pictureFileMissing = []
         status = .idle
         nowPlaying.end()
     }
@@ -281,6 +297,7 @@ final class PlaybackController {
         switchError = nil
         subtitleText = nil
         subtitleBitmap = nil
+        drawnPictureFile = nil
         selectedSubtitle = nil
         selectedAudio = nil
         externalCues = [:]
@@ -375,7 +392,7 @@ final class PlaybackController {
 
     func selectQuality(_ quality: QualityPreset) {
         guard let session, quality != session.quality else { return }
-        performSwitch(quality: quality, burnIn: selectedPictureSubtitle, audio: selectedAudio, persistQuality: true)
+        performSwitch(quality: quality, burnIn: burnInRequest, audio: selectedAudio, persistQuality: true)
     }
 
     /// Another audio track: in place during Direct Play (a short pause, like a seek), otherwise a
@@ -389,7 +406,7 @@ final class PlaybackController {
             Task { await engine.selectAudioTrack(index) }
             return
         }
-        performSwitch(quality: session.quality, burnIn: selectedPictureSubtitle, audio: index, persistQuality: false)
+        performSwitch(quality: session.quality, burnIn: burnInRequest, audio: index, persistQuality: false)
     }
 
     static func chapters(_ item: BaseItem) -> [ChapterMark] {
@@ -411,10 +428,10 @@ final class PlaybackController {
         source.audioStreams.map { AudioOption(id: $0.index, label: $0.displayTitle ?? $0.title ?? $0.language ?? "Track \($0.index)") }
     }
 
-    /// The selected picture subtitle, asked for with every new stream: the server embeds it when it
-    /// can send the file as is (the app draws it), and burns it in when it transcodes.
-    private var selectedPictureSubtitle: Int? {
-        subtitleOptions.first { $0.id == selectedSubtitle && $0.isImage }?.id
+    /// The picture subtitle new streams ask the server to burn in: the selected one, when the server
+    /// had no extracted copy for the app to draw.
+    private var burnInRequest: Int? {
+        selectedSubtitle.flatMap { pictureFileMissing.contains($0) ? $0 : nil }
     }
 
     private func performSwitch(quality: QualityPreset, burnIn: Int?, audio: Int?, persistQuality: Bool,
@@ -528,44 +545,46 @@ final class PlaybackController {
 
     func selectSubtitle(_ index: Int?) {
         guard let session else { return }
-        let option = subtitleOptions.first { $0.id == index }
-        if let option, option.isImage {
-            selectedSubtitle = index
-            if session.playMethod == .directPlay && !option.isExternal {
-                // The file plays as it is: the app draws the pictures itself.
-                applySubtitleSource()
-            } else {
-                // Otherwise the server burns them in (a stream switch at the same quality).
-                engine?.selectEmbeddedSubtitle(trackId: nil)
-                engine?.setExternalSubtitles(nil)
-                performSwitch(quality: session.quality, burnIn: index, audio: selectedAudio, persistQuality: false)
-            }
+        selectedSubtitle = index
+        let fromFile = session.playMethod == .directPlay && subtitleOptions.first { $0.id == index }?.isExternal == false
+        if let index, pictureFileMissing.contains(index), !fromFile {
+            // A picture track the app can't draw: the server burns it in (a stream switch at the same quality).
+            engine?.selectEmbeddedSubtitle(trackId: nil)
+            engine?.setExternalSubtitles(nil)
+            drawnPictureFile = nil
+            performSwitch(quality: session.quality, burnIn: index, audio: selectedAudio, persistQuality: false)
             return
         }
-        selectedSubtitle = index
         if session.burnInSubtitle != nil {
-            // Leaving burn-in: back to the delivery the quality allows, then show text cues.
+            // Leaving burn-in: back to the delivery the quality allows, then show the new track.
             performSwitch(quality: session.quality, burnIn: nil, audio: selectedAudio, persistQuality: false)
         }
         applySubtitleSource()
     }
 
     /// Text cues come from the running demuxer during Direct Play (instant), otherwise from the
-    /// server as SRT (transcoded HLS streams don't carry text subtitles).
+    /// server as SRT (transcoded HLS streams don't carry text subtitles). Picture tracks likewise,
+    /// from the server as the `.sup` it extracted.
     private func applySubtitleSource() {
         guard let engine, let session else { return }
         subtitleTask?.cancel()
+        drawnPictureFile = nil
         guard let index = selectedSubtitle, let option = subtitleOptions.first(where: { $0.id == index }) else {
             engine.selectEmbeddedSubtitle(trackId: nil)
             engine.setExternalSubtitles(nil)
             return
         }
         if option.isImage {
-            // Drawn by the app from the file during Direct Play; burnt into the picture otherwise.
             engine.setExternalSubtitles(nil)
-            let drawn = session.playMethod == .directPlay && !option.isExternal && session.burnInSubtitle != index
-            PlayerLog.engine("Controller: subtitle \(index) (\(option.label)) \(drawn ? "drawn by the app" : "burnt in by the server")")
-            engine.selectEmbeddedSubtitle(trackId: drawn ? index : nil)
+            let embedded = session.playMethod == .directPlay && !option.isExternal
+            engine.selectEmbeddedSubtitle(trackId: embedded ? index : nil)
+            if embedded || session.burnInSubtitle == index {
+                PlayerLog.engine("Controller: subtitle \(index) (\(option.label)) \(embedded ? "drawn by the app" : "burnt in by the server")")
+            } else if let pictureFile, pictureFile.index == index {
+                drawnPictureFile = pictureFile.file
+            } else {
+                loadPictureFile(index)
+            }
             return
         }
         if session.playMethod == .directPlay && !option.isExternal {
@@ -588,6 +607,31 @@ final class PlaybackController {
                 self.externalCues[index] = cues
                 self.engine?.setExternalSubtitles(cues)
             } catch {}
+        }
+    }
+
+    /// Fetches picture track `index` as the server extracted it, and draws it; burns it in instead
+    /// when the server doesn't start sending it in time (it would extract it first, for minutes).
+    private func loadPictureFile(_ index: Int) {
+        guard let service, let session else { return }
+        let itemId = session.itemId, mediaSourceId = session.mediaSourceId, wait = pictureFileWait
+        subtitleTask = Task { [weak self] in
+            let started = Date()
+            do {
+                let data = try await service.pictureSubtitleData(itemId: itemId, mediaSourceId: mediaSourceId,
+                                                                 streamIndex: index, wait: wait)
+                let file = try PictureSubtitleFile(data: data)
+                guard let self, !Task.isCancelled else { return }
+                PlayerLog.engine(String(format: "Controller: subtitle %d drawn by the app from the server's copy (%.1f MB in %.1f s)",
+                                        index, Double(data.count) / 1_000_000, Date().timeIntervalSince(started)))
+                self.pictureFile = (index, file)
+                if self.selectedSubtitle == index { self.drawnPictureFile = file }
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                PlayerLog.engine("Controller: subtitle \(index) has no extracted copy on the server (\(error)); burning it in")
+                self.pictureFileMissing.insert(index)
+                if self.selectedSubtitle == index { self.selectSubtitle(index) }
+            }
         }
     }
 
@@ -664,7 +708,7 @@ final class PlaybackController {
         // Transcoded streams learn their picture size from the first keyframe, after open.
         if videoSize == nil, let size = engine.videoSize, size.width > 0, size.height > 0 { videoSize = size }
         subtitleText = engine.subtitleText(at: currentTime)
-        let bitmap = engine.subtitleBitmap(at: currentTime)
+        let bitmap = drawnPictureFile?.bitmap(at: currentTime) ?? engine.subtitleBitmap(at: currentTime)
         if bitmap?.start != subtitleBitmap?.start || bitmap?.end != subtitleBitmap?.end { subtitleBitmap = bitmap }
         // Burned-in subtitles are the server's pixels; there is nothing of ours to place.
         if status == .playing, session?.burnInSubtitle == nil { sampleBars(engine) }

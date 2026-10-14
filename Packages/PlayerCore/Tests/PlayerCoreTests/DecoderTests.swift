@@ -96,6 +96,17 @@ final class SubtitleTests: XCTestCase {
         XCTAssertEqual(store.bitmap(at: 5.9)?.start, 4, "no end yet: shown until the next event")
     }
 
+    func testPictureSubtitleFileFollowsTheClock() throws {
+        let file = try PictureSubtitleFile(data: Data(contentsOf: Fixtures.url("subs.sup")))
+        XCTAssertNil(file.bitmap(at: 0.5))
+        XCTAssertEqual(file.bitmap(at: 2)?.start, 1)
+        XCTAssertNil(file.bitmap(at: 3.5), "cleared at 3 s")
+        XCTAssertEqual(file.bitmap(at: 5)?.start, 4)
+        XCTAssertEqual(file.bitmap(at: 2)?.start, 1, "back again")
+        XCTAssertEqual(file.bitmap(at: 200)?.start, 4, "the last event has no end")
+        XCTAssertThrowsError(try PictureSubtitleFile(data: Data("not a subtitle".utf8)))
+    }
+
     func testBitmapStoreKeepsTheLatestEventsOnly() {
         let store = BitmapSubtitleStore()
         func event(_ start: Double) -> SubtitleBitmap {

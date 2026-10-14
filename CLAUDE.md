@@ -88,7 +88,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   failing the same way) while the spinner turns. Only 408, 429 and 502–504 are retried: a 500 is
   Jellyfin's FFmpeg failing to start. `testFailingSegmentsFailTheOpenFast` guards this.
 - **Asking for no subtitle in particular lets the server burn in its default.** Read
-  `ResolvedStream.burnedInSubtitle`, and send `-1` for Off.
+  `ResolvedStream.burnedInSubtitle`, and send `-1` for Off. A burnt-in picture track is asked for
+  again with `-1` (PlaybackInfo starts no encode) and drawn from the server's `.sup`; only a track
+  the server hasn't extracted (no bytes within `pictureFileWait`) is burnt in.
 - **Picture subtitles are decoded for the selected track only** (a remux can carry dozens), into
   a store that keeps the latest 80 events. Selecting a track re-reads from the clock, or the
   events between the clock and the reader are missed. PGS events have no end time: each lasts

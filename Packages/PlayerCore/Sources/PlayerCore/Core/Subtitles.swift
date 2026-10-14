@@ -293,6 +293,58 @@ public enum ExternalSubtitles {
     }
 }
 
+/// A picture subtitle track as a file of its own (the `.sup` Jellyfin extracts), drawn while a
+/// transcode plays. Keeps the packets (about the file's size) and decodes the events around the
+/// asked time into a `BitmapSubtitleStore`, as the reader does for an embedded track.
+public final class PictureSubtitleFile: @unchecked Sendable {
+    private let packets: [Packet]
+    private var parameters: UnsafeMutablePointer<AVCodecParameters>?
+    private let timeBase: AVRational
+    private let lock = NSLock()
+    private var decoder: SubtitleDecoder?
+    private var store = BitmapSubtitleStore()
+    private var next = 0
+    private var decodedFrom = Double.infinity
+
+    public init(data: Data) throws {
+        let demuxer = Demuxer(url: URL(string: "memory://subtitle.sup")!,
+                              factory: SingleSourceFactory(source: DataByteSource(data)))
+        try demuxer.open()
+        defer { demuxer.close() }
+        guard let track = demuxer.tracks.first(where: { $0.kind == .subtitle }),
+              let stream = demuxer.stream(track.id) else { throw FFmpegError(cff_averror_invaliddata(), "no picture subtitles") }
+        parameters = avcodec_parameters_alloc()
+        try check(avcodec_parameters_copy(parameters, stream.pointee.codecpar), "subtitle parameters")
+        timeBase = stream.pointee.time_base
+        var packets: [Packet] = []
+        while let packet = try demuxer.readPacket() {
+            if packet.streamIndex == track.id, packet.pts != nil { packets.append(packet) }
+        }
+        self.packets = packets
+    }
+
+    deinit { avcodec_parameters_free(&parameters) }
+
+    public var packetCount: Int { packets.count }
+
+    public func bitmap(at time: Double) -> SubtitleBitmap? {
+        lock.lock(); defer { lock.unlock() }
+        // A jump back, or far ahead: start again a little before. An event lasts until the next one,
+        // so one shown more than 30 s before a seek is missed.
+        if time < decodedFrom || (next < packets.count && packets[next].pts! < time - 60) {
+            decodedFrom = time - 30
+            next = packets.firstIndex { $0.pts! >= decodedFrom } ?? packets.count
+            store = BitmapSubtitleStore()
+            decoder = parameters.flatMap { try? SubtitleDecoder(parameters: $0, timeBase: timeBase, timelineOffset: 0) }
+        }
+        while next < packets.count, packets[next].pts! <= time + 1 {
+            if let event = decoder?.decodePicture(packets[next]) { store.add(event.bitmap, at: event.time) }
+            next += 1
+        }
+        return store.bitmap(at: time)
+    }
+}
+
 /// Factory that serves one in-memory source for the main URL.
 final class SingleSourceFactory: ByteSourceFactory {
     let source: ByteSource

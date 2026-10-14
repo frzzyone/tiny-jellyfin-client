@@ -475,22 +475,63 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertEqual(engine.embeddedSubtitle, 3)
     }
 
-    /// The server burns in its default picture subtitle when asked for none in particular. The
-    /// player used to start a second, identical stream to burn the same track in.
-    func testDefaultPictureSubtitleStartsOneStream() async {
+    /// The server burns in its default picture subtitle when asked for none in particular. With the
+    /// track extracted, the app asks again without it (nothing is encoding yet) and draws the copy.
+    func testDefaultPictureSubtitleIsDrawnFromTheServersCopy() async throws {
+        let controller = makeController()
+        let service = FakeService(item: movie(defaultSubtitle: 3))
+        service.serverDefaultBurnIn = 3
+        service.nextMethod = .transcode
+        service.sup = try Data(contentsOf: supFixture)
+        controller.start(item: service.item, resume: false, service: service)
+        let started = await eventually { controller.session != nil }
+        XCTAssertTrue(started)
+        XCTAssertEqual(controller.selectedSubtitle, 3)
+        XCTAssertNil(controller.session?.burnInSubtitle)
+        engines.last!.currentTime = 2
+        await engines.last!.send(.state(.playing))
+        let drawn = await eventually { controller.subtitleBitmap?.start == 1 }
+        XCTAssertTrue(drawn, "the fixture shows its first event from 1 s")
+        XCTAssertEqual(service.resolveCalls.map(\.subtitle), [nil, -1])
+        XCTAssertTrue(engines.last!.switches.isEmpty, "one stream")
+        XCTAssertNil(engines.last!.embeddedSubtitle)
+        controller.stop()
+    }
+
+    /// Without an extracted copy the server would extract the track first, for minutes: the app
+    /// burns it in instead.
+    func testPictureSubtitleTheServerHasNotExtractedIsBurnedIn() async {
         let controller = makeController()
         let service = FakeService(item: movie(defaultSubtitle: 3))
         service.serverDefaultBurnIn = 3
         service.nextMethod = .transcode
         controller.start(item: service.item, resume: false, service: service)
-        let started = await eventually { controller.session != nil }
-        XCTAssertTrue(started)
-        XCTAssertEqual(controller.selectedSubtitle, 3)
-        XCTAssertEqual(controller.session?.burnInSubtitle, 3)
-        try? await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(service.resolveCalls.count, 1, "no second stream: \(service.resolveCalls)")
-        XCTAssertTrue(engines.last!.switches.isEmpty)
+        let burned = await eventually { controller.session?.burnInSubtitle == 3 && !controller.isSwitching }
+        XCTAssertTrue(burned)
+        XCTAssertEqual(service.resolveCalls.map(\.subtitle), [nil, -1, 3])
+        XCTAssertEqual(service.recorded.filter { $0.hasPrefix("sup:") }, ["sup:3"])
+        // Quality switches keep burning it in, without asking for the copy again.
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
+        XCTAssertEqual(service.resolveCalls.last?.subtitle, 3)
+        XCTAssertEqual(service.recorded.filter { $0.hasPrefix("sup:") }, ["sup:3"])
         controller.stop()
+    }
+
+    /// Changing picture tracks during a transcode needs no new stream when the server has the copy.
+    func testPictureSubtitleChangesWithoutANewStream() async throws {
+        let (controller, service, engine) = await started(method: .transcode)
+        service.sup = try Data(contentsOf: supFixture)
+        engine.currentTime = 2
+        await engine.send(.state(.playing))
+        controller.selectSubtitle(3)
+        let drawn = await eventually { controller.subtitleBitmap != nil }
+        XCTAssertTrue(drawn)
+        XCTAssertEqual(service.resolveCalls.count, 1)
+        XCTAssertTrue(engine.switches.isEmpty)
+        controller.selectSubtitle(nil)
+        let gone = await eventually { controller.subtitleBitmap == nil }
+        XCTAssertTrue(gone)
     }
 
     func testSubtitleSurvivesQualitySwitch() async {

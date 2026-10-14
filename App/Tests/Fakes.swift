@@ -111,6 +111,14 @@ final class FakeService: PlaybackService, @unchecked Sendable {
         return Data(srt.utf8)
     }
 
+    /// The server's extracted copy of a picture track; nil: it hasn't extracted it.
+    var sup: Data?
+    func pictureSubtitleData(itemId: String, mediaSourceId: String, streamIndex: Int, wait: TimeInterval) async throws -> Data {
+        record("sup:\(streamIndex)")
+        guard let sup else { throw URLError(.timedOut) }
+        return sup
+    }
+
     func primaryImageURL(for item: BaseItem) -> URL? { nil }
 
     func reportStart(_ report: PlaybackReport) async throws { record("start:\(report.playSessionId ?? "-")") }
@@ -122,6 +130,10 @@ final class FakeService: PlaybackService, @unchecked Sendable {
     }
     func endEncoding(playSessionId: String) async throws { record("endEncoding:\(playSessionId)") }
 }
+
+/// PGS shown from 1 to 3 s and from 4 s on (`scripts/make-fixtures.sh`).
+let supFixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    .appendingPathComponent("../../Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures/subs.sup").standardizedFileURL
 
 func movie(height: Int = 1080, resumeAt seconds: Double? = nil, defaultSubtitle: Int? = nil, defaultAudio: Int = 1) -> BaseItem {
     let json = """
