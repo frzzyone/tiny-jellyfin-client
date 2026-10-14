@@ -27,6 +27,8 @@ final class AudioDecoder {
     private var nextPTS: Double?
     /// `decode` runs on the engine's queue and `flush` on the reader thread after a seek.
     private let lock = NSLock()
+    /// Above a millisecond's rounding, below one frame of most codecs (AC-3 32 ms, DTS 10.7 ms).
+    static let stampTolerance = 0.005
 
     init(parameters: UnsafePointer<AVCodecParameters>, timeBase: AVRational, timelineOffset: Double) throws {
         self.timeBase = timeBase
@@ -108,7 +110,14 @@ final class AudioDecoder {
         guard produced > 0 else { return nil }
         data.count = Int(produced) * outChannels * MemoryLayout<Float>.size
 
-        let pts = seconds(frame.pointee.best_effort_timestamp, timeBase).map { $0 + offset } ?? nextPTS ?? 0
+        // Containers round timestamps (Matroska to the millisecond, coarser than a 0.83 ms TrueHD
+        // frame), and the renderer drops audio that overlaps what it already has. So a frame
+        // stamped within the rounding of where the last one ended carries straight on from it; a
+        // bigger difference (a gap, a seek) takes the stamp.
+        let stamped = seconds(frame.pointee.best_effort_timestamp, timeBase).map { $0 + offset }
+        let pts: Double
+        if let next = nextPTS, let stamped, abs(stamped - next) < Self.stampTolerance { pts = next }
+        else { pts = stamped ?? nextPTS ?? 0 }
         let result = AudioFrame(pts: pts, sampleRate: Int(rate), channels: outChannels,
                                 channelMask: outLayout.order == AV_CHANNEL_ORDER_NATIVE ? outLayout.u.mask : 0,
                                 frameCount: Int(produced), samples: data)

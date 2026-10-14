@@ -91,11 +91,15 @@ final class BrowserModel {
     /// What the page shows, for the arrow keys: set by the page being shown.
     private(set) var pageRows: [RowLayout] = []
     @ObservationIgnored private var itemsByRow: [String: [BaseItem]] = [:]
+    /// The page whose rows these are. SwiftUI can show the next page before the last one's
+    /// `onDisappear`, so a page leaving only clears rows that are still its own.
+    @ObservationIgnored private var rowsOwner: String?
 
     /// Every keyboard row, the tabs first.
     var rows: [RowLayout] { [RowLayout(id: Self.tabsRow, count: tabs.count)] + pageRows }
 
-    func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])]) {
+    func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])], owner: String) {
+        rowsOwner = owner
         let layouts = rows.map(\.layout)
         if layouts != pageRows { pageRows = layouts }
         itemsByRow = Dictionary(uniqueKeysWithValues: rows.map { ($0.layout.id, $0.items) })
@@ -103,6 +107,12 @@ final class BrowserModel {
            !layouts.contains(where: { $0.id == selection.row && $0.count > selection.index }) {
             self.selection = nil
         }
+    }
+
+    /// The page `owner` is going away; its rows go with it unless another page has replaced them.
+    func clearRows(owner: String) {
+        guard rowsOwner == owner else { return }
+        setRows([], owner: owner)
     }
 
     /// Arrow keys. From nothing, ↓ starts on the page, not the tabs; ↑ from the top row reaches

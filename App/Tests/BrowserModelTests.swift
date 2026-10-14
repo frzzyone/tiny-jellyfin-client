@@ -53,7 +53,7 @@ final class BrowserModelTests: XCTestCase {
     func testTabsAreTheFirstKeyboardRowAndSwitchAtOnce() {
         let model = BrowserModel()
         model.tabs = [.home, .library("movies"), .library("shows")]
-        model.setRows([(RowLayout(id: "hero", count: 1), [item("troy")]), (RowLayout(id: "nextUp", count: 3), [item("a"), item("b"), item("c")])])
+        model.setRows([(RowLayout(id: "hero", count: 1), [item("troy")]), (RowLayout(id: "nextUp", count: 3), [item("a"), item("b"), item("c")])], owner: "home")
         model.move(.down)
         XCTAssertEqual(model.selection, BrowserSelection(row: "hero", index: 0))
         model.move(.up)
@@ -64,7 +64,7 @@ final class BrowserModelTests: XCTestCase {
         model.move(.right)
         model.move(.right)
         XCTAssertEqual(model.tab, .library("shows"), "stays at the last tab")
-        model.setRows([(RowLayout(id: "grid", count: 10, columns: 5), (0..<10).map { item("g\($0)") })])
+        model.setRows([(RowLayout(id: "grid", count: 10, columns: 5), (0..<10).map { item("g\($0)") })], owner: "movies")
         XCTAssertEqual(model.selection, BrowserSelection(row: "tabs", index: 2), "a new page keeps the tab selection")
         model.move(.down)
         XCTAssertEqual(model.selection, BrowserSelection(row: "grid", index: 2))
@@ -75,6 +75,24 @@ final class BrowserModelTests: XCTestCase {
         model.selectTab(number: 7)
         XCTAssertEqual(model.tab, .home, "no such tab")
         XCTAssertNil(BrowserModel().selectedItem)
+    }
+
+    /// Movies → Home: SwiftUI shows Home (which publishes its rows) before Movies' onDisappear.
+    /// Clearing then left Home without rows: ↓ stayed on the tabs, and an outlined title vanished.
+    func testLeavingPageDoesNotClearTheNextPagesRows() {
+        let model = BrowserModel()
+        model.tabs = [.home, .library("movies")]
+        model.setRows([(RowLayout(id: "grid", count: 4, columns: 4), (0..<4).map { item("g\($0)") })], owner: "movies")
+        model.selection = BrowserSelection(row: "tabs", index: 1)
+        model.move(.left)
+        model.setRows([(RowLayout(id: "hero", count: 1), [item("troy")])], owner: "home")
+        model.clearRows(owner: "movies")
+        model.move(.down)
+        XCTAssertEqual(model.selection, .hero, "↓ from the tabs reaches Home")
+        model.clearRows(owner: "movies")
+        XCTAssertEqual(model.selection, .hero, "a late clear keeps the outline")
+        model.clearRows(owner: "home")
+        XCTAssertNil(model.selection, "the page's own clear still works")
     }
 
     func testQuickLookStepsAlongItsRow() {

@@ -52,7 +52,7 @@ struct HomeView: View {
         for row in home.visibleRows {
             rows.append((RowLayout(id: row.id, count: row.items.count), row.items))
         }
-        browser.setRows(rows)
+        browser.setRows(rows, owner: "home")
     }
 
     private var footer: some View {

@@ -102,7 +102,7 @@ struct LibraryTabView: View {
             guard !Task.isCancelled else { return }
             await grid?.apply(searchTerm: searchTerm)
         }
-        .onDisappear { browser.setRows([]) }
+        .onDisappear { browser.clearRows(owner: rowsOwner) }
     }
 
     private var header: some View {
@@ -132,9 +132,12 @@ struct LibraryTabView: View {
         .padding(.top, 24)
     }
 
+    /// Search results and each library are separate pages for the keyboard rows.
+    private var rowsOwner: String { parentId ?? "search" }
+
     private func publishRows() {
         guard let grid else { return }
         let rows = (discovery?.visibleRows ?? []).map { (RowLayout(id: $0.id, count: $0.items.count), $0.items) }
-        browser.setRows(rows + [(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)])
+        browser.setRows(rows + [(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)], owner: rowsOwner)
     }
 }

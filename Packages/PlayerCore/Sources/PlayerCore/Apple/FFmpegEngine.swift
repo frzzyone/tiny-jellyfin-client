@@ -616,6 +616,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         if let cached = pcmFormat, cached.key == key { return cached.format }
         guard let format = SampleBuffers.pcmFormat(sampleRate: frame.sampleRate, channels: frame.channels,
                                                    channelMask: frame.channelMask) else { return nil }
+        PlayerLog.engine("Audio decoded to \(frame.channels) ch at \(frame.sampleRate) Hz, layout 0x\(String(frame.channelMask, radix: 16)), \(frame.frameCount) samples a frame")
         pcmFormat = (key, format)
         return format
     }

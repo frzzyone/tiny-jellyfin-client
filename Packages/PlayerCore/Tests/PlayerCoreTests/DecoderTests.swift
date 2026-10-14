@@ -26,8 +26,11 @@ final class AudioDecoderTests: XCTestCase {
         XCTAssertEqual(total, 6, accuracy: 0.3, name, file: file, line: line)
         let first = try XCTUnwrap(frames.first)
         XCTAssertEqual(first.samples.count, first.frameCount * first.channels * 4, file: file, line: line)
-        // Timestamps increase.
-        XCTAssertEqual(zip(frames, frames.dropFirst()).filter { $1.pts < $0.pts }.count, 0, file: file, line: line)
+        // Each frame starts where the last one ended: the renderer drops audio that overlaps. Matroska
+        // stamps to the millisecond, coarser than a TrueHD frame (40 samples, 0.83 ms).
+        let halfSample = 0.5 / Double(first.sampleRate)
+        let overlaps = zip(frames, frames.dropFirst()).filter { $1.pts < $0.pts + $0.duration - halfSample }.count
+        XCTAssertEqual(overlaps, 0, "\(name): frames overlapping the one before", file: file, line: line)
     }
 
     func testDTS51() throws { try assertDecodes("h264_dts.mkv", channels: 6) }
