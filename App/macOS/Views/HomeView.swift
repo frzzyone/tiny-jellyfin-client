@@ -178,16 +178,20 @@ struct RowView: View {
 struct GenreStrip: View {
     let genres: [NameGuidPair]
     let selected: String?
+    /// The pill the arrow keys outline, counted from the first.
+    var keyed: Int? = nil
     let onSelect: (String) -> Void
+    /// Shown as pills; the rest are under More….
+    static let shown = 6
 
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(genres.prefix(6)) { genre in
-                Pill(title: genre.name ?? "?", on: genre.id == selected) { onSelect(genre.id) }
+            ForEach(Array(genres.prefix(Self.shown).enumerated()), id: \.element.id) { index, genre in
+                Pill(title: genre.name ?? "?", on: genre.id == selected, keyed: index == keyed) { onSelect(genre.id) }
             }
-            if genres.count > 6 {
+            if genres.count > Self.shown {
                 Menu {
-                    ForEach(genres.dropFirst(6)) { genre in
+                    ForEach(genres.dropFirst(Self.shown)) { genre in
                         Button(genre.name ?? "?") { onSelect(genre.id) }
                     }
                 } label: {

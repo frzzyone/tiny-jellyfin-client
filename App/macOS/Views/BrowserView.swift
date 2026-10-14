@@ -300,6 +300,7 @@ struct BrowserView: View {
             if !browser.searchText.isEmpty { clearSearch() } else { browser.selection = nil }
             return true
         }
+        if (event.isReturn || event.isSpace) && browser.activateSelection() { return true }
         if event.isReturn {
             if browser.selection?.row == BrowserModel.tabsRow { browser.move(.down); return true }
             if let selected = browser.selectedItem { open(selected.item) }

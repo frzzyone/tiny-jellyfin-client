@@ -94,12 +94,16 @@ final class BrowserModel {
     /// The page whose rows these are. SwiftUI can show the next page before the last one's
     /// `onDisappear`, so a page leaving only clears rows that are still its own.
     @ObservationIgnored private var rowsOwner: String?
+    /// What Return does on rows of buttons rather than titles (the library's filter pills).
+    @ObservationIgnored private var actionsByRow: [String: (Int) -> Void] = [:]
 
     /// Every keyboard row, the tabs first.
     var rows: [RowLayout] { [RowLayout(id: Self.tabsRow, count: tabs.count)] + pageRows }
 
-    func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])], owner: String) {
+    func setRows(_ rows: [(layout: RowLayout, items: [BaseItem])], owner: String,
+                 actions: [String: (Int) -> Void] = [:]) {
         rowsOwner = owner
+        actionsByRow = actions
         let layouts = rows.map(\.layout)
         if layouts != pageRows { pageRows = layouts }
         itemsByRow = Dictionary(uniqueKeysWithValues: rows.map { ($0.layout.id, $0.items) })
@@ -122,6 +126,13 @@ final class BrowserModel {
         if let selection, selection.row == Self.tabsRow, tabs.indices.contains(selection.index) {
             tab = tabs[selection.index]
         }
+    }
+
+    /// Return on a row of buttons: runs the outlined one. False when the selection isn't on one.
+    func activateSelection() -> Bool {
+        guard let selection, let action = actionsByRow[selection.row] else { return false }
+        action(selection.index)
+        return true
     }
 
     /// ⌘1, ⌘2, …

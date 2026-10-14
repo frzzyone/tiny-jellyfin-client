@@ -143,6 +143,8 @@ struct ItemCard: View {
 struct Pill: View {
     let title: String
     let on: Bool
+    /// Outlined by the arrow keys.
+    var keyed = false
     let action: () -> Void
     @State private var hovering = false
 
@@ -155,6 +157,7 @@ struct Pill: View {
                 .frame(minHeight: 30)
                 .background(on ? BrowserStyle.text : (hovering ? BrowserStyle.raised : .clear), in: Capsule())
                 .overlay(Capsule().stroke(on ? BrowserStyle.text : BrowserStyle.line))
+                .overlay { if keyed { Capsule().stroke(BrowserStyle.text, lineWidth: 2).padding(-3) } }
         }
         .buttonStyle(.plain)
         .onPointerHover { hovering = $0 }

@@ -95,6 +95,27 @@ final class BrowserModelTests: XCTestCase {
         XCTAssertNil(model.selection, "the page's own clear still works")
     }
 
+    /// The library's filter pills are the row under the tabs; Return runs the outlined one.
+    func testFilterPillsAreAKeyboardRow() {
+        let model = BrowserModel()
+        model.tabs = [.home, .library("movies")]
+        var applied: [Int] = []
+        model.setRows([(RowLayout(id: "filters", count: 6), []),
+                       (RowLayout(id: "grid", count: 8, columns: 4), (0..<8).map { item("g\($0)") })],
+                      owner: "movies", actions: ["filters": { applied.append($0) }])
+        model.selection = BrowserSelection(row: "tabs", index: 1)
+        model.move(.down)
+        XCTAssertEqual(model.selection, BrowserSelection(row: "filters", index: 1), "↓ from the tabs reaches the pills")
+        model.move(.right)
+        XCTAssertTrue(model.activateSelection())
+        XCTAssertEqual(applied, [2])
+        XCTAssertNil(model.selectedItem, "a pill is not a title")
+        model.move(.down)
+        XCTAssertEqual(model.selection?.row, "grid")
+        XCTAssertFalse(model.activateSelection(), "Return on a title opens it instead")
+        XCTAssertEqual(applied, [2])
+    }
+
     func testQuickLookStepsAlongItsRow() {
         let model = BrowserModel()
         let row = [item("a"), item("b"), item("c")]

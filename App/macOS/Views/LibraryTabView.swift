@@ -17,6 +17,7 @@ struct LibraryTabView: View {
     @State private var columns = 6
 
     private static let gridID = "grid"
+    private static let filtersID = "filters"
     private let cell: CGFloat = 150
     private let gap: CGFloat = 14
 
@@ -79,6 +80,7 @@ struct LibraryTabView: View {
                 .onChange(of: grid.items) { _, _ in publishRows() }
                 .onChange(of: discovery?.visibleRows) { _, _ in publishRows() }
                 .onChange(of: columns) { _, _ in publishRows() }
+                .onChange(of: genres.count) { _, _ in publishRows() }
                 .onAppear(perform: publishRows)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -112,12 +114,13 @@ struct LibraryTabView: View {
                 .foregroundStyle(BrowserStyle.text)
                 .padding(.trailing, 8)
             if let grid {
-                ForEach(LibraryFilter.allCases) { filter in
-                    Pill(title: filter.title, on: grid.filter == filter) { Task { await grid.apply(filter: filter) } }
+                ForEach(Array(LibraryFilter.allCases.enumerated()), id: \.element.id) { index, filter in
+                    Pill(title: filter.title, on: grid.filter == filter, keyed: keyedFilter == index) { apply(filter: index) }
                 }
                 if !genres.isEmpty {
                     Rectangle().fill(BrowserStyle.line).frame(width: 1, height: 22).padding(.horizontal, 6)
-                    GenreStrip(genres: genres, selected: grid.genreId) { id in
+                    GenreStrip(genres: genres, selected: grid.genreId,
+                               keyed: keyedFilter.map { $0 - LibraryFilter.allCases.count }) { id in
                         Task { await grid.apply(genreId: grid.genreId == id ? nil : id) }
                     }
                 }
@@ -137,7 +140,27 @@ struct LibraryTabView: View {
 
     private func publishRows() {
         guard let grid else { return }
+        // The filter pills and the genre pills shown are the first row under the tabs.
+        let pills = (RowLayout(id: Self.filtersID, count: LibraryFilter.allCases.count + min(genres.count, GenreStrip.shown)),
+                     [BaseItem]())
         let rows = (discovery?.visibleRows ?? []).map { (RowLayout(id: $0.id, count: $0.items.count), $0.items) }
-        browser.setRows(rows + [(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)], owner: rowsOwner)
+        browser.setRows([pills] + rows + [(RowLayout(id: Self.gridID, count: grid.items.count, columns: columns), grid.items)],
+                        owner: rowsOwner, actions: [Self.filtersID: apply(filter:)])
+    }
+
+    /// The pill at `index` in the keyboard row: a filter, then the genres (a selected genre toggles off).
+    private func apply(filter index: Int) {
+        guard let grid else { return }
+        let filters = LibraryFilter.allCases
+        if index < filters.count {
+            Task { await grid.apply(filter: filters[index]) }
+        } else if genres.indices.contains(index - filters.count) {
+            let id = genres[index - filters.count].id
+            Task { await grid.apply(genreId: grid.genreId == id ? nil : id) }
+        }
+    }
+
+    private var keyedFilter: Int? {
+        browser.selection?.row == Self.filtersID ? browser.selection?.index : nil
     }
 }
