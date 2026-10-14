@@ -8,7 +8,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     # One version for every target; bump CURRENT_PROJECT_VERSION for each upload.
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_IDENTITY: "-"
