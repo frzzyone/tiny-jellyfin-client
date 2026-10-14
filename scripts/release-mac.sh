@@ -13,15 +13,18 @@ PROFILE="${NOTARY_PROFILE:-tinyfin}"
 TEAM="$(sed -n 's/^DEVELOPMENT_TEAM *= *//p' "$ROOT/App/Signing.local.xcconfig")"
 [[ -n "$TEAM" ]] || { echo "No DEVELOPMENT_TEAM in App/Signing.local.xcconfig" >&2; exit 1; }
 OUT="$ROOT/build/release"
-rm -rf "$OUT" && mkdir -p "$OUT"
+# Everything but the DMG goes in WORK: Spotlight skips folders named *.noindex, so the app copies
+# in the archive, the export and the staging folder stay out of its results.
+WORK="$OUT/work.noindex"
+rm -rf "$OUT" && mkdir -p "$WORK"
 
 cd "$ROOT"
 xcodegen generate -q
 xcodebuild archive -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Release \
-  -destination 'generic/platform=macOS' -archivePath "$OUT/Tinyfin.xcarchive" \
-  -derivedDataPath "$OUT/DerivedData" -allowProvisioningUpdates -quiet
+  -destination 'generic/platform=macOS' -archivePath "$WORK/Tinyfin.xcarchive" \
+  -derivedDataPath "$WORK/DerivedData" -allowProvisioningUpdates -quiet
 
-cat > "$OUT/export.plist" <<EOF
+cat > "$WORK/export.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -31,18 +34,18 @@ cat > "$OUT/export.plist" <<EOF
   <key>teamID</key><string>$TEAM</string>
 </dict></plist>
 EOF
-xcodebuild -exportArchive -archivePath "$OUT/Tinyfin.xcarchive" -exportOptionsPlist "$OUT/export.plist" \
-  -exportPath "$OUT/export" -allowProvisioningUpdates -quiet
-APP="$OUT/export/Tinyfin.app"
+xcodebuild -exportArchive -archivePath "$WORK/Tinyfin.xcarchive" -exportOptionsPlist "$WORK/export.plist" \
+  -exportPath "$WORK/export" -allowProvisioningUpdates -quiet
+APP="$WORK/export/Tinyfin.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 
 # The app is notarised first so it can be stapled before it goes into the disk image; the image is
 # then notarised and stapled too, so it opens offline.
-ditto -c -k --keepParent "$APP" "$OUT/Tinyfin.zip"
-xcrun notarytool submit "$OUT/Tinyfin.zip" --keychain-profile "$PROFILE" --wait
+ditto -c -k --keepParent "$APP" "$WORK/Tinyfin.zip"
+xcrun notarytool submit "$WORK/Tinyfin.zip" --keychain-profile "$PROFILE" --wait
 xcrun stapler staple "$APP"
 
-STAGE="$OUT/dmg"
+STAGE="$WORK/dmg"
 mkdir -p "$STAGE" && cp -R "$APP" "$STAGE/" && ln -s /Applications "$STAGE/Applications"
 DMG="$OUT/Tinyfin-$VERSION.dmg"
 hdiutil create -volname Tinyfin -srcfolder "$STAGE" -format UDZO -quiet "$DMG"
