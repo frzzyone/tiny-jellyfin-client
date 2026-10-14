@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Tiny Jellyfin on Apple TV: the same server connection, browsing and playback engine as the Mac and
+Kinema on Apple TV: the same server connection, browsing and playback engine as the Mac and
 iPhone apps, driven by the Siri Remote, with the TV matching each film and the Top Shelf showing
 what to watch next.
 
@@ -30,7 +30,7 @@ alternative. When the server has Quick Connect off, the app SHALL go straight to
 - **THEN** the app shows the username and password form
 
 ### Requirement: Browsing with the remote
-The app SHALL offer a tab bar with Home (titled Tiny Jellyfin), one tab per video library and
+The app SHALL offer a tab bar with Home (titled Kinema), one tab per video library and
 Search. Home SHALL show the resume hero and the same rows as the other apps as shelves. Selecting a
 title SHALL open its page with facts, overview, progress, Resume or Play, Start over and Mark
 watched; a series page SHALL show its seasons and that season's episodes.
@@ -84,7 +84,7 @@ Continue watching and Next up items with their progress. Selecting an item SHALL
 the app; its play action SHALL start playback.
 
 #### Scenario: Resume from the home screen
-- **WHEN** the user moves to Tiny Jellyfin on the home screen and selects a film in Continue watching
+- **WHEN** the user moves to Kinema on the home screen and selects a film in Continue watching
 - **THEN** the app opens on that film's page with Resume focused
 
 #### Scenario: Shelf follows playback

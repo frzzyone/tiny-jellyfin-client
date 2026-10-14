@@ -28,7 +28,7 @@ struct TVTabsView: View {
                     ProgressView()
                 }
             }
-            .tabItem { Text("Tiny Jellyfin") }
+            .tabItem { Text("Kinema") }
             .tag("home")
 
             ForEach(libraries) { library in

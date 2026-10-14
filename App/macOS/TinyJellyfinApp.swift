@@ -8,7 +8,7 @@ struct TinyJellyfinApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup("Tiny Jellyfin", id: "main") {
+        WindowGroup("Kinema", id: "main") {
             RootView()
                 .environment(model)
                 .frame(minWidth: 900, minHeight: 560)

@@ -1,4 +1,9 @@
-# Tiny Jellyfin — notes for Claude
+# Kinema — notes for Claude
+
+Kinema was called Tiny Jellyfin; the targets, schemes, bundle ids and the Swift module keep the old
+`TinyJellyfin` names (renaming them would sign users out and lose their settings). Only the Mac
+app's file is `Kinema.app`. Jellyfin asks third-party apps not to use "Jellyfin", "Jelly…" or
+"…fin" in their name or its logo shape (jellyfin.org/docs/general/contributing/branding).
 
 Native macOS, iPhone and Apple TV Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
 `AVSampleBuffer*` renderers decode and present. See `README.md` for the user-facing description and

@@ -159,7 +159,7 @@ struct TVBrand: View {
     var body: some View {
         HStack(spacing: 16) {
             Image("Mark").resizable().scaledToFit().frame(width: 48, height: 48).accessibilityHidden(true)
-            Text("Tiny Jellyfin").font(.system(size: 40, weight: .bold)).foregroundStyle(BrowserStyle.text)
+            Text("Kinema").font(.system(size: 40, weight: .bold)).foregroundStyle(BrowserStyle.text)
         }
     }
 }

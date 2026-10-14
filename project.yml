@@ -42,19 +42,21 @@ targets:
     info:
       path: App/Resources/Info.plist
       properties:
-        CFBundleDisplayName: Tiny Jellyfin
+        CFBundleDisplayName: Kinema
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSApplicationCategoryType: public.app-category.entertainment
         LSMinimumSystemVersion: "14.0"
-        NSHumanReadableCopyright: "FFmpeg is used under the LGPL v2.1 — see Tiny Jellyfin › Acknowledgements."
+        NSHumanReadableCopyright: "FFmpeg is used under the LGPL v2.1 — see Kinema › Acknowledgements."
         # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin
-        PRODUCT_NAME: TinyJellyfin
+        # The Mac app's file is Kinema.app; the module keeps its old name for the tests.
+        PRODUCT_NAME: Kinema
+        PRODUCT_MODULE_NAME: TinyJellyfin
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
       # Release is what gets archived and handed out: signed by your team with the hardened
@@ -91,7 +93,7 @@ targets:
     info:
       path: App/Resources/Info-iOS.plist
       properties:
-        CFBundleDisplayName: Tiny Jellyfin
+        CFBundleDisplayName: Kinema
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
@@ -101,7 +103,7 @@ targets:
         # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
-        NSLocalNetworkUsageDescription: "Tiny Jellyfin connects to your Jellyfin server on this network."
+        NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.phone
@@ -144,7 +146,7 @@ targets:
     info:
       path: App/Resources/Info-tvOS.plist
       properties:
-        CFBundleDisplayName: Tiny Jellyfin
+        CFBundleDisplayName: Kinema
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
@@ -186,7 +188,7 @@ targets:
     info:
       path: App/Resources/Info-TopShelf.plist
       properties:
-        CFBundleDisplayName: Tiny Jellyfin Top Shelf
+        CFBundleDisplayName: Kinema Top Shelf
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         NSExtension:
@@ -214,6 +216,6 @@ targets:
       - package: PlayerCore
     settings:
       base:
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TinyJellyfin.app/Contents/MacOS/TinyJellyfin"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Kinema.app/Contents/MacOS/Kinema"
         BUNDLE_LOADER: "$(TEST_HOST)"
         GENERATE_INFOPLIST_FILE: YES

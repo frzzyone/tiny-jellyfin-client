@@ -33,8 +33,8 @@ let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 
 rep.size = NSSize(width: 1024, height: 1024)
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-// Opaque: fill the tile colour edge to edge, then draw the mark over it.
-NSColor(srgbRed: 0x23 / 255.0, green: 0x28 / 255.0, blue: 0x2f / 255.0, alpha: 1).setFill()
+// Opaque: fill edge to edge first, then draw the icon over it.
+NSColor(srgbRed: 0xe3 / 255.0, green: 0x92 / 255.0, blue: 0x2e / 255.0, alpha: 1).setFill()
 NSRect(x: 0, y: 0, width: 1024, height: 1024).fill()
 ios.draw(in: NSRect(x: 0, y: 0, width: 1024, height: 1024), from: .zero, operation: .sourceOver, fraction: 1)
 NSGraphicsContext.restoreGraphicsState()
@@ -64,8 +64,9 @@ cat > App/Resources/Assets.xcassets/Contents.json <<'JSON'
 JSON
 echo "wrote $(ls "$SET" | wc -l | tr -d ' ') files to $SET"
 
-# Apple TV: a layered icon (graphite back, the amber mark in front, so the focus parallax moves the
-# mark over the tile) and the Top Shelf images, in their own catalog for the TV target.
+# Apple TV: a layered icon (amber back, the character in front, so the focus parallax moves the
+# character over the tile) and the Top Shelf images (graphite, an amber character), in their own
+# catalog for the TV target.
 TV=App/Resources/TV.xcassets
 BRAND="$TV/App Icon & Top Shelf Image.brandassets"
 rm -rf "$TV"
@@ -76,10 +77,14 @@ mkdir -p "$BRAND/Top Shelf Image.imageset" "$BRAND/Top Shelf Image Wide.imageset
 swift - "$BRAND" <<'SWIFT'
 import AppKit
 let brand = CommandLine.arguments[1]
-let mark = NSImage(contentsOf: URL(fileURLWithPath: "App/Resources/Assets.xcassets/Mark.imageset/Mark.svg"))!
+let glyph = NSImage(contentsOf: URL(fileURLWithPath: "App/Resources/Glyph.svg"))!
 let graphite = NSColor(srgbRed: 0x23 / 255.0, green: 0x28 / 255.0, blue: 0x2f / 255.0, alpha: 1)
-/// A w×h PNG: graphite (or clear) with the mark centred at `markHeight` of the height.
-func render(_ w: Int, _ h: Int, back: Bool, markHeight: Double?, to path: String) {
+let amber = NSGradient(starting: NSColor(srgbRed: 0xe3 / 255.0, green: 0x92 / 255.0, blue: 0x2e / 255.0, alpha: 1),
+                       ending: NSColor(srgbRed: 1, green: 0xd9 / 255.0, blue: 0x78 / 255.0, alpha: 1))!
+enum Back { case none, amber, graphite }
+/// A w×h PNG: an amber, graphite or clear back with the character centred in a square of
+/// `markHeight` of the height (the character fills 66% of its box); amber on graphite.
+func render(_ w: Int, _ h: Int, back: Back, markHeight: Double?, to path: String) {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8,
                                samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
@@ -87,24 +92,36 @@ func render(_ w: Int, _ h: Int, back: Bool, markHeight: Double?, to path: String
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     NSGraphicsContext.current?.imageInterpolation = .high
-    if back { graphite.setFill(); NSRect(x: 0, y: 0, width: w, height: h).fill() }
+    let all = NSRect(x: 0, y: 0, width: w, height: h)
+    switch back {
+    case .none: break
+    case .amber: amber.draw(in: all, angle: 45)
+    case .graphite: graphite.setFill(); all.fill()
+    }
     if let markHeight {
         let side = Double(h) * markHeight
-        mark.draw(in: NSRect(x: (Double(w) - side) / 2, y: (Double(h) - side) / 2, width: side, height: side),
-                  from: .zero, operation: .sourceOver, fraction: 1)
+        let box = NSRect(x: (Double(w) - side) / 2, y: (Double(h) - side) / 2, width: side, height: side)
+        // On graphite the character is amber: drawn as a mask, then coloured in.
+        let image = back != .graphite ? glyph : NSImage(size: box.size, flipped: false) { r in
+            glyph.draw(in: r)
+            NSGraphicsContext.current?.compositingOperation = .sourceAtop
+            amber.draw(in: r, angle: 45)
+            return true
+        }
+        image.draw(in: box, from: .zero, operation: .sourceOver, fraction: 1)
     }
     NSGraphicsContext.restoreGraphicsState()
     try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
 }
 for (stack, sizes) in [("App Icon", [(400, 240, "1x"), (800, 480, "2x")]), ("App Icon - App Store", [(1280, 768, "1x")])] {
     for (w, h, scale) in sizes {
-        render(w, h, back: true, markHeight: nil, to: "\(brand)/\(stack).imagestack/Back.imagestacklayer/Content.imageset/back_\(scale).png")
-        render(w, h, back: false, markHeight: 0.62, to: "\(brand)/\(stack).imagestack/Front.imagestacklayer/Content.imageset/front_\(scale).png")
+        render(w, h, back: .amber, markHeight: nil, to: "\(brand)/\(stack).imagestack/Back.imagestacklayer/Content.imageset/back_\(scale).png")
+        render(w, h, back: .none, markHeight: 0.9, to: "\(brand)/\(stack).imagestack/Front.imagestacklayer/Content.imageset/front_\(scale).png")
     }
 }
 for (set, w) in [("Top Shelf Image", 1920), ("Top Shelf Image Wide", 2320)] {
-    render(w, 720, back: true, markHeight: 0.3, to: "\(brand)/\(set).imageset/shelf_1x.png")
-    render(w * 2, 1440, back: true, markHeight: 0.3, to: "\(brand)/\(set).imageset/shelf_2x.png")
+    render(w, 720, back: .graphite, markHeight: 0.45, to: "\(brand)/\(set).imageset/shelf_1x.png")
+    render(w * 2, 1440, back: .graphite, markHeight: 0.45, to: "\(brand)/\(set).imageset/shelf_2x.png")
 }
 SWIFT
 info='"info" : { "author" : "xcode", "version" : 1 }'

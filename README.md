@@ -1,4 +1,4 @@
-# Tiny Jellyfin
+# Kinema
 
 A small, native macOS, iPhone and Apple TV client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
 engine and on-the-fly quality switching.
@@ -43,7 +43,7 @@ Or from the command line:
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/TinyJellyfin.app
+open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/Kinema.app
 ```
 
 Use `-configuration Release` and the `Release` folder for an optimised build. Release builds are
@@ -81,9 +81,9 @@ To run it on your phone, put your team in `App/Signing.local.xcconfig` (git-igno
 DEVELOPMENT_TEAM = ABCDE12345
 ```
 
-then `xcodegen generate`, pick the `TinyJellyfinPhone` scheme and your iPhone in Xcode, and run. The
-app is meant for your own devices: whether an LGPL FFmpeg build can go through the App Store is an
-open question this project has not taken on. iOS has no audio passthrough, so Dolby Atmos is
+then `xcodegen generate`, pick the `TinyJellyfinPhone` scheme and your iPhone in Xcode, and run. FFmpeg
+is LGPL-only and dynamically linked, with this repository as the source for rebuilding the app
+against another FFmpeg build (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)). iOS has no audio passthrough, so Dolby Atmos is
 played as 5.1/7.1 rather than passed to the receiver; DTS and TrueHD are decoded in the app.
 
 ## Apple TV
@@ -191,6 +191,6 @@ scripts/                 FFmpeg build, test fixtures, test HTTP server
 
 ## Licences
 
-Tiny Jellyfin dynamically links an LGPL-only build of FFmpeg. See
+Kinema dynamically links an LGPL-only build of FFmpeg. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `scripts/build-ffmpeg.sh` for the exact version and
 configuration.

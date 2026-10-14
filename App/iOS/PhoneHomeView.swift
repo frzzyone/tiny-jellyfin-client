@@ -68,7 +68,7 @@ struct PhoneHomeView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image("Mark").resizable().scaledToFit().frame(width: 22, height: 22).accessibilityHidden(true)
-            Text("Tiny Jellyfin").font(.system(size: 26, weight: .bold)).foregroundStyle(BrowserStyle.text)
+            Text("Kinema").font(.system(size: 26, weight: .bold)).foregroundStyle(BrowserStyle.text)
             Spacer()
             Menu {
                 Text(session.userName)
