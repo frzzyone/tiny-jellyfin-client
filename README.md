@@ -11,8 +11,24 @@ engine and on-the-fly quality switching.
 - **Quality switching.** Pick "Original" or a bitrate/resolution preset at any time. The current stream keeps
   playing while the new one loads, then it is spliced in at a keyframe.
 
+Tinyfin is an independent app, not an official Jellyfin product.
+
+## Download
+
+- **Mac:** the notarised `Tinyfin-<version>.dmg` from
+  [Releases](https://github.com/frzzyone/tiny-jellyfin-client/releases). Open it and drag Tinyfin to
+  Applications. There are no automatic updates; new versions appear on that page.
+- **iPhone and Apple TV:** one App Store app, coming soon.
+
+## Privacy
+
+Tinyfin collects nothing. It talks only to the Jellyfin server you sign in to: no analytics, no
+crash reporting, no accounts or servers of ours. Your sign-in token stays in the device's Keychain
+and is not synced through iCloud; preferences stay on the device. What your Jellyfin server records
+(what you watched, how far) is up to that server and its administrator.
+
 The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) in
-[`openspec/specs`](openspec/specs) (built as the change archived in [`openspec/changes/archive`](openspec/changes/archive)).
+[`openspec/specs`](openspec/specs) (built as the changes archived in [`openspec/changes/archive`](openspec/changes/archive)).
 
 ## Requirements
 
@@ -123,7 +139,7 @@ xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destinatio
 `JellyfinKit` and the portable part of `PlayerCore` also build and test on Linux against the system FFmpeg
 (see `.github/workflows/ci.yml`).
 
-## Finding something to watch
+## On the Mac
 
 No sidebar: Home and one tab per video library in the top bar. Home leads with where you left
 off (Enter resumes it), then Continue watching, Next up, Added this week, and rows that need no
@@ -172,7 +188,7 @@ Played locally, without server conversion:
   Helvetica Neue sized for the picture. Blu-ray (PGS), DVD and DVB picture subtitles are drawn by
   the app, where the disc places them, so remuxes play as they are. During a transcode the app draws
   the copy the server extracted, so turn on subtitle extraction in Jellyfin; a track without one is
-  burnt in
+  burnt in.
 
 Anything else (for example VC-1, MPEG-2 or VP9 video) is converted by the server,
 because the app only advertises what it can play.
@@ -188,7 +204,7 @@ Packages/JellyfinKit     Jellyfin API client, session state, DeviceProfile, qual
 Packages/PlayerCore      Playback engine
   Core/                  FFmpeg demuxing through URLSession byte sources, audio/subtitle decoding (portable)
   Apple/                 AVSampleBufferDisplayLayer / AudioRenderer / RenderSynchronizer engine (macOS, iOS, tvOS)
-scripts/                 FFmpeg build, test fixtures, test HTTP server
+scripts/                 FFmpeg build, test fixtures, test HTTP server, icons, the Mac release
 ```
 
 ## Licences
