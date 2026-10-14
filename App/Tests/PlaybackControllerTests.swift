@@ -530,6 +530,22 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertEqual(engines.last!.embeddedSubtitle, 3)
     }
 
+    /// A Direct Play stream is told the embedded picture track up front, so the engine decodes it
+    /// from the first packet; selecting it afterwards would re-read the stream (a short buffer).
+    func testDirectPlayStreamsDecodeThePictureSubtitleFromTheStart() async {
+        let (controller, _, first) = await started(movie(defaultSubtitle: 3), method: .directPlay)
+        XCTAssertEqual(controller.selectedSubtitle, 3)
+        XCTAssertEqual(first.prepared.first?.0.pictureSubtitle, 3, "the first open")
+        controller.selectQuality(QualityPreset.with(id: "720p-4")!)
+        _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
+        XCTAssertEqual(controller.session?.playMethod, .transcode)
+        XCTAssertNil(engines.last!.switches.last?.0.pictureSubtitle, "a transcode doesn't carry it")
+        controller.selectQuality(.original)
+        _ = await eventually { controller.session?.playMethod == .directPlay && !controller.isSwitching }
+        XCTAssertEqual(engines.last!.switches.last?.0.pictureSubtitle, 3, "back to the file as is")
+        controller.stop()
+    }
+
     /// The server burns in its default picture subtitle when asked for none in particular. With the
     /// track extracted, the app asks again without it (nothing is encoding yet) and draws the copy.
     func testDefaultPictureSubtitleIsDrawnFromTheServersCopy() async throws {

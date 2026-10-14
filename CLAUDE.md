@@ -104,7 +104,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   the next play draws it.
 - **Picture subtitles are decoded for the selected track only** (a remux can carry dozens), into
   a store that keeps the latest 80 events. Selecting a track re-reads from the clock, or the
-  events between the clock and the reader are missed. PGS events have no end time: each lasts
+  events between the clock and the reader are missed; that re-read pauses like a seek, so a Direct
+  Play stream is told its track up front (`MediaSource.pictureSubtitle`) and decodes it from the
+  first packet, at the start and on a quality switch. PGS events have no end time: each lasts
   until the next event or clear.
 - **Decoded audio reaches the renderer in buffers of 1024+ samples, stamped sample-exact.**
   `AVSampleBufferAudioRenderer` plays buffers of a few dozen samples as silence, with no error and

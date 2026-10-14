@@ -289,6 +289,26 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(off)
     }
 
+    /// A picture track named when the stream opens is decoded from its first packet, so turning it
+    /// on needs no re-read from the clock. The re-read pauses like a seek, which showed as a short
+    /// buffer after every quality switch into Direct Play with picture subtitles on.
+    func testPictureSubtitleNamedAtOpenNeedsNoReRead() async throws {
+        let url = try Fixtures.url("pgs.mkv")
+        let track = try XCTUnwrap(openDemuxer(url).tracks.first { $0.isPictureSubtitle }).id
+        let engine = engine()
+        defer { engine.stop() }
+        let jumps = Counter()
+        engine.onEvent = { if case .jumped = $0 { jumps.add() } }
+        try await engine.prepare(source: MediaSource(url: url, pictureSubtitle: track), startAt: 0)
+        _ = await waitFor(3) { false }   // the reader runs past every event first
+        engine.selectEmbeddedSubtitle(trackId: track)
+        let drawn = await waitFor(1) { engine.subtitleBitmap(at: 1.5) != nil }
+        XCTAssertTrue(drawn, engine.debugSummary)
+        XCTAssertEqual(engine.subtitleBitmap(at: 4.5)?.pieces.first?.width, 40)
+        _ = await waitFor(0.5) { false }
+        XCTAssertEqual(jumps.value, 0, "selecting it re-read the stream")
+    }
+
     /// Another audio track of the same file: the same splice, the clock keeps running.
     func testAudioTrackSwitchIsSeamless() async throws {
         let url = try Fixtures.url("two_audio.mkv")
@@ -605,3 +625,10 @@ final class VideoFormatTests: XCTestCase {
     }
 }
 #endif
+
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.withLock { count } }
+    func add() { lock.withLock { count += 1 } }
+}

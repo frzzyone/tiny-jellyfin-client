@@ -11,12 +11,17 @@ public struct MediaSource: Sendable, Equatable {
     public var timelineOffset: Double
     /// The audio stream to play from a file with several; nil plays the container's best.
     public var audioTrack: Int?
+    /// An embedded picture subtitle to decode from the first packet read. Turning one on later
+    /// re-reads from the clock (a pause, like a seek) so the events already read past aren't missed.
+    public var pictureSubtitle: Int?
 
-    public init(url: URL, headers: [String: String] = [:], timelineOffset: Double = 0, audioTrack: Int? = nil) {
+    public init(url: URL, headers: [String: String] = [:], timelineOffset: Double = 0, audioTrack: Int? = nil,
+                pictureSubtitle: Int? = nil) {
         self.url = url
         self.headers = headers
         self.timelineOffset = timelineOffset
         self.audioTrack = audioTrack
+        self.pictureSubtitle = pictureSubtitle
     }
 }
 

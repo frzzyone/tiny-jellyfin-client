@@ -113,6 +113,7 @@ final class Pipeline: @unchecked Sendable {
                                                      timelineOffset: source.timelineOffset) else { continue }
             pictureDecoders[track.id] = decoder
         }
+        if source.pictureSubtitle != nil { _ = decodePictures(of: source.pictureSubtitle) }
         if startAt > 10 { timelineCheck = startAt }
         PlayerLog.engine(String(format: "Open took %.2f s (header+probe %.2f s, positioning %.2f s), seekable=%@",
                                 Date().timeIntervalSince(openStart), opened.timeIntervalSince(openStart),

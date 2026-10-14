@@ -231,9 +231,14 @@ final class PlaybackController {
             engine.speed = speed
             engine.onEvent = { [weak self] event in self?.handle(event) }
             self.engine = engine
+            // The track selected once playing, worked out now so a Direct Play stream decodes it from the start.
+            let firstSubtitle: Int? = carry != nil ? carry?.subtitle
+                : (serverBurnIn.flatMap { index in stream.mediaSource.subtitleStreams.first { $0.index == index } }
+                   ?? SubtitleSelection.defaultTrack(for: stream.mediaSource))?.index
             try await engine.prepare(source: MediaSource(url: stream.url, headers: service.streamHeaders,
                                                          timelineOffset: stream.timelineOffset,
-                                                         audioTrack: stream.playMethod == .directPlay ? audio : nil),
+                                                         audioTrack: stream.playMethod == .directPlay ? audio : nil,
+                                                         pictureSubtitle: embeddedPicture(firstSubtitle, stream.playMethod)),
                                      startAt: start)
             try Task.checkCancellation()
             loadingDetail = nil
@@ -256,14 +261,9 @@ final class PlaybackController {
             nowPlaying.begin(controller: self, item: full, artworkURL: service.primaryImageURL(for: full))
 
             PlayerLog.engine("Controller: server's default subtitle \(stream.mediaSource.defaultSubtitleStreamIndex.map(String.init) ?? "none"), burnt in \(stream.burnedInSubtitle.map(String.init) ?? "none")")
-            if let carry {
-                if let subtitle = carry.subtitle { selectSubtitle(subtitle) }
-            } else if let track = serverBurnIn.flatMap({ index in stream.mediaSource.subtitleStreams.first { $0.index == index } })
-                        ?? SubtitleSelection.defaultTrack(for: stream.mediaSource) {
-                // The server's default for the user's preferences. A picture track it burns in is
-                // already in the stream, so selecting it starts no second stream.
-                selectSubtitle(track.index)
-            }
+            // The carried track, or the server's default for the user's preferences. A picture track it
+            // burns in is already in the stream, so selecting it starts no second stream.
+            if let firstSubtitle { selectSubtitle(firstSubtitle) }
         } catch is CancellationError {
             Self.endEncoding(unadopted, service)
         } catch {
@@ -435,6 +435,15 @@ final class PlaybackController {
         source.audioStreams.map { AudioOption(id: $0.index, label: $0.displayTitle ?? $0.title ?? $0.language ?? "Track \($0.index)") }
     }
 
+    /// `index` when a stream played as `method` carries it as an embedded picture track, which
+    /// the engine then decodes from the stream's first packet.
+    private func embeddedPicture(_ index: Int?, _ method: PlayMethod) -> Int? {
+        guard method == .directPlay, let index,
+              let stream = mediaSource?.subtitleStreams.first(where: { $0.index == index }),
+              stream.isImageSubtitle, stream.isExternal != true else { return nil }
+        return index
+    }
+
     /// The picture subtitle new streams ask the server to burn in: the selected one, when the server
     /// had no extracted copy for the app to draw.
     private var burnInRequest: Int? {
@@ -464,7 +473,8 @@ final class PlaybackController {
                 try Task.checkCancellation()
                 let source = MediaSource(url: stream.url, headers: service.streamHeaders,
                                          timelineOffset: stream.timelineOffset,
-                                         audioTrack: stream.playMethod == .directPlay ? audio : nil)
+                                         audioTrack: stream.playMethod == .directPlay ? audio : nil,
+                                         pictureSubtitle: self.embeddedPicture(self.selectedSubtitle, stream.playMethod))
                 try await withTimeout(timeout) { try await engine.switchSource(source, startAt: start) }
                 try Task.checkCancellation()
                 guard self.engine === engine, var old = self.session else { return }
