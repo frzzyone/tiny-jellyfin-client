@@ -116,7 +116,7 @@ targets:
         NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.phone
+        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Kinema
         PRODUCT_NAME: TinyJellyfin
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -153,8 +153,8 @@ targets:
     entitlements:
       path: App/Resources/TinyJellyfinTV.entitlements
       properties:
-        com.apple.security.application-groups: [group.app.tinyjellyfin.TinyJellyfin.tv]
-        keychain-access-groups: ["$(AppIdentifierPrefix)app.tinyjellyfin.TinyJellyfin.tv"]
+        com.apple.security.application-groups: [group.app.tinyjellyfin.Kinema]
+        keychain-access-groups: ["$(AppIdentifierPrefix)app.tinyjellyfin.Kinema"]
     info:
       path: App/Resources/Info-tvOS.plist
       properties:
@@ -166,14 +166,14 @@ targets:
         UIUserInterfaceStyle: Dark
         # Top Shelf links: tinyjellyfin://item/<id>, tinyjellyfin://play/<id>.
         CFBundleURLTypes:
-          - CFBundleURLName: app.tinyjellyfin.TinyJellyfin.tv
+          - CFBundleURLName: app.tinyjellyfin.Kinema
             CFBundleURLSchemes: [tinyjellyfin]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.tv
+        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Kinema
         PRODUCT_NAME: TinyJellyfin
         TARGETED_DEVICE_FAMILY: "3"
         ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
@@ -199,8 +199,8 @@ targets:
     entitlements:
       path: App/Resources/TinyJellyfinTopShelf.entitlements
       properties:
-        com.apple.security.application-groups: [group.app.tinyjellyfin.TinyJellyfin.tv]
-        keychain-access-groups: ["$(AppIdentifierPrefix)app.tinyjellyfin.TinyJellyfin.tv"]
+        com.apple.security.application-groups: [group.app.tinyjellyfin.Kinema]
+        keychain-access-groups: ["$(AppIdentifierPrefix)app.tinyjellyfin.Kinema"]
     info:
       path: App/Resources/Info-TopShelf.plist
       properties:
@@ -215,7 +215,7 @@ targets:
         NSLocalNetworkUsageDescription: "Kinema connects to your Jellyfin server on this network."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.TinyJellyfin.tv.topshelf
+        PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Kinema.topshelf
         TARGETED_DEVICE_FAMILY: "3"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"

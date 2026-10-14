@@ -1,8 +1,9 @@
 # Kinema — notes for Claude
 
-Kinema was called Tiny Jellyfin; the targets, schemes, bundle ids and the Swift module keep the old
-`TinyJellyfin` names (renaming them would sign users out and lose their settings). Only the Mac
-app's file is `Kinema.app`. Jellyfin asks third-party apps not to use "Jellyfin", "Jelly…" or
+Kinema was called Tiny Jellyfin; the targets, schemes, the Mac's bundle id and the Swift module keep
+the old `TinyJellyfin` names (renaming the Mac's would sign users out and lose their settings). Only
+the Mac app's file is `Kinema.app`. The iPhone and Apple TV apps share `app.tinyjellyfin.Kinema`,
+so they are one App Store listing (universal purchase); its Top Shelf is `….Kinema.topshelf`. Jellyfin asks third-party apps not to use "Jellyfin", "Jelly…" or
 "…fin" in their name or its logo shape (jellyfin.org/docs/general/contributing/branding).
 
 Native macOS, iPhone and Apple TV Jellyfin client with an Infuse-style playback engine: FFmpeg demuxes, Apple's
@@ -135,7 +136,7 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   `TJ_BROWSER_SEARCH`, `TJ_BROWSER_QUICKLOOK=hero|<id>`, `TJ_BROWSER_SELECT=<row>,<index>`.
   `TJ_AUTOPLAY=1 TJ_MAC_CHECKS=<file>` drives the player with in-app clicks and keys (pause, full
   screen, S, digits, the end screen) and writes PASS/FAIL lines to the file (`DebugChecks`).
-- The Apple TV simulator: `xcrun simctl launch "Apple TV 4K (3rd generation)" app.tinyjellyfin.TinyJellyfin.tv`
+- The Apple TV simulator: `xcrun simctl launch "Apple TV 4K (3rd generation)" app.tinyjellyfin.Kinema`
   with `SIMCTL_CHILD_` variables. `TJ_SERVER=<address>` connects without typing (then Quick Connect
   shows a code to approve), `TJ_BROWSER_TAB`, `TJ_TV_OPEN=hero|series`, `TJ_AUTOPLAY=1` and `TJ_TV_PANEL=Subtitles` pose it
   (add `TJ_AUTOSTOP=10` so the player closes properly and the server stops transcoding), and
