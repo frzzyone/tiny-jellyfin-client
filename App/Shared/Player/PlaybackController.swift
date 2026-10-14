@@ -611,7 +611,7 @@ final class PlaybackController {
     }
 
     /// Fetches picture track `index` as the server extracted it, and draws it; burns it in instead
-    /// when the server doesn't start sending it in time (it would extract it first, for minutes).
+    /// when the server doesn't start sending it in time (it extracts it first, for minutes).
     private func loadPictureFile(_ index: Int) {
         guard let service, let session else { return }
         let itemId = session.itemId, mediaSourceId = session.mediaSourceId, wait = pictureFileWait
@@ -630,7 +630,11 @@ final class PlaybackController {
                 guard let self, !Task.isCancelled else { return }
                 PlayerLog.engine("Controller: subtitle \(index) has no extracted copy on the server (\(error)); burning it in")
                 self.pictureFileMissing.insert(index)
-                if self.selectedSubtitle == index { self.selectSubtitle(index) }
+                // A restart, not a seamless switch: a stream that burns subtitles in rarely catches
+                // up with the playing one (about 35 s on a 4K remux, against 15 s this way).
+                if self.selectedSubtitle == index, let session = self.session {
+                    self.restart(quality: session.quality, burnIn: index, audio: self.selectedAudio, persistQuality: false)
+                }
             }
         }
     }

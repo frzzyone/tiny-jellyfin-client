@@ -442,13 +442,16 @@ final class PlaybackControllerTests: XCTestCase {
     }
 
     func testPictureSubtitleIsBurnedInWhenTranscodingAndRemovedAgain() async {
-        let (controller, service, engine) = await started(method: .transcode)
-        engine.currentTime = 1200
+        let (controller, service, first) = await started(method: .transcode)
+        first.currentTime = 1200
+        await first.send(.state(.playing))
+        try? await Task.sleep(for: .milliseconds(300))
         controller.selectSubtitle(3)
         let burned = await eventually { controller.session?.burnInSubtitle == 3 }
         XCTAssertTrue(burned)
+        let engine = engines.last!
         XCTAssertEqual(service.resolveCalls.last?.subtitle, 3)
-        XCTAssertEqual(engine.switches.last?.1 ?? 0, 1202, accuracy: 0.01)
+        XCTAssertEqual(engine.prepared.last?.1 ?? 0, 1200, accuracy: 0.5, "restarted where it was")
         XCTAssertNil(engine.embeddedSubtitle, "burnt into the picture, not drawn")
         XCTAssertNil(prefs.preferredQualityId(server: service.serverURL), "burn-in is not a quality preference")
 
@@ -461,7 +464,7 @@ final class PlaybackControllerTests: XCTestCase {
     /// Back to Original from a burnt-in transcode: the server sends the file as is again, and the
     /// app draws the subtitle instead.
     func testPictureSubtitleMovesFromBurnInToDrawnWhenTheFilePlaysAsItIs() async {
-        let (controller, service, engine) = await started(method: .directPlay)
+        let (controller, service, _) = await started(method: .directPlay)
         controller.selectQuality(QualityPreset.with(id: "720p-4")!)
         _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
         controller.selectSubtitle(3)
@@ -472,7 +475,7 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(drawn)
         XCTAssertEqual(service.resolveCalls.last?.subtitle, 3, "the server is asked for the subtitle and embeds it")
         XCTAssertNil(controller.session?.burnInSubtitle)
-        XCTAssertEqual(engine.embeddedSubtitle, 3)
+        XCTAssertEqual(engines.last!.embeddedSubtitle, 3)
     }
 
     /// The server burns in its default picture subtitle when asked for none in particular. With the
@@ -510,6 +513,9 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(burned)
         XCTAssertEqual(service.resolveCalls.map(\.subtitle), [nil, -1, 3])
         XCTAssertEqual(service.recorded.filter { $0.hasPrefix("sup:") }, ["sup:3"])
+        XCTAssertEqual(engines.count, 2, "restarted rather than switched")
+        XCTAssertTrue(engines[0].switches.isEmpty)
+        XCTAssertTrue(engines[0].stopped)
         // Quality switches keep burning it in, without asking for the copy again.
         controller.selectQuality(QualityPreset.with(id: "720p-4")!)
         _ = await eventually { controller.session?.quality.id == "720p-4" && !controller.isSwitching }
