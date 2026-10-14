@@ -160,9 +160,10 @@ struct RowView: View {
                                     .cardAccessibility { browser.openQuickLook(item, in: row.items) }
                             }
                         }
-                        .padding(4) // room for the selection outline
+                        // Room for the hover lift (4% of a 264 pt still is 5.3 pt a side) and the selection outline.
+                        .padding(8)
                     }
-                    .padding(-4)
+                    .padding(-8)
                     .onChange(of: browser.selection) { _, selection in
                         guard let selection, selection.row == row.id, row.items.indices.contains(selection.index) else { return }
                         withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(row.items[selection.index].id, anchor: .center) }
