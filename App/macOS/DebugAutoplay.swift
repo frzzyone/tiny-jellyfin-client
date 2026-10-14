@@ -8,12 +8,15 @@ import SwiftUI
 ///
 ///     TJ_AUTOPLAY=1                 play the first Continue Watching item
 ///     TJ_AUTOPLAY_ITEM=<item id>    play a specific item instead
+///     TJ_AUTOPLAY_SEARCH=<title>    …or the first film found by title
 ///     TJ_AUTOPLAY_FROM_START=1      ignore the saved resume position
 ///     TJ_AUTOPLAY_QUALITY=<id>      force a quality (e.g. original, 720p-4)
 ///     TJ_AUTOPLAY_FULLSCREEN=1      toggle full screen 3 s after playback starts, and log the result
 ///     TJ_AUTOPLAY_SWITCH=<id>       switch to this quality once playing
 ///     TJ_AUTOPLAY_SWITCH_AFTER=<s>  …after this many seconds of playback (default 8)
 ///     TJ_AUTOPLAY_AUDIO=<index>     switch to this audio track once playing (same delay)
+///     TJ_AUTOPLAY_SUBTITLE=<index>  select this subtitle once playing; `picture` picks the first
+///                                   picture track
 ///     TJ_MAC_CHECKS=<file>          run `DebugChecks` on the player, results to the file; without
 ///                                   TJ_AUTOPLAY_ITEM it plays a film that is already watched
 enum DebugAutoplay {
@@ -28,6 +31,10 @@ enum DebugAutoplay {
             let item: BaseItem?
             if let id = env["TJ_AUTOPLAY_ITEM"] {
                 item = try await client.item(id: id)
+            } else if let title = env["TJ_AUTOPLAY_SEARCH"] {
+                var query = ItemQuery(types: [.movie], limit: 1)
+                query.searchTerm = title
+                item = try await client.items(query).items.first
             } else if env["TJ_MAC_CHECKS"] != nil {
                 // The checks play to the end, which would mark an unwatched film watched.
                 item = try await client.items(ItemQuery(types: [.movie], filters: [.played], sort: .random, limit: 1)).items.first
@@ -60,6 +67,15 @@ enum DebugAutoplay {
                 window.toggleFullScreen(nil)
                 try await Task.sleep(nanoseconds: 4_000_000_000)
                 describe("after")
+            }
+            if let wanted = env["TJ_AUTOPLAY_SUBTITLE"] {
+                _ = await waitUntil { model.player.status == .playing }
+                let options = model.player.subtitleOptions
+                PlayerLog.engine("Autoplay: subtitles \(options.map { "\($0.id)\($0.isImage ? " picture" : "") \($0.label)" })")
+                if let index = Int(wanted) ?? (wanted == "picture" ? options.first(where: \.isImage)?.id : nil) {
+                    PlayerLog.engine("Autoplay: selecting subtitle \(index)")
+                    model.player.selectSubtitle(index)
+                }
             }
             if let audio = env["TJ_AUTOPLAY_AUDIO"].flatMap(Int.init) {
                 let delay = env["TJ_AUTOPLAY_SWITCH_AFTER"].flatMap(Double.init) ?? 8
