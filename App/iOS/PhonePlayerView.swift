@@ -16,6 +16,7 @@ struct PhonePlayerView: View {
     @State private var scrubbing: Double?
     @State private var skipFlash: (text: String, leading: Bool)?
     @State private var pip = PictureInPictureController()
+    @Environment(\.scenePhase) private var scenePhase
     /// Fill the screen (cropping the picture) instead of fitting it; remembered between films.
     @AppStorage("playerZoomed") private var zoomed = false
     /// A vertical swipe in progress: which side, and the level it started from.
@@ -106,6 +107,10 @@ struct PhonePlayerView: View {
             }
         }
         .onChange(of: player.isPlaying) { _, _ in pip.invalidate(); player.nowPlaying.update() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { player.enteredBackground(pictureInPicture: { pip.isActive }) }
+            if phase == .active { player.returnedToForeground() }
+        }
         .onChange(of: player.status) { _, status in
             // Show the controls for 3 s once the picture is moving.
             if status == .playing { lastActivity = Date() }

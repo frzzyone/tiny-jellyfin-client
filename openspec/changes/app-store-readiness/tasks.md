@@ -19,8 +19,9 @@
 - [x] 4.2 Overlapping seeks (`testOverlappingSeeksLandOnTheNewest`)
 - [x] 4.3 Cancelled open stops at once (`testCancelledOpenStopsAtOnce`); abandoned start ends its transcode (`testClosingWhileOpeningEndsTheTranscode`)
 - [x] 4.4 HLS seek reopens at the target (covered by the HLS seek tests)
-- [ ] 4.5 Backgrounding on iPhone and Apple TV
-- [ ] 4.6 Shared engine state behind its locks
+- [x] 4.5 Backgrounding: pause unless Picture in Picture takes over, redraw on return (`testBackgroundPausesAndReturnRedraws`, `testPictureInPictureKeepsPlayingInTheBackground`); an interrupted display layer isn't a failure
+- [ ] 4.5a Lock the phone and come back; swipe home with PiP; leave the Apple TV app mid-film (needs devices)
+- [x] 4.6 Shared engine state behind its locks; Thread Sanitizer finds no races in the engine tests (it also found the packet queues' end-of-stream flag)
 
 ## 5. User experience
 

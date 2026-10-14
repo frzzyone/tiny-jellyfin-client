@@ -10,7 +10,9 @@ final class PacketQueue: @unchecked Sendable {
     private var head = 0
     private var bytes = 0
     private var closed = false
-    private(set) var endOfStream = false
+    private var ended = false
+    /// Read from the engine's queue while the reader thread sets and clears it.
+    var endOfStream: Bool { condition.lock(); defer { condition.unlock() }; return ended }
 
     /// Per queue. Two pipelines are alive during a quality switch, and iOS and tvOS give an app less memory,
     /// especially in Picture in Picture.
@@ -99,18 +101,18 @@ final class PacketQueue: @unchecked Sendable {
     }
 
     func markEndOfStream() {
-        condition.lock(); endOfStream = true; condition.broadcast(); condition.unlock()
+        condition.lock(); ended = true; condition.broadcast(); condition.unlock()
     }
 
     /// True once the reader hit the end and every packet was consumed.
-    var isDrained: Bool { condition.lock(); defer { condition.unlock() }; return endOfStream && count == 0 }
+    var isDrained: Bool { condition.lock(); defer { condition.unlock() }; return ended && count == 0 }
 
     func flush() {
         condition.lock()
         packets.removeAll()
         head = 0
         bytes = 0
-        endOfStream = false
+        ended = false
         condition.broadcast()
         condition.unlock()
     }

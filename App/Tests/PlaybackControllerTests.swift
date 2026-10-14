@@ -287,6 +287,39 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(ended, "\(service.recorded)")
     }
 
+    /// Leaving the screen without Picture in Picture pauses; coming back redraws the frame.
+    func testBackgroundPausesAndReturnRedraws() async {
+        let (controller, service, engine) = await started()
+        controller.play()
+        XCTAssertTrue(engine.isPlaying)
+        engine.currentTime = 42
+        controller.enteredBackground()
+        XCTAssertFalse(engine.isPlaying)
+        let reported = await eventually { service.recorded.contains { $0.hasSuffix(":paused") } }
+        XCTAssertTrue(reported, "the server hears about the pause")
+        controller.returnedToForeground()
+        let redrawn = await eventually { engine.seeks.last == 42 }
+        XCTAssertTrue(redrawn, "\(engine.seeks)")
+        XCTAssertFalse(engine.isPlaying, "stays paused until the user plays")
+    }
+
+    /// Swiping home on the iPhone starts Picture in Picture a moment later: playback carries on.
+    func testPictureInPictureKeepsPlayingInTheBackground() async {
+        let (controller, _, engine) = await started()
+        controller.backgroundGrace = 0.05
+        controller.play()
+        controller.enteredBackground(pictureInPicture: { true })
+        try? await Task.sleep(for: .milliseconds(200))
+        XCTAssertTrue(engine.isPlaying)
+        controller.returnedToForeground()
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertTrue(engine.seeks.isEmpty, "nothing to redraw")
+        // Locking the phone: no Picture in Picture, so it pauses after the grace.
+        controller.enteredBackground(pictureInPicture: { false })
+        let paused = await eventually { !engine.isPlaying }
+        XCTAssertTrue(paused)
+    }
+
     func testFailedSwitchStopsItsTranscode() async {
         let (controller, service, engine) = await started(method: .transcode)
         engine.switchError = EngineError("boom")

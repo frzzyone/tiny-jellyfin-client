@@ -15,7 +15,12 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     let synchronizer = AVSampleBufferRenderSynchronizer()
     var videoRenderer: AVSampleBufferVideoRenderer { displayLayer.sampleBufferRenderer }
 
-    public var onEvent: (@MainActor (EngineEvent) -> Void)?
+    /// Set on the main thread, read on the engine's queue.
+    public var onEvent: (@MainActor (EngineEvent) -> Void)? {
+        get { snapshotLock.withLock { _onEvent } }
+        set { snapshotLock.withLock { _onEvent = newValue } }
+    }
+    private var _onEvent: (@MainActor (EngineEvent) -> Void)?
 
     /// Seconds buffered ahead before (re)starting playback, and the low-water mark that pauses it.
     var startThreshold = 1.0
@@ -744,6 +749,12 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             audioSwitched = true
         }
         guard videoRenderer.status == .failed, let active else { return }
+        if (videoRenderer.error as NSError?)?.code == -11847 {   // AVErrorOperationInterrupted (iOS, tvOS)
+            // The app left the screen without Picture in Picture: the layer stopped drawing. Not a
+            // broken video; the player pauses, and redraws by seeking when it is back.
+            videoRenderer.flush()
+            return
+        }
         if allowDolbyVision, active.videoFormat?.usesDolbyVision == true, let info = active.videoInfo,
            let fallback = try? VideoFormat.make(info, firstKeyframe: nil, allowDolbyVision: false) {
             // The renderer rejected Dolby Vision: replay the HDR10 base layer from here.

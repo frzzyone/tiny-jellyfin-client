@@ -22,10 +22,23 @@ final class Pipeline: @unchecked Sendable {
     let videoQueue = PacketQueue(maxDuration: 30)
     let audioQueue = PacketQueue(maxDuration: 30)
     private(set) var videoStream: Int?
-    private(set) var audioStream: Int?
     private(set) var videoInfo: VideoStreamInfo?
-    var videoFormat: VideoFormat?
-    var audioMode: AudioMode?
+    // Set on the reader thread (first keyframe, an audio track change during a seek) and on the
+    // engine's queue (the Dolby Vision fallback), read on both: behind their own lock.
+    private let sharedLock = NSLock()
+    private var _audioStream: Int?, _videoFormat: VideoFormat?, _audioMode: AudioMode?
+    private(set) var audioStream: Int? {
+        get { sharedLock.withLock { _audioStream } }
+        set { sharedLock.withLock { _audioStream = newValue } }
+    }
+    var videoFormat: VideoFormat? {
+        get { sharedLock.withLock { _videoFormat } }
+        set { sharedLock.withLock { _videoFormat = newValue } }
+    }
+    var audioMode: AudioMode? {
+        get { sharedLock.withLock { _audioMode } }
+        set { sharedLock.withLock { _audioMode = newValue } }
+    }
     private(set) var subtitleStores: [Int: SubtitleTrackStore] = [:]
     private var subtitleDecoders: [Int: SubtitleDecoder] = [:]
     /// Picture subtitles are decoded for the selected track only: a Blu-ray remux can carry

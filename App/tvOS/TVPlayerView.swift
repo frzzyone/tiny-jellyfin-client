@@ -10,6 +10,7 @@ import SwiftUI
 /// the player.
 struct TVPlayerView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     let onClose: () -> Void
     @State private var transportUntil = Date().addingTimeInterval(4)
     @State private var scrub: (start: Double, target: Double)?
@@ -62,6 +63,10 @@ struct TVPlayerView: View {
         .playbackAudioSession(player)
         .onDisappear { DisplayMatch.reset() }
         .onChange(of: player.isPlaying) { _, _ in player.nowPlaying.update() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { player.enteredBackground() }
+            if phase == .active { player.returnedToForeground() }
+        }
         .onChange(of: player.status) { _, status in if status == .playing { showTransport() } }
         #if DEBUG
         .task {

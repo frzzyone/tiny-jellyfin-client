@@ -109,6 +109,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   `VTPixelTransferSession` into a plain small 4:2:0 buffer first.
 - **Threading:** all `FFmpegEngine` mutable state lives on its `queue`; each `Pipeline` owns a reader
   thread. `Pipeline.currentDemuxer` is replaced on the reader thread (HLS seeks reopen the stream).
+  What both sides touch sits behind a lock (`Pipeline.sharedLock`, `snapshotLock`, the packet
+  queues' condition). Check with Thread Sanitizer: `swift test --package-path Packages/PlayerCore
+  --sanitize=thread --scratch-path <elsewhere> --filter EngineTests` reports no races today.
 
 ## Debugging playback
 

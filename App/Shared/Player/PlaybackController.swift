@@ -530,6 +530,42 @@ final class PlaybackController {
         startTask = Task { await begin(item: item, from: .at(position), quality: quality, carry: carry) }
     }
 
+    // MARK: Background (iPhone and Apple TV)
+
+    /// How long the iPhone waits, once the app leaves the screen, for Picture in Picture to take over.
+    @ObservationIgnored var backgroundGrace: TimeInterval = 1
+    @ObservationIgnored private var backgroundTask: Task<Void, Never>?
+    @ObservationIgnored private var pausedForBackground = false
+
+    /// The app left the screen. Unless Picture in Picture takes over, the display layer stops
+    /// drawing (and the Apple TV suspends the app while the clock runs on), so pause. With
+    /// `pictureInPicture`, wait `backgroundGrace` for it to start before deciding.
+    func enteredBackground(pictureInPicture: (@MainActor () -> Bool)? = nil) {
+        backgroundTask?.cancel()
+        guard let pictureInPicture else { pauseForBackground(); return }
+        let grace = backgroundGrace
+        backgroundTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(grace * 1_000_000_000))
+            guard let self, !Task.isCancelled, !pictureInPicture() else { return }
+            self.pauseForBackground()
+        }
+    }
+
+    private func pauseForBackground() {
+        guard engine != nil else { return }
+        pausedForBackground = true
+        if wantsToPlay { pause() }
+    }
+
+    /// Back on screen: the layer dropped its picture while away, so draw the current frame again.
+    func returnedToForeground() {
+        backgroundTask?.cancel()
+        guard pausedForBackground, engine != nil else { return }
+        pausedForBackground = false
+        let at = position
+        Task { await seek(to: at) }
+    }
+
     // MARK: Subtitles
 
     static func subtitleOptions(_ source: MediaSourceInfo) -> [SubtitleOption] {
