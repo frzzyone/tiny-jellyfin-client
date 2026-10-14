@@ -53,6 +53,8 @@ signed by your team: put `DEVELOPMENT_TEAM = <your team id>` in `App/Signing.loc
 To hand the Mac app to someone else, use **Product › Archive** in Xcode, then **Distribute App ›
 Direct Distribution**: Xcode re-signs it with your Developer ID and has Apple notarise it, so it
 opens without a Gatekeeper warning. That needs a paid Apple Developer Program membership.
+`scripts/release-mac.sh` does the same from the command line and ends with a notarised
+`build/release/Tinyfin-<version>.dmg` (one-time setup in the script's header).
 
 A few things worth knowing:
 
