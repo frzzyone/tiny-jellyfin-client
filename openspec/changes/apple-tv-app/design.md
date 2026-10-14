@@ -8,7 +8,7 @@ the rest, audio session, PiP). tvOS is UIKit-based like iOS and has every framew
 uses. What is new on the TV: no touch screen (focus and the Siri Remote), no keyboard worth typing
 on, an HDMI display whose mode can change, a receiver behind it, and the Top Shelf extension.
 
-Mockups: the "Kinema · Apple TV" rows of https://claude.ai/artifact/N34ygeBdXoi63aVu2vADfB
+Mockups: the "Tinyfin · Apple TV" rows of https://claude.ai/artifact/N34ygeBdXoi63aVu2vADfB
 (Home, series page, Movies, player with the panel, sign-in, Top Shelf).
 
 ## Goals / Non-Goals

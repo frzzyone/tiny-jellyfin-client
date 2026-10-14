@@ -1,7 +1,7 @@
 # iphone-app Specification
 
 ## Purpose
-Kinema on iPhone: the same server connection, browsing and playback engine as the Mac app,
+Tinyfin on iPhone: the same server connection, browsing and playback engine as the Mac app,
 with a touch interface and the audio and background behaviour a phone needs.
 
 ## Requirements

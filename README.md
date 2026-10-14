@@ -1,4 +1,4 @@
-# Kinema
+# Tinyfin
 
 A small, native macOS, iPhone and Apple TV client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
 engine and on-the-fly quality switching.
@@ -43,7 +43,7 @@ Or from the command line:
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 xcodebuild -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/Kinema.app
+open ~/Library/Developer/Xcode/DerivedData/TinyJellyfin-*/Build/Products/Debug/Tinyfin.app
 ```
 
 Use `-configuration Release` and the `Release` folder for an optimised build. Release builds are
@@ -191,6 +191,6 @@ scripts/                 FFmpeg build, test fixtures, test HTTP server
 
 ## Licences
 
-Kinema dynamically links an LGPL-only build of FFmpeg. See
+Tinyfin dynamically links an LGPL-only build of FFmpeg. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `scripts/build-ffmpeg.sh` for the exact version and
 configuration.

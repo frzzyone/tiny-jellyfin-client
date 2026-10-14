@@ -15,7 +15,7 @@ VideoToolbox all run on tvOS with the API the iPhone app already uses.
 - Sign-in suited to a remote: type the server address once, then approve a code from Jellyfin on
   a phone or the web (**Quick Connect**); a password stays as the fallback. No server discovery:
   the user's server is not on the home network.
-- A focus-driven UI: a top tab bar (Kinema, one tab per library, Search), Home as shelves
+- A focus-driven UI: a top tab bar (Tinyfin, one tab per library, Search), Home as shelves
   with a resume hero, full title pages (series show seasons and an episode shelf), library grids
   with filter pills, the tvOS search screen.
 - A Siri Remote player in the Infuse manner: click to pause, click left/right to skip, swipe on

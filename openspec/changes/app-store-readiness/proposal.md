@@ -1,7 +1,7 @@
 ## Why
 
 Five reviews (App Store rules, release builds, the engine, security, user experience) asked whether
-Kinema could go to the App Store. The code was sound, but the submission scaffolding was missing,
+Tinyfin could go to the App Store. The code was sound, but the submission scaffolding was missing,
 and they found a token that could reach the system log, sign-in that failed on the most common home
 setup, and engine races reachable by ordinary use.
 
@@ -21,7 +21,8 @@ setup, and engine races reachable by ordinary use.
 - Controller: a transcode asked for but never playing (the player closed while opening, or the
   start failed) is ended on the server.
 - The Mac app ships as Developer ID, outside the store (no sandbox needed); the name and icon are
-  Kinema's own (Jellyfin's branding guide).
+  Tinyfin's own: no "Jellyfin" or its logo shape (Jellyfin's branding guide; it also discourages
+  "…fin" names, a request Tinyfin knowingly sets aside).
 
 ## Impact
 

@@ -7,7 +7,7 @@ import FoundationNetworking
 final class ClientIdentityTests: XCTestCase {
     func testHeaderWithoutToken() {
         let header = ClientIdentity.test.authorizationHeader(token: nil)
-        XCTAssertEqual(header, #"MediaBrowser Client="Kinema", Device="Test%20Mac", DeviceId="device-1", Version="0.1.0""#)
+        XCTAssertEqual(header, #"MediaBrowser Client="Tinyfin", Device="Test%20Mac", DeviceId="device-1", Version="0.1.0""#)
     }
 
     func testHeaderWithToken() {

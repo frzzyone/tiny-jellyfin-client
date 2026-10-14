@@ -1,11 +1,11 @@
 # Third-party notices
 
-Kinema is an independent Jellyfin client, not an official Jellyfin product. Its source, including
+Tinyfin is an independent Jellyfin client, not an official Jellyfin product. Its source, including
 everything below, is at https://github.com/frzzyone/tiny-jellyfin-client.
 
 ## FFmpeg
 
-Kinema uses libraries from the FFmpeg project (libavformat, libavcodec, libavutil,
+Tinyfin uses libraries from the FFmpeg project (libavformat, libavcodec, libavutil,
 libswresample) under the GNU Lesser General Public License version 2.1 or later.
 
 - FFmpeg 7.1.1 is used unmodified, built without GPL or non-free components by

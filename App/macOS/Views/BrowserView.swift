@@ -94,7 +94,7 @@ struct BrowserView: View {
                     .scaledToFit()
                     .frame(width: 22, height: 22)
                     .accessibilityHidden(true)
-                Text("Kinema")
+                Text("Tinyfin")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(BrowserStyle.text)
             }

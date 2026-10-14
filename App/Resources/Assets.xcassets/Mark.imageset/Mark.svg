@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Kinema mark: a rounded play triangle whose back breaks into speed lines, dashes trailing behind it;
+  Tinyfin mark: a rounded play triangle whose back breaks into speed lines, dashes trailing behind it;
   a play button moving fast, and a jellyfish (the bell and its tentacles). Original artwork.
   scripts/make-icon.sh renders it; the iOS icon drops the rx so the system masks a full square.
 -->
