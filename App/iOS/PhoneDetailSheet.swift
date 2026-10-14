@@ -13,6 +13,7 @@ struct PhoneDetailSheet: View {
     @State private var details: BaseItem?
     @State private var marking = false
     @State private var markError: String?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var shown: BaseItem {
         var merged = details ?? item
@@ -33,16 +34,16 @@ struct PhoneDetailSheet: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 ProgressLine(fraction: pct / 100).clipShape(Capsule())
                                 if let left = ItemLabels.timeLeft(shown) {
-                                    Text(left).font(.system(size: 12.5)).foregroundStyle(BrowserStyle.muted)
+                                    Text(left).scaledFont(size: 12.5).foregroundStyle(BrowserStyle.muted)
                                 }
                             }
                         }
                         actions
                         if let markError {
-                            Text(markError).font(.system(size: 13)).foregroundStyle(.red)
+                            Text(markError).scaledFont(size: 13).foregroundStyle(.red)
                         }
                         if let overview = shown.overview, !overview.isEmpty {
-                            Text(overview).font(.system(size: 15)).lineSpacing(3)
+                            Text(overview).scaledFont(size: 15).lineSpacing(3)
                                 .foregroundStyle(Color(red: 0xd6 / 255, green: 0xd2 / 255, blue: 0xcb / 255))
                         } else if details == nil {
                             ProgressView()
@@ -75,35 +76,40 @@ struct PhoneDetailSheet: View {
     }
 
     private var header: some View {
-        ZStack(alignment: .bottomLeading) {
-            Artwork(url: model.client?.backdropImageURL(for: shown, maxWidth: 1000), title: "", toneID: shown.id)
-                .frame(height: 210)
-            LinearGradient(colors: [BrowserStyle.raised.opacity(0), BrowserStyle.raised], startPoint: .center, endPoint: .bottom)
-            HStack(alignment: .bottom, spacing: 14) {
-                Artwork(url: model.client?.primaryImageURL(for: shown, maxHeight: 300), title: ItemLabels.title(shown), toneID: shown.id)
-                    .frame(width: 84, height: 126)
-                    .clipShape(RoundedRectangle(cornerRadius: BrowserStyle.corner))
-                VStack(alignment: .leading, spacing: 4) {
-                    if shown.type == .episode, let series = shown.seriesName {
-                        Text(series).font(.system(size: 13, weight: .medium)).foregroundStyle(BrowserStyle.dim)
-                    }
-                    Text(shown.displayName).font(.system(size: 24, weight: .bold)).foregroundStyle(BrowserStyle.text).lineLimit(2)
-                    Text(ItemLabels.facts(shown)).font(.system(size: 13)).foregroundStyle(BrowserStyle.dim).lineLimit(2)
-                    if !shown.formatBadges.isEmpty {
-                        HStack(spacing: 6) {
-                            ForEach(shown.formatBadges, id: \.self) { badge in
-                                Text(badge).font(.system(size: 11, weight: .semibold)).foregroundStyle(BrowserStyle.dim)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(BrowserStyle.line))
-                            }
+        // The facts beside the poster, or under it when the text is too big to share the width.
+        (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+                                      : AnyLayout(HStackLayout(alignment: .bottom, spacing: 14))) {
+            Artwork(url: model.client?.primaryImageURL(for: shown, maxHeight: 300), title: ItemLabels.title(shown), toneID: shown.id)
+                .frame(width: 84, height: 126)
+                .clipShape(RoundedRectangle(cornerRadius: BrowserStyle.corner))
+            VStack(alignment: .leading, spacing: 4) {
+                if shown.type == .episode, let series = shown.seriesName {
+                    Text(series).scaledFont(size: 13, weight: .medium).foregroundStyle(BrowserStyle.dim)
+                }
+                Text(shown.displayName).scaledFont(size: 24, weight: .bold).foregroundStyle(BrowserStyle.text)
+                Text(ItemLabels.facts(shown)).scaledFont(size: 13).foregroundStyle(BrowserStyle.dim).lineLimit(2)
+                if !shown.formatBadges.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(shown.formatBadges, id: \.self) { badge in
+                            Text(badge).scaledFont(size: 11, weight: .semibold).foregroundStyle(BrowserStyle.dim)
+                                .lineLimit(1).fixedSize()
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(BrowserStyle.line))
                         }
                     }
                 }
-                .padding(.bottom, 4)
             }
-            .padding(.horizontal, PhoneStyle.side)
+            .padding(.bottom, 4)
         }
-        .frame(height: 210)
+        .padding(.horizontal, PhoneStyle.side)
+        // At least the backdrop's height; taller when the text needs it, with the backdrop behind.
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .bottomLeading)
+        .background {
+            ZStack {
+                Artwork(url: model.client?.backdropImageURL(for: shown, maxWidth: 1000), title: "", toneID: shown.id)
+                LinearGradient(colors: [BrowserStyle.raised.opacity(0), BrowserStyle.raised], startPoint: .center, endPoint: .bottom)
+            }
+        }
         .clipped()
     }
 
@@ -112,12 +118,12 @@ struct PhoneDetailSheet: View {
         if playable {
             Button { onPlay(shown, inProgress) } label: {
                 Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity).frame(height: 48)
+                    .scaledFont(size: 16, weight: .semibold)
+                    .padding(.vertical, 8).frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(BrowserStyle.ground)
                     .background(BrowserStyle.accent, in: Capsule())
             }
-            HStack(spacing: 10) {
+            (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))) {
                 if inProgress { wide("Start over") { onPlay(shown, false) } }
                 wide(watched ? "Mark unwatched" : "Mark watched") { Task { await mark(!watched) } }
                     .disabled(marking)
@@ -125,8 +131,8 @@ struct PhoneDetailSheet: View {
         } else {
             NavigationLink(value: shown) {
                 Label("Open series", systemImage: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity).frame(height: 48)
+                    .scaledFont(size: 16, weight: .semibold)
+                    .padding(.vertical, 8).frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(BrowserStyle.ground)
                     .background(BrowserStyle.accent, in: Capsule())
             }
@@ -135,8 +141,9 @@ struct PhoneDetailSheet: View {
 
     private func wide(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title).font(.system(size: 15)).foregroundStyle(BrowserStyle.text)
-                .frame(maxWidth: .infinity).frame(height: 44)
+            Text(title).scaledFont(size: 15).foregroundStyle(BrowserStyle.text)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .overlay(Capsule().stroke(BrowserStyle.line))
         }
     }

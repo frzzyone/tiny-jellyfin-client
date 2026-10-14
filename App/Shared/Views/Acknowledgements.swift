@@ -15,13 +15,13 @@ struct AcknowledgementsView: View {
                         // The remote scrolls by moving focus, so each paragraph takes it in turn.
                         ForEach(Array(text.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
                             Text(verbatim: paragraph)
-                                .font(.system(size: 22, design: .monospaced))
+                                .scaledFont(size: 22, design: .monospaced)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .focusable()
                         }
                         #else
                         Text(verbatim: text)
-                            .font(.system(size: 12, design: .monospaced))
+                            .scaledFont(size: 12, design: .monospaced)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         #endif

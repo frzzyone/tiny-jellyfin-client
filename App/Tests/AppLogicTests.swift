@@ -1,5 +1,6 @@
 import JellyfinKit
 import PlayerCore
+import SwiftUI
 import XCTest
 @testable import TinyJellyfin
 
@@ -11,6 +12,14 @@ final class AppLogicTests: XCTestCase {
             let url = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: nil), name)
             XCTAssertFalse(try String(contentsOf: url, encoding: .utf8).isEmpty, name)
         }
+    }
+
+    /// The browser's fixed sizes scale with Dynamic Type on the curve of the nearest text style.
+    func testScaledFontsFollowTheNearestTextStyle() {
+        let cases: [(CGFloat, Font.TextStyle)] = [(11, .caption2), (12, .caption), (12.5, .footnote), (13, .footnote),
+                                                  (15, .subheadline), (16, .callout), (17, .body), (19, .title3),
+                                                  (24, .title2), (26, .title), (30, .title), (34, .largeTitle)]
+        for (size, style) in cases { XCTAssertEqual(ScaledFont.style(for: size), style, "\(size) pt") }
     }
 
     func testSubtitlePictureRectLetterboxAndPillarbox() {

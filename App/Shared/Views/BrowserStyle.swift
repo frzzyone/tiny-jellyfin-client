@@ -44,7 +44,7 @@ struct KeyCap: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 11.5))
+            .scaledFont(size: 11.5)
             .foregroundStyle(BrowserStyle.dim)
             .padding(.horizontal, 6).padding(.vertical, 1)
             .frame(minWidth: 20)
@@ -62,7 +62,48 @@ struct KeyHint: View {
             ForEach(keys, id: \.self) { KeyCap(label: $0) }
             Text(text).padding(.leading, 2)
         }
-        .font(.system(size: 13))
+        .scaledFont(size: 13)
         .foregroundStyle(BrowserStyle.muted)
+    }
+}
+
+extension View {
+    /// A system font of `size` points at the default text size that grows and shrinks with the
+    /// reader's Dynamic Type setting, like the text style nearest that size. The Mac has no Dynamic
+    /// Type, so there it stays at `size`.
+    func scaledFont(size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
+        modifier(ScaledFont(size: size, weight: weight, design: design))
+    }
+}
+
+struct ScaledFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    let weight: Font.Weight
+    let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: Self.style(for: size))
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+
+    /// The text style whose default size (on iPhone) is nearest `size`, so it scales on that curve.
+    static func style(for size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case ..<11.5: .caption2
+        case ..<12.5: .caption
+        case ..<14: .footnote
+        case ..<15.5: .subheadline
+        case ..<16.5: .callout
+        case ..<18.5: .body
+        case ..<21: .title3
+        case ..<25: .title2
+        case ..<31: .title
+        default: .largeTitle
+        }
     }
 }

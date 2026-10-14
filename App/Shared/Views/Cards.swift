@@ -13,7 +13,7 @@ struct Artwork: View {
         BrowserStyle.placeholderTone(for: toneID)
             .overlay(alignment: .bottomLeading) {
                 Text(title)
-                    .font(.system(size: BrowserStyle.cardTitleSize, weight: .semibold))
+                    .scaledFont(size: BrowserStyle.cardTitleSize, weight: .semibold)
                     .foregroundStyle(BrowserStyle.text)
                     .lineLimit(3)
                     .padding(10)
@@ -56,6 +56,9 @@ struct ItemCard: View {
     /// On a series' own page: the episode's still and "2 · Title" instead of the series'.
     var inSeries = false
     @State private var hovering = false
+    /// The reader's text size: a card is a poster's width, so its text stops growing at the
+    /// largest standard size and takes a second line instead of breaking words.
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var title: String {
         guard inSeries else { return ItemLabels.title(item) }
@@ -115,13 +118,15 @@ struct ItemCard: View {
                 .scaleEffect(hovering ? 1.04 : 1)
                 .animation(.easeOut(duration: 0.15), value: hovering)
             Text(title)
-                .font(.system(size: BrowserStyle.cardTitleSize, weight: .medium))
+                .scaledFont(size: BrowserStyle.cardTitleSize, weight: .medium)
                 .foregroundStyle(BrowserStyle.text)
-                .lineLimit(1)
+                .lineLimit(typeSize >= .xxLarge ? 2 : 1)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             Text(detail)
-                .font(.system(size: BrowserStyle.cardDetailSize))
+                .scaledFont(size: BrowserStyle.cardDetailSize)
                 .foregroundStyle(BrowserStyle.muted)
                 .lineLimit(1)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         .frame(width: size.width, alignment: .leading)
         .contentShape(Rectangle())
@@ -144,10 +149,10 @@ struct Pill: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13))
+                .scaledFont(size: 13)
                 .foregroundStyle(on ? BrowserStyle.ground : (hovering ? BrowserStyle.text : BrowserStyle.dim))
-                .padding(.horizontal, 13)
-                .frame(height: 30)
+                .padding(.horizontal, 13).padding(.vertical, 6)
+                .frame(minHeight: 30)
                 .background(on ? BrowserStyle.text : (hovering ? BrowserStyle.raised : .clear), in: Capsule())
                 .overlay(Capsule().stroke(on ? BrowserStyle.text : BrowserStyle.line))
         }
@@ -168,15 +173,15 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                if let icon { Image(systemName: icon).font(.system(size: 13, weight: .bold)) }
+                if let icon { Image(systemName: icon).scaledFont(size: 13, weight: .bold) }
                 Text(title)
             }
-            .font(.system(size: 15, weight: role == .primary ? .semibold : .regular))
+            .scaledFont(size: 15, weight: role == .primary ? .semibold : .regular)
             .lineLimit(1)
             .fixedSize()
             .foregroundStyle(role == .primary ? BrowserStyle.ground : BrowserStyle.text)
-            .padding(.horizontal, role == .primary ? 22 : 18)
-            .frame(height: 44)
+            .padding(.horizontal, role == .primary ? 22 : 18).padding(.vertical, 8)
+            .frame(minHeight: 44)
             .background(role == .primary ? BrowserStyle.accent : (hovering ? .white.opacity(0.08) : .clear), in: Capsule())
             .overlay(Capsule().stroke(role == .primary ? .clear : .white.opacity(hovering ? 0.5 : 0.28)))
             .brightness(role == .primary && hovering ? 0.06 : 0)

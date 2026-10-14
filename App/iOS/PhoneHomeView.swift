@@ -68,7 +68,7 @@ struct PhoneHomeView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image("Mark").resizable().scaledToFit().frame(width: 22, height: 22).accessibilityHidden(true)
-            Text("Kinema").font(.system(size: 26, weight: .bold)).foregroundStyle(BrowserStyle.text)
+            Text("Kinema").scaledFont(size: 26, weight: .bold).foregroundStyle(BrowserStyle.text)
             Spacer()
             Menu {
                 Text(session.userName)
@@ -77,7 +77,8 @@ struct PhoneHomeView: View {
                 Button("Sign Out", role: .destructive) { Task { await model.session.signOut() } }
             } label: {
                 Text(String(session.userName.prefix(1)).uppercased())
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(size: 13, weight: .semibold)
+                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)  // one letter in a fixed circle
                     .foregroundStyle(BrowserStyle.text)
                     .frame(width: 32, height: 32)
                     .background(BrowserStyle.raised, in: Circle())
@@ -102,7 +103,7 @@ struct PhoneHomeView: View {
                 }
             }
             Text(surpriseError ?? "One random film you haven't seen.")
-                .font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                .scaledFont(size: 13).foregroundStyle(BrowserStyle.muted)
         }
         .padding(.horizontal, PhoneStyle.side)
     }
@@ -114,46 +115,52 @@ struct PhoneHero: View {
     let item: BaseItem
     let onPlay: (BaseItem, Bool) -> Void
     let onOpen: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var inProgress: Bool { item.resumePositionSeconds != nil }
     private var playable: Bool { item.type?.isPlayable ?? false }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Artwork(url: model.client?.backdropImageURL(for: item, maxWidth: 1000), title: "", toneID: item.id)
-                .onTapGesture(perform: onOpen)
-            LinearGradient(stops: [.init(color: BrowserStyle.ground.opacity(0), location: 0.25),
-                                   .init(color: BrowserStyle.ground.opacity(0.95), location: 1)],
-                           startPoint: .top, endPoint: .bottom)
-                .allowsHitTesting(false)
-            VStack(alignment: .leading, spacing: 8) {
-                Text(inProgress ? "Where you left off" : (item.type == .episode ? "Next up" : "Just added"))
-                    .font(.system(size: 12)).foregroundStyle(BrowserStyle.dim)
-                Text(ItemLabels.title(item))
-                    .font(.system(size: 30, weight: .bold)).foregroundStyle(BrowserStyle.text).lineLimit(2)
-                Text(ItemLabels.detail(item)).font(.system(size: 13)).foregroundStyle(BrowserStyle.dim).lineLimit(1)
-                if let pct = item.userData?.playedPercentage, inProgress {
-                    ProgressLine(fraction: pct / 100).clipShape(Capsule())
-                }
-                HStack(spacing: 10) {
-                    if playable {
-                        Button { onPlay(item, inProgress) } label: {
-                            Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .frame(maxWidth: .infinity).frame(height: 44)
-                                .foregroundStyle(BrowserStyle.ground)
-                                .background(BrowserStyle.accent, in: Capsule())
-                        }
-                        if inProgress { ActionButton(title: "Start over") { onPlay(item, false) } }
-                    } else {
-                        ActionButton(title: "Open", icon: "chevron.right", role: .primary, action: onOpen)
-                    }
-                }
-                .padding(.top, 4)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(inProgress ? "Where you left off" : (item.type == .episode ? "Next up" : "Just added"))
+                .scaledFont(size: 12).foregroundStyle(BrowserStyle.dim)
+            Text(ItemLabels.title(item))
+                .scaledFont(size: 30, weight: .bold).foregroundStyle(BrowserStyle.text).lineLimit(2)
+            Text(ItemLabels.detail(item)).scaledFont(size: 13).foregroundStyle(BrowserStyle.dim)
+            if let pct = item.userData?.playedPercentage, inProgress {
+                ProgressLine(fraction: pct / 100).clipShape(Capsule())
             }
-            .padding(18)
+            // Side by side until the text is too big for both to fit.
+            (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))) {
+                if playable {
+                    Button { onPlay(item, inProgress) } label: {
+                        Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
+                            .scaledFont(size: 15, weight: .semibold)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .foregroundStyle(BrowserStyle.ground)
+                            .background(BrowserStyle.accent, in: Capsule())
+                    }
+                    if inProgress { ActionButton(title: "Start over") { onPlay(item, false) } }
+                } else {
+                    ActionButton(title: "Open", icon: "chevron.right", role: .primary, action: onOpen)
+                }
+            }
+            .padding(.top, 4)
         }
-        .frame(height: 300)
+        .padding(18)
+        // At least the backdrop's height; taller when the text needs it, with the backdrop behind.
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .bottomLeading)
+        .background {
+            ZStack {
+                Artwork(url: model.client?.backdropImageURL(for: item, maxWidth: 1000), title: "", toneID: item.id)
+                    .onTapGesture(perform: onOpen)
+                LinearGradient(stops: [.init(color: BrowserStyle.ground.opacity(0), location: 0.25),
+                                       .init(color: BrowserStyle.ground.opacity(0.95), location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+                    .allowsHitTesting(false)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, PhoneStyle.side)
     }

@@ -31,4 +31,4 @@
 - [x] 5.4 Apple TV: the Top Shelf reloads when the session ends (sign-out or an expired token)
 - [x] 5.5 iPhone: controls don't hide under VoiceOver; Magic Tap plays and pauses
 - [ ] 5.6 Check on devices: sign-in keyboard and AutoFill (iPhone); a 40-track subtitle panel and the end card (Apple TV); Top Shelf after signing out; VoiceOver in the iPhone player
-- [ ] 5.7 Dynamic Type in the iPhone browser (fonts are fixed sizes today)
+- [x] 5.7 Dynamic Type in the iPhone browser: fixed sizes scale on the nearest text style's curve; card text stops at the largest standard size; button rows and the detail header stack at accessibility sizes (checked in the simulator at the default and largest sizes; the player keeps fixed sizes)

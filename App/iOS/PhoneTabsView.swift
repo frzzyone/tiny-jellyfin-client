@@ -119,13 +119,13 @@ struct PhoneRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.system(size: 19, weight: .semibold)).foregroundStyle(BrowserStyle.text)
+                Text(title).scaledFont(size: 19, weight: .semibold).foregroundStyle(BrowserStyle.text)
                 Spacer()
-                Text("\(items.count)").font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                Text("\(items.count)").scaledFont(size: 13).foregroundStyle(BrowserStyle.muted)
             }
             .padding(.horizontal, PhoneStyle.side)
             if let subtitle {
-                Text(subtitle).font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                Text(subtitle).scaledFont(size: 13).foregroundStyle(BrowserStyle.muted)
                     .padding(.horizontal, PhoneStyle.side).padding(.top, -6)
             }
             ScrollView(.horizontal, showsIndicators: false) {

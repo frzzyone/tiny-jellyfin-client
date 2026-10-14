@@ -24,7 +24,7 @@ struct PhoneLibraryView: View {
                 if let grid {
                     if let total = grid.total {
                         Text(grid.items.count < total ? "\(grid.items.count) of \(total)" : "\(total)")
-                            .font(.system(size: 13)).foregroundStyle(BrowserStyle.muted)
+                            .scaledFont(size: 13).foregroundStyle(BrowserStyle.muted)
                             .padding(.horizontal, PhoneStyle.side).padding(.top, showsHeader ? -6 : 0)
                     }
                     if let discovery {
@@ -159,9 +159,9 @@ struct PhoneSearchView: View {
                     .accessibilityLabel("Clear")
             }
         }
-        .font(.system(size: 16))
-        .padding(.horizontal, 12)
-        .frame(height: 40)
+        .scaledFont(size: 16)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(minHeight: 40)
         .background(BrowserStyle.raised, in: RoundedRectangle(cornerRadius: 10))
         .padding(.horizontal, PhoneStyle.side)
     }
@@ -174,7 +174,7 @@ struct PhoneHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 26, weight: .bold))
+            .scaledFont(size: 26, weight: .bold)
             .foregroundStyle(BrowserStyle.text)
             .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
             .padding(.horizontal, PhoneStyle.side)

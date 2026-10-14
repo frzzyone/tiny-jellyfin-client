@@ -11,7 +11,18 @@ struct TinyJellyfinPhoneApp: App {
             PhoneRootView()
                 .environment(model)
                 .preferredColorScheme(.dark)
-                .task { model.session.restore() }
+                .task {
+                    model.session.restore()
+                    #if DEBUG
+                    // Simulator hook: TJ_SERVER=<address> TJ_USER=<name> signs in with an empty
+                    // password (the demo server's account), for screenshots.
+                    let env = ProcessInfo.processInfo.environment
+                    if case .serverEntry = model.session.state, let address = env["TJ_SERVER"] {
+                        await model.session.connect(address: address)
+                        if let user = env["TJ_USER"] { await model.session.signIn(username: user, password: "") }
+                    }
+                    #endif
+                }
                 // Swiped away from the app switcher mid-film (background audio keeps the app
                 // running): tell the server, or it keeps transcoding for nobody.
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
