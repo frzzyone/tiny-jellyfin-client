@@ -117,7 +117,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Tinyfin
-        PRODUCT_NAME: TinyJellyfin
+        # The app's file is Tinyfin.app; the module keeps its old name, as on the Mac.
+        PRODUCT_NAME: Tinyfin
+        PRODUCT_MODULE_NAME: TinyJellyfin
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
@@ -174,7 +176,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Tinyfin
-        PRODUCT_NAME: TinyJellyfin
+        # The app's file is Tinyfin.app; the module keeps its old name, as on the Mac.
+        PRODUCT_NAME: Tinyfin
+        PRODUCT_MODULE_NAME: TinyJellyfin
         TARGETED_DEVICE_FAMILY: "3"
         ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
         CODE_SIGN_STYLE: Automatic
@@ -216,6 +220,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.tinyjellyfin.Tinyfin.topshelf
+        PRODUCT_NAME: TinyfinTopShelf
         TARGETED_DEVICE_FAMILY: "3"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "Apple Development"
