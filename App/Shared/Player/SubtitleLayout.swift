@@ -35,6 +35,16 @@ enum SubtitleLayout {
         return rect
     }
 
+    /// How far to raise a picture subtitle, in its canvas's pixels, so it sits above black bars
+    /// encoded into the frames, as text does: a disc places them in the frame's bottom bar, which
+    /// the iPhone's fill mode crops off. Events clear of the bar stay where the disc put them.
+    static func pictureSubtitleLift(_ bitmap: SubtitleBitmap, bars: PictureBars?) -> CGFloat {
+        guard let bars, bars.bottom > 0, let lowest = bitmap.pieces.map({ $0.y + $0.height }).max() else { return 0 }
+        let canvas = CGFloat(bitmap.canvasHeight)
+        let limit = canvas * (1 - bars.bottom - 0.03)
+        return max(0, CGFloat(lowest) - limit)
+    }
+
     /// Where the whole video frame is drawn: aspect-fitted, or with `fill` covering the view and
     /// cropped. Picture subtitles are placed on this, bars included.
     static func frameRect(video: CGSize?, in bounds: CGSize, fill: Bool) -> CGRect {

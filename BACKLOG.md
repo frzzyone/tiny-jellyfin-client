@@ -10,12 +10,10 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 ## Subtitles (from the 2026-10-12 subtitle-style change)
 
-- **Picture subtitles in the bars.** The app now draws PGS/DVD/DVB itself during Direct Play, where
-  the disc placed them, which on a scope film can be inside the black bar of a 16:9 frame. Moving
-  them above detected bars (as text subtitles do) is possible now that we hold the bitmaps.
-  During a transcode the app draws the `.sup` Jellyfin extracted (set the server to extract
-  subtitles ahead of time); a track it hasn't extracted is burnt in, since extracting on demand
-  reads the whole file (a minute or more for a 4K remux).
+- **Picture subtitles need an extracted copy during transcodes.** The app draws the `.sup`
+  Jellyfin extracted; a track it hasn't extracted is burnt in, since extracting on demand reads the
+  whole file (a minute or more for a 4K remux). Seen 2026-10-14: a film whose `.sup` files exist
+  without `.meta` files is re-extracted on every request, so it is always burnt in.
 - **The first bar reading can step.** Bars encoded in the frames are applied after two looks (4 s);
   a dark opening shot can place the text high for 2 s before a brighter frame narrows the bars.
   Waiting for more agreeing looks, or easing the move, would hide it. Decide after seeing it.

@@ -15,7 +15,8 @@ struct SubtitleOverlay: View {
         GeometryReader { geo in
             if let bitmap {
                 PictureSubtitle(bitmap: bitmap,
-                                frame: SubtitleLayout.frameRect(video: videoSize, in: geo.size, fill: fill))
+                                frame: SubtitleLayout.frameRect(video: videoSize, in: geo.size, fill: fill),
+                                lift: SubtitleLayout.pictureSubtitleLift(bitmap, bars: bars))
                     .equatable()
             }
             if let text, !text.isEmpty {
@@ -41,9 +42,11 @@ struct SubtitleOverlay: View {
 private struct PictureSubtitle: View, Equatable {
     let bitmap: SubtitleBitmap
     let frame: CGRect
+    /// Canvas pixels to raise it by (`SubtitleLayout.pictureSubtitleLift`).
+    let lift: CGFloat
 
     static func == (a: Self, b: Self) -> Bool {
-        a.bitmap.start == b.bitmap.start && a.bitmap.end == b.bitmap.end && a.frame == b.frame
+        a.bitmap.start == b.bitmap.start && a.bitmap.end == b.bitmap.end && a.frame == b.frame && a.lift == b.lift
     }
 
     var body: some View {
@@ -55,7 +58,7 @@ private struct PictureSubtitle: View, Equatable {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: CGFloat(piece.width) * sx, height: CGFloat(piece.height) * sy)
-                    .offset(x: frame.minX + CGFloat(piece.x) * sx, y: frame.minY + CGFloat(piece.y) * sy)
+                    .offset(x: frame.minX + CGFloat(piece.x) * sx, y: frame.minY + (CGFloat(piece.y) - lift) * sy)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
