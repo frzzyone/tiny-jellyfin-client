@@ -75,6 +75,31 @@ private struct PictureSubtitle: View, Equatable {
     }
 }
 
+/// "Couldn't switch…" for 4 s after a quality or audio switch fails (tap to dismiss), so the
+/// user knows why the stream they asked for isn't the one playing.
+struct SwitchErrorCapsule: View {
+    let player: PlaybackController
+    var font: Font = .callout
+
+    var body: some View {
+        if let error = player.switchError {
+            Text(error)
+                .font(font)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14).padding(.vertical, 7)
+                .background(.red.opacity(0.75), in: Capsule())
+                #if !os(tvOS)
+                .onTapGesture { player.dismissSwitchError() }
+                #endif
+                .task(id: error) {
+                    try? await Task.sleep(nanoseconds: 4_000_000_000)
+                    player.dismissSwitchError()
+                }
+                .accessibilityAddTraits(.isStaticText)
+        }
+    }
+}
+
 struct ErrorBanner: View {
     let message: String
     let retry: () -> Void

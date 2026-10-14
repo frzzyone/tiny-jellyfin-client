@@ -333,17 +333,7 @@ struct PlayerControls: View {
         VStack {
             HStack(spacing: 12) {
                 Spacer()
-                if let error = player.switchError {
-                    Text(error)
-                        .font(.callout)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(.red.opacity(0.75), in: Capsule())
-                        .onTapGesture { player.dismissSwitchError() }
-                        .task(id: error) {
-                            try? await Task.sleep(nanoseconds: 4_000_000_000)
-                            player.dismissSwitchError()
-                        }
-                }
+                SwitchErrorCapsule(player: player)
                 if let label = player.qualityLabel {
                     Text(label).font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
                 }

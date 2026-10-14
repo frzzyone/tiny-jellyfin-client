@@ -25,8 +25,10 @@
 
 ## 5. User experience
 
-- [ ] 5.1 iPhone sign-in fields: no autocapitalisation or autocorrect, AutoFill
-- [ ] 5.2 Switch errors shown on iPhone and Apple TV
-- [ ] 5.3 Apple TV: track panel scrolls; an end state after the film
-- [ ] 5.4 Top Shelf cleared on sign-out
-- [ ] 5.5 VoiceOver can bring the iPhone controls back
+- [x] 5.1 Sign-in fields: URL keyboard, no capitals or autocorrect on iPhone; username/password AutoFill on iPhone and Mac
+- [x] 5.2 One switch-error capsule on Mac, iPhone and Apple TV (`SwitchErrorCapsule`)
+- [x] 5.3 Apple TV: the track panel scrolls past nine rows; "Watched" with Play Again / Close at the end
+- [x] 5.4 Apple TV: the Top Shelf reloads when the session ends (sign-out or an expired token)
+- [x] 5.5 iPhone: controls don't hide under VoiceOver; Magic Tap plays and pauses
+- [ ] 5.6 Check on devices: sign-in keyboard and AutoFill (iPhone); a 40-track subtitle panel and the end card (Apple TV); Top Shelf after signing out; VoiceOver in the iPhone player
+- [ ] 5.7 Dynamic Type in the iPhone browser (fonts are fixed sizes today)

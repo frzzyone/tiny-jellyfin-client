@@ -1,5 +1,6 @@
 import JellyfinKit
 import SwiftUI
+import TVServices
 
 @main
 struct TinyJellyfinTVApp: App {
@@ -43,6 +44,15 @@ struct TVRootView: View {
             }
         }
         .background(BrowserStyle.ground)
+        // Signed out, or the token expired: take the last user's Continue Watching off the Top Shelf.
+        .onChange(of: isSignedIn) { _, signedIn in
+            if !signedIn { TVTopShelfContentProvider.topShelfContentDidChange() }
+        }
+    }
+
+    private var isSignedIn: Bool {
+        if case .signedIn = model.session.state { return true }
+        return false
     }
 }
 

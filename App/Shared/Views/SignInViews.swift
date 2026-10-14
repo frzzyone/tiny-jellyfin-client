@@ -10,6 +10,12 @@ struct ServerEntryView: View {
     var body: some View {
         OnboardingCard(title: "Connect to Jellyfin", subtitle: "Enter the address of your Jellyfin server.") {
             TextField("Server address", text: $address, prompt: Text("jellyfin.example.com:8096"))
+                #if os(iOS)
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                #endif
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(connect)
             if let error {
@@ -42,7 +48,13 @@ struct SignInView: View {
     var body: some View {
         OnboardingCard(title: "Sign in to \(server.name)", subtitle: server.url.absoluteString) {
             TextField("Username", text: $name).textFieldStyle(.roundedBorder)
+                .textContentType(.username)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                #endif
             SecureField("Password", text: $password).textFieldStyle(.roundedBorder).onSubmit(signIn)
+                .textContentType(.password)
             if let error {
                 Text(error).foregroundStyle(.red).font(.callout)
             }

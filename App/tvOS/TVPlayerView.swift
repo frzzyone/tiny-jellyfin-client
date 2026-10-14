@@ -50,6 +50,16 @@ struct TVPlayerView: View {
                 }
                 .padding(40)
                 .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 24))
+            } else if player.status == .ended {
+                VStack(spacing: 20) {
+                    Label("Watched", systemImage: "checkmark.circle.fill").font(.system(size: 28, weight: .semibold))
+                    HStack(spacing: 24) {
+                        Button("Play Again") { player.togglePlayPause() }
+                        Button("Close", action: onClose)
+                    }
+                }
+                .padding(40)
+                .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 24))
             } else {
                 TimelineView(.periodic(from: .now, by: 0.5)) { context in
                     if showsTransport(at: context.date) { transport.transition(.opacity) }
@@ -58,6 +68,7 @@ struct TVPlayerView: View {
             }
             if let panel { panelView(panel).transition(.move(edge: .top).combined(with: .opacity)) }
         }
+        .overlay(alignment: .top) { SwitchErrorCapsule(player: player, font: .system(size: 26)).padding(.top, 60) }
         .ignoresSafeArea()
         .background(.black)
         .playbackAudioSession(player)
@@ -207,11 +218,11 @@ struct TVPlayerView: View {
             Group {
                 switch tab {
                 case .info: info
-                case .subtitles: options { SubtitleMenuItems(player: player) }
-                case .quality: options { QualityMenuItems(player: player) }
+                case .subtitles: options(count: player.subtitleOptions.count + 1) { SubtitleMenuItems(player: player) }
+                case .quality: options(count: player.qualityOptions.count) { QualityMenuItems(player: player) }
                 case .audio: audio
-                case .chapters: options { ChapterMenuItems(player: player) }
-                case .speed: options { SpeedMenuItems(player: player) }
+                case .chapters: options(count: player.chapters.count) { ChapterMenuItems(player: player) }
+                case .speed: options(count: PlaybackController.speeds.count) { SpeedMenuItems(player: player) }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,11 +238,19 @@ struct TVPlayerView: View {
         .onChange(of: focus) { _, new in if let new, new != panel { panel = new } }
     }
 
-    private func options<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 26), GridItem(.flexible())], alignment: .leading, spacing: 6) {
+    /// Two columns of choices; past nine rows (a Blu-ray remux has dozens of subtitles) they scroll,
+    /// and focus moving down scrolls them.
+    @ViewBuilder
+    private func options<Content: View>(count: Int, @ViewBuilder _ content: () -> Content) -> some View {
+        let grid = LazyVGrid(columns: [GridItem(.flexible(), spacing: 26), GridItem(.flexible())], alignment: .leading, spacing: 6) {
             content()
         }
         .font(.system(size: 25))
+        if (count + 1) / 2 > 9 {
+            ScrollView { grid.padding(.vertical, 8) }.frame(height: 600)
+        } else {
+            grid
+        }
     }
 
     private var info: some View {
@@ -250,7 +269,7 @@ struct TVPlayerView: View {
     }
 
     private var audio: some View {
-        options { AudioMenuItems(player: player) }
+        options(count: player.audioOptions.count) { AudioMenuItems(player: player) }
     }
 }
 

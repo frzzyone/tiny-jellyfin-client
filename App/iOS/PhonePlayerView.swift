@@ -101,12 +101,15 @@ struct PhonePlayerView: View {
         .onDisappear { PhoneOrientation.lock(.portrait) }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
             // Only real playback hides them: a slow start (buffering counts as "playing") must not.
-            if controlsVisible, ControlsAutoHide.due(playing: player.status == .playing, scrubbing: scrubbing != nil,
+            // VoiceOver users find the controls by swiping: hiding them would leave nothing to find.
+            if controlsVisible, !UIAccessibility.isVoiceOverRunning, ControlsAutoHide.due(playing: player.status == .playing, scrubbing: scrubbing != nil,
                                                       menuOpen: openMenu != nil, idle: Date().timeIntervalSince(lastActivity)) {
                 withAnimation { controlsVisible = false }
             }
         }
         .onChange(of: player.isPlaying) { _, _ in pip.invalidate(); player.nowPlaying.update() }
+        .overlay(alignment: .top) { SwitchErrorCapsule(player: player).padding(.top, 64) }
+        .accessibilityAction(.magicTap) { player.togglePlayPause() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { player.enteredBackground(pictureInPicture: { pip.isActive }) }
             if phase == .active { player.returnedToForeground() }
