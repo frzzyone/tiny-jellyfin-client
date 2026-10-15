@@ -332,18 +332,6 @@ struct PlayerControls: View {
     var body: some View {
         VStack {
             HStack(spacing: 12) {
-                if let item = player.item {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(ItemLabels.title(item)).font(.system(size: 26, weight: .bold))
-                        Text(ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed))
-                            .font(.system(size: 15).monospacedDigit()).foregroundStyle(.white.opacity(0.75))
-                    }
-                    .lineLimit(1)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.5), radius: 3)
-                    .padding(.leading, 64) // clear of the traffic lights
-                    .offset(y: -8)         // the title's middle level with them
-                }
                 Spacer()
                 SwitchErrorCapsule(player: player)
                 if let label = player.qualityLabel {
@@ -372,6 +360,25 @@ struct PlayerControls: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(.black.opacity(0.45), in: Capsule())
+            }
+            // What is playing: the title centred on the window, level with the controls, at twice
+            // their text size; the line under it starts where the title starts.
+            .overlay {
+                if let item = player.item {
+                    Text(ItemLabels.title(item))
+                        .font(.system(size: 24, weight: .bold))
+                        .overlay(alignment: .bottomLeading) {
+                            Text(ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed))
+                                .font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                                .fixedSize()
+                                .alignmentGuide(.bottom) { $0[.top] - 1 }
+                        }
+                        .lineLimit(1)
+                        .frame(maxWidth: 480) // a long title stops short of the controls
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.5), radius: 3)
+                        .allowsHitTesting(false)
+                }
             }
             .padding(.horizontal, 12).padding(.top, 10)
             .onHover { overControls = $0 }
