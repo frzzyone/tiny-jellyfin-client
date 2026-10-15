@@ -340,8 +340,10 @@ struct PhonePlayerView: View {
             round("xmark", size: 44, label: "Close", action: onClose)
             VStack(alignment: .leading, spacing: 1) {
                 Text(player.item.map(ItemLabels.title) ?? "").font(.system(size: 15, weight: .semibold)).lineLimit(1)
-                if let label = player.qualityLabel {
-                    Text(label).font(.system(size: 12)).foregroundStyle(.white.opacity(0.75))
+                if let item = player.item {
+                    Text(([ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed)]
+                          + [player.qualityLabel].compactMap { $0 }).filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.system(size: 12).monospacedDigit()).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
                 }
             }
             Spacer()

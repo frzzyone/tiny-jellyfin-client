@@ -243,5 +243,12 @@ final class HomeModelTests: XCTestCase {
         XCTAssertEqual(ItemLabels.detail(item("show", type: .series, year: 2024, unplayed: 3)), "2024 · Series · 3 unwatched")
         XCTAssertEqual(ItemLabels.timeLeft(item("troy", minutes: 196, position: 131 * 60)), "1 h 05 min left")
         XCTAssertNil(ItemLabels.timeLeft(item("new", minutes: 90)))
+
+        // The player's line: the end is the clock time at the current speed.
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let end = { (seconds: Double) in now.addingTimeInterval(seconds).formatted(date: .omitted, time: .shortened) }
+        XCTAssertEqual(ItemLabels.playing(episode, remaining: 600, speed: 1, now: now), "S2 E4 · Woe's Hollow · ends \(end(600))")
+        XCTAssertEqual(ItemLabels.playing(item("avatar", year: 2009), remaining: 3600, speed: 2, now: now), "2009 · ends \(end(1800))")
+        XCTAssertEqual(ItemLabels.playing(item("avatar", year: 2009), remaining: 0, speed: 1, now: now), "2009", "no end while the length is unknown")
     }
 }

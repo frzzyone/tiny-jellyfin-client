@@ -215,6 +215,24 @@ enum ItemLabels {
         return parts.joined(separator: " · ")
     }
 
+    /// The player's line under the title: "S1 E2 · He Built the Saturn V · ends 23:41",
+    /// "2009 · ends 23:41". The end is the clock time at the current speed; none while unknown.
+    static func playing(_ item: BaseItem, remaining: Double, speed: Float, now: Date = Date()) -> String {
+        var parts: [String] = []
+        if item.type == .episode {
+            if let season = item.parentIndexNumber, let episode = item.indexNumber { parts.append("S\(season) E\(episode)") }
+            else if let episode = item.indexNumber { parts.append("E\(episode)") }
+            parts.append(item.displayName)
+        } else if let year = item.productionYear {
+            parts.append(String(year))
+        }
+        if remaining > 0, speed > 0 {
+            let end = now.addingTimeInterval(remaining / Double(speed))
+            parts.append("ends " + end.formatted(date: .omitted, time: .shortened))
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// "1 h 05 min left" for the hero; nil when the item is not partly watched.
     static func timeLeft(_ item: BaseItem) -> String? {
         item.remainingSeconds.map { "\(minutes(Int(($0 / 60).rounded(.up)))) left" }

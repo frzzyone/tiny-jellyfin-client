@@ -332,6 +332,17 @@ struct PlayerControls: View {
     var body: some View {
         VStack {
             HStack(spacing: 12) {
+                if let item = player.item {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ItemLabels.title(item)).font(.headline)
+                        Text(ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed))
+                            .font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+                    }
+                    .lineLimit(1)
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.5), radius: 3)
+                    .padding(.leading, 64) // clear of the traffic lights
+                }
                 Spacer()
                 SwitchErrorCapsule(player: player)
                 if let label = player.qualityLabel {

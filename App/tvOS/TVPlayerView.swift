@@ -166,7 +166,13 @@ struct TVPlayerView: View {
         return VStack(spacing: 14) {
             Spacer()
             HStack(alignment: .firstTextBaseline) {
-                Text(player.item.map(ItemLabels.title) ?? "").font(.system(size: 30, weight: .semibold))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(player.item.map(ItemLabels.title) ?? "").font(.system(size: 30, weight: .semibold))
+                    if let item = player.item {
+                        Text(ItemLabels.playing(item, remaining: player.duration - time, speed: player.speed))
+                            .font(.system(size: 22).monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+                    }
+                }
                 Spacer()
                 if let label = player.qualityLabel {
                     Text(label).font(.system(size: 22)).foregroundStyle(.white.opacity(0.75))
