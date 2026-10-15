@@ -15,6 +15,8 @@ struct BrowserView: View {
     @State private var surpriseError: String?
     @State private var lastPlayedID: String?
     @FocusState private var searchFocused: Bool
+    /// When S last asked for a surprise: a letter straight after turns it into a search for "s…".
+    @State private var surpriseKeyAt: Date?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -239,9 +241,12 @@ struct BrowserView: View {
 
     private func surprise() {
         guard let home else { return }
+        let asked = surpriseKeyAt
         Task {
             do {
                 if let pick = try await home.surprise() {
+                    // Typing on after S made it a search; the pick arrived too late to show.
+                    guard surpriseKeyAt == asked, browser.searchText.isEmpty else { return }
                     browser.openQuickLook(pick, in: [pick])
                     surpriseError = nil
                 } else {
@@ -272,6 +277,13 @@ struct BrowserView: View {
                 return true
             }
             return false
+        }
+        // S then another letter straight away was the start of a word: search for it instead.
+        if !editing, let at = surpriseKeyAt, Date().timeIntervalSince(at) < 0.6, let text = event.typedText {
+            surpriseKeyAt = nil
+            browser.closeQuickLook()
+            typeIntoSearch("s" + text)
+            return true
         }
         if editing {
             if event.isEscape { clearSearch(); return true }
@@ -313,7 +325,7 @@ struct BrowserView: View {
         }
         // Printable characters start a search; S on Home is Surprise me.
         guard let text = event.typedText else { return false }
-        if text == "s", browser.searchText.isEmpty, browser.tab == .home { surprise(); return true }
+        if text == "s", browser.searchText.isEmpty, browser.tab == .home { surpriseKeyAt = Date(); surprise(); return true }
         typeIntoSearch(text)
         return true
     }

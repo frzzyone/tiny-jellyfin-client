@@ -8,10 +8,6 @@ Things we know about and have chosen not to do yet. Each should become its own O
 - **Library polish.** Standard grid and list, no poster hover state, no year/rating overlay, a
   left-aligned details block. Functional, but the least finished-looking part of the app.
 
-- **S on Home can't start a search.** On Home, S opens Surprise me, so a search for "Star Wars" needs
-  ⌘F first. Plan (2026-10-15): keep S as the surprise, and turn it into a search when a second letter
-  follows quickly (close the quick look, search "S…").
-
 ## Subtitles (from the 2026-10-12 subtitle-style change)
 
 - **Picture subtitles need an extracted copy during transcodes.** The app draws the `.sup`
