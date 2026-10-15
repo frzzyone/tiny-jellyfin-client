@@ -144,7 +144,7 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
 - `screencapture` works once the terminal running Claude has Screen Recording permission (it does
   on this Mac). Capture just the app with `screencapture -x -l <windowID>` (window id from
   `CGWindowListCopyWindowInfo`), and pose the browser with the DEBUG hooks `TJ_BROWSER_TAB`,
-  `TJ_BROWSER_SEARCH`, `TJ_BROWSER_QUICKLOOK=hero|<id>`, `TJ_BROWSER_SELECT=<row>,<index>`.
+  `TJ_BROWSER_SEARCH`, `TJ_BROWSER_QUICKLOOK=hero|<id>`, `TJ_BROWSER_SELECT=<row>,<index>`. `TJ_SERVER` with `TJ_USER` signs a debug build in with an empty password (the demo server), kept in memory and its own defaults so the real sign-in is untouched.
   `TJ_AUTOPLAY=1 TJ_MAC_CHECKS=<file>` drives the player with in-app clicks and keys (pause, full
   screen, S, digits, the end screen) and writes PASS/FAIL lines to the file (`DebugChecks`).
 - The Apple TV simulator: `xcrun simctl launch "Apple TV 4K (3rd generation)" app.tinyjellyfin.Tinyfin`

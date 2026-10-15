@@ -19,13 +19,25 @@ final class AppModel {
     init() {
         #if os(tvOS)
         // Shared with the Top Shelf extension.
-        let preferences = AppPreferences(defaults: TVShared.defaults)
+        var preferences = AppPreferences(defaults: TVShared.defaults)
         #else
-        let preferences = AppPreferences()
+        var preferences = AppPreferences()
+        #endif
+        var tokens: TokenStore = KeychainTokenStore()
+        #if os(macOS) && DEBUG
+        // Screenshot hook: TJ_SERVER=<address> TJ_USER=<name> signs in with an empty password (the
+        // demo server's account), kept in memory and in its own defaults, so the real sign-in and
+        // settings are left alone.
+        if ProcessInfo.processInfo.environment["TJ_SERVER"] != nil {
+            let defaults = UserDefaults(suiteName: "app.tinyjellyfin.debug-session")!
+            defaults.removePersistentDomain(forName: "app.tinyjellyfin.debug-session")
+            preferences = AppPreferences(defaults: defaults)
+            tokens = InMemoryTokenStore()
+        }
         #endif
         self.preferences = preferences
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
-        session = SessionModel(tokens: KeychainTokenStore(), preferences: preferences,
+        session = SessionModel(tokens: tokens, preferences: preferences,
                                deviceName: Self.deviceName, appVersion: version)
         player = PlaybackController(engineFactory: { FFmpegEngine() }, preferences: preferences,
                                     capabilities: PlaybackCapabilities(EngineCapabilities.current()))
