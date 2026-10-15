@@ -334,14 +334,15 @@ struct PlayerControls: View {
             HStack(spacing: 12) {
                 if let item = player.item {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(ItemLabels.title(item)).font(.headline)
+                        Text(ItemLabels.title(item)).font(.system(size: 26, weight: .bold))
                         Text(ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed))
-                            .font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+                            .font(.system(size: 15).monospacedDigit()).foregroundStyle(.white.opacity(0.75))
                     }
                     .lineLimit(1)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.5), radius: 3)
                     .padding(.leading, 64) // clear of the traffic lights
+                    .offset(y: -8)         // the title's middle level with them
                 }
                 Spacer()
                 SwitchErrorCapsule(player: player)
