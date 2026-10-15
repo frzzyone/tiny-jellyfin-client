@@ -1,15 +1,25 @@
 # Tinyfin
 
-A small, native macOS, iPhone and Apple TV client for [Jellyfin](https://jellyfin.org) with an Infuse-style playback
-engine and on-the-fly quality switching.
+![Tinyfin: a tiny, native Jellyfin client for macOS, iOS and Apple TV](docs/images/intro.jpg)
+
+A tiny, native Jellyfin client for macOS, iOS and Apple TV, with an Infuse-style playback engine and
+seamless quality switching.
 
 - **Plays files as they are.** FFmpeg reads the container (MKV, MP4, MOV, TS, WebM); video is decoded in
-  hardware by macOS, and audio goes to the system audio renderer. Most files play without the server
-  converting anything.
+  hardware, and audio goes to the system audio renderer. Most files play without the server converting
+  anything.
+- **Direct play or server transcoding, seamless switching.** Pick "Original" or a bitrate/resolution
+  preset at any time. The current stream keeps playing while the new one loads, then it is spliced in
+  at a keyframe: no spinner, no restart.
 - **Native output.** HDR10/HLG on EDR displays, Dolby Vision Profiles 5 and 8, Dolby Atmos (E-AC-3) passed
-  through to macOS, Picture in Picture, Now Playing and media keys.
-- **Quality switching.** Pick "Original" or a bitrate/resolution preset at any time. The current stream keeps
-  playing while the new one loads, then it is spliced in at a keyframe.
+  through, lossless audio decoded in the app, picture subtitles, Picture in Picture, Now Playing and
+  media keys.
+- **Tiny and quiet.** No settings screen, no accounts, no tracking: it talks only to your server.
+
+| | |
+|---|---|
+| ![One keystroke away from where you left off](docs/images/1-home.jpg) | ![Direct play or server transcoding](docs/images/2-player.jpg) |
+| ![Your whole library, a keystroke away](docs/images/3-library.jpg) | ![Space for a quick look](docs/images/4-quicklook.jpg) |
 
 Tinyfin is an independent app, not an official Jellyfin product.
 
