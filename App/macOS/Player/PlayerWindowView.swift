@@ -335,7 +335,7 @@ struct PlayerControls: View {
                 Spacer()
                 SwitchErrorCapsule(player: player)
                 if let label = player.qualityLabel {
-                    Text(label).font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                    Text(label).font(.body.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
                 }
                 HStack(spacing: 14) {
                     QualityMenu(player: player)
@@ -362,14 +362,14 @@ struct PlayerControls: View {
                 .background(.black.opacity(0.45), in: Capsule())
             }
             // What is playing: the title centred on the window, level with the controls, at twice
-            // their text size; the line under it starts where the title starts.
+            // their text size (13 pt, like the times at the bottom); the line under it starts where the title starts.
             .overlay {
                 if let item = player.item {
                     Text(ItemLabels.title(item))
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .overlay(alignment: .bottomLeading) {
                             Text(ItemLabels.playing(item, remaining: player.duration - player.currentTime, speed: player.speed))
-                                .font(.callout.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                                .font(.body.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
                                 .fixedSize()
                                 .alignmentGuide(.bottom) { $0[.top] - 1 }
                         }
