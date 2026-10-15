@@ -8,7 +8,7 @@ import SwiftUI
 ///
 ///     TJ_AUTOPLAY=1                 play the first Continue Watching item
 ///     TJ_AUTOPLAY_ITEM=<item id>    play a specific item instead
-///     TJ_AUTOPLAY_SEARCH=<title>    …or the first film found by title
+///     TJ_AUTOPLAY_SEARCH=<title>    …or the first film or episode found by title
 ///     TJ_AUTOPLAY_FROM_START=1      ignore the saved resume position
 ///     TJ_AUTOPLAY_QUALITY=<id>      force a quality (e.g. original, 720p-4)
 ///     TJ_AUTOPLAY_FULLSCREEN=1      toggle full screen 3 s after playback starts, and log the result
@@ -32,7 +32,7 @@ enum DebugAutoplay {
             if let id = env["TJ_AUTOPLAY_ITEM"] {
                 item = try await client.item(id: id)
             } else if let title = env["TJ_AUTOPLAY_SEARCH"] {
-                var query = ItemQuery(types: [.movie], limit: 1)
+                var query = ItemQuery(types: [.movie, .episode], limit: 1)
                 query.searchTerm = title
                 item = try await client.items(query).items.first
             } else if env["TJ_MAC_CHECKS"] != nil {
