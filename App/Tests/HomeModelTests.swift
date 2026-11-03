@@ -136,8 +136,6 @@ final class HomeModelTests: XCTestCase {
         XCTAssertEqual(HomeRules.decade(day: 1, earliestYear: 1975, now: today), 1980)
         XCTAssertEqual(HomeRules.decade(day: 6, earliestYear: 1975, now: today), 1970, "six decades, wraps")
         XCTAssertEqual(HomeRules.decade(day: 3, earliestYear: 2030, now: today), 2020, "never past today")
-        XCTAssertNotNil(HomeRules.parse("2026-10-10T08:00:00.0000000Z"))
-        XCTAssertNotNil(HomeRules.parse("2026-10-10T08:00:00Z"))
     }
 
     func testShortTonightFiltersByRuntimeAfterARandomQuery() async {

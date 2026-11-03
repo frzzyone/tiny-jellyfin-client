@@ -225,6 +225,9 @@ final class DiscoveryEndpointTests: XCTestCase {
         let items = try await server.client().latest(limit: 3)
         XCTAssertEqual(items.map(\.id), ["t0", "t1", "t2"])
         XCTAssertEqual(queryValue(server.lastRequest(path: "/Items/Latest"), "limit"), "24")
+        let fields = queryValue(server.lastRequest(path: "/Items/Latest"), "fields") ?? ""
+        XCTAssertFalse(fields.contains("MediaSources") || fields.contains("MediaStreams"), "no track lists for 24× titles")
+        XCTAssertTrue(fields.contains("ProductionYear"))
     }
 
     func testSimilarAndGenres() async throws {

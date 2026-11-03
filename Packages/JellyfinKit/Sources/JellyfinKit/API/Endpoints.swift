@@ -1,6 +1,9 @@
 import Foundation
 
 private let itemFields = "Overview,MediaSources,MediaStreams,PrimaryImageAspectRatio,PremiereDate,ProductionYear,DateCreated,Genres"
+/// For long lists of cards: no media sources or streams, which run to kilobytes per title (a remux
+/// lists every track). The quick look and detail pages fetch the full item.
+private let cardFields = "Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,DateCreated,Genres"
 
 extension JellyfinClient {
     // MARK: Server & auth
@@ -94,7 +97,7 @@ extension JellyfinClient {
         // can take most of it (24 asked, 5 titles back). Ask for more and keep `limit` titles.
         let items: [BaseItem] = try await get("/Items/Latest", query: [
             "userId": try requireUserId(), "limit": String(limit * Self.latestOverfetch),
-            "includeItemTypes": "Movie,Series,Episode", "fields": itemFields, "enableUserData": "true",
+            "includeItemTypes": "Movie,Series,Episode", "fields": cardFields, "enableUserData": "true",
         ])
         return Array(items.prefix(limit))
     }

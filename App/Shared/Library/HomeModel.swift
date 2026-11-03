@@ -70,14 +70,6 @@ enum HomeRules {
     }
 
     static func dayNumber(_ now: Date) -> Int { Int(now.timeIntervalSince1970 / 86_400) }
-
-    static func parse(_ iso: String) -> Date? {
-        // Jellyfin writes seven fractional digits; ISO8601DateFormatter wants at most three.
-        let trimmed = iso.replacingOccurrences(of: #"(\.\d{3})\d+"#, with: "$1", options: .regularExpression)
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return withFraction.date(from: trimmed) ?? ISO8601DateFormatter().date(from: trimmed)
-    }
 }
 
 /// Home: the hero, the fixed rows, and today's discovery rows, each loaded on its own. Given a
