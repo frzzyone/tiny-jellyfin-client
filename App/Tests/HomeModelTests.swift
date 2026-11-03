@@ -113,13 +113,16 @@ final class HomeModelTests: XCTestCase {
         XCTAssertNotNil(model.rows.first { $0.id == "nextUp" }?.error)
     }
 
-    func testAddedThisWeekKeepsOnlyTheLastSevenDays() async {
+    func testRecentlyAddedShowsTheNewestHoweverOld() async {
+        service.resume = [item("troy", position: 100)]   // the hero, so it isn't the newest title
         service.latestItems = [item("fresh", created: "2026-10-10T08:00:00.0000000Z"),
-                               item("old", created: "2026-09-20T08:00:00.0000000Z"),
+                               item("old", created: "2025-09-20T08:00:00.0000000Z"),
                                item("undated")]
         let model = makeModel()
         await model.load()
-        XCTAssertEqual(model.rows.first { $0.id == "latest" }?.items.map(\.id), ["fresh"])
+        let row = model.visibleRows.first { $0.id == "latest" }
+        XCTAssertEqual(row?.title, "Recently added")
+        XCTAssertEqual(row?.items.map(\.id), ["fresh", "old", "undated"], "the server's order, nothing dropped for age")
     }
 
     func testRules() {

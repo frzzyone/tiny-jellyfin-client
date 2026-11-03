@@ -106,12 +106,16 @@ and runtime.
 - **THEN** Next up shows season 2 episode 1
 
 ### Requirement: Recently added
-Home SHALL show an "Added this week" row with titles added to the libraries in the last seven days,
-newest first, hidden when empty.
+Home SHALL show a "Recently added" row with the newest titles in the libraries (up to 24), newest
+first, however long ago they were added, hidden only when the libraries are empty.
 
 #### Scenario: New film
 - **WHEN** a film was added to the server two days ago
-- **THEN** it appears in Added this week
+- **THEN** it appears first in Recently added
+
+#### Scenario: Quiet server
+- **WHEN** nothing has been added for a month
+- **THEN** Recently added still shows the newest titles
 
 ### Requirement: Discovery rows
 Home SHALL offer rows that find something without typing: Surprise me, Short tonight, Because you

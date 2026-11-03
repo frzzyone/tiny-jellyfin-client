@@ -90,11 +90,16 @@ extension JellyfinClient {
 
     /// Newest additions, newest first; new episodes are grouped into their series.
     public func latest(limit: Int = 24) async throws -> [BaseItem] {
-        try await get("/Items/Latest", query: [
-            "userId": try requireUserId(), "limit": String(limit),
+        // The server applies the limit before it groups episodes into their series, so a busy series
+        // can take most of it (24 asked, 5 titles back). Ask for more and keep `limit` titles.
+        let items: [BaseItem] = try await get("/Items/Latest", query: [
+            "userId": try requireUserId(), "limit": String(limit * Self.latestOverfetch),
             "includeItemTypes": "Movie,Series,Episode", "fields": itemFields, "enableUserData": "true",
         ])
+        return Array(items.prefix(limit))
     }
+
+    static let latestOverfetch = 8
 
     /// What the server thinks is like this item.
     public func similar(to itemId: String, limit: Int = 24) async throws -> [BaseItem] {

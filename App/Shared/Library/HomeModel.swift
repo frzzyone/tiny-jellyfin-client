@@ -47,17 +47,11 @@ enum DiscoveryKind: String, CaseIterable {
 
 enum HomeRules {
     static let shortMinutes = 100
-    static let recentDays = 7
     static let almostDoneRange = 1...2
 
     static func isShort(_ item: BaseItem) -> Bool {
         guard let minutes = item.runtimeMinutes else { return false }
         return minutes < shortMinutes
-    }
-
-    static func isRecent(_ item: BaseItem, now: Date) -> Bool {
-        guard let created = item.dateCreated.flatMap(Self.parse) else { return false }
-        return now.timeIntervalSince(created) <= Double(recentDays) * 86_400
     }
 
     /// A series the user has started that has one or two episodes left.
@@ -115,7 +109,7 @@ final class HomeModel {
         return [
             HomeRow(id: Self.continueID, title: "Continue watching", shape: .still),
             HomeRow(id: Self.nextUpID, title: "Next up", subtitle: "the next episode of every series you're into", shape: .still),
-            HomeRow(id: Self.latestID, title: "Added this week", shape: .poster),
+            HomeRow(id: Self.latestID, title: "Recently added", subtitle: "newest first", shape: .poster),
         ] + DiscoveryKind.rotation(day: day).map(Self.row)
             + [HomeRow(id: Self.genreID, title: "Tonight, a genre", subtitle: "unwatched only", shape: .poster)]
     }
@@ -202,8 +196,8 @@ final class HomeModel {
         case Self.nextUpID:
             return (try await service.nextUp(limit: 24, seriesId: nil), nil)
         case Self.latestID:
-            let now = now()
-            return (try await service.latest(limit: 24).filter { HomeRules.isRecent($0, now: now) }, nil)
+            // However old: a quiet server still shows what arrived last, as Jellyfin's own home does.
+            return (try await service.latest(limit: 24), nil)
         case DiscoveryKind.shortTonight.rawValue:
             let query = ItemQuery(parentId: parentId, types: [.movie], filters: [.unplayed], sort: .random, limit: 60)
             let items = try await service.items(query).items.filter(HomeRules.isShort)

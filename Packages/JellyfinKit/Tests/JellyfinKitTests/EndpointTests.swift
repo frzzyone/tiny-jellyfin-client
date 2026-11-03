@@ -216,6 +216,17 @@ final class DiscoveryEndpointTests: XCTestCase {
         XCTAssertEqual(queryValue(server.lastRequest(path: "/Items/Latest"), "includeItemTypes"), "Movie,Series,Episode")
     }
 
+    /// The server limits before it groups episodes into their series (24 asked, 5 titles back from a
+    /// server with busy series), so the client asks for more and keeps the first `limit` titles.
+    func testLatestAsksForMoreThanItKeeps() async throws {
+        let server = StubServer()
+        let titles = (0..<10).map { #"{"Id":"t\#($0)","Name":"T","Type":"Series"}"# }.joined(separator: ",")
+        server.on("GET", "/Items/Latest", json: "[\(titles)]")
+        let items = try await server.client().latest(limit: 3)
+        XCTAssertEqual(items.map(\.id), ["t0", "t1", "t2"])
+        XCTAssertEqual(queryValue(server.lastRequest(path: "/Items/Latest"), "limit"), "24")
+    }
+
     func testSimilarAndGenres() async throws {
         let server = StubServer()
         server.on("GET", "/Items/heat/Similar", json: #"{"Items":[{"Id":"c","Name":"Collateral","Type":"Movie"}]}"#)

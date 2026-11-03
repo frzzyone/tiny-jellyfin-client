@@ -152,7 +152,7 @@ xcodebuild test -project TinyJellyfin.xcodeproj -scheme TinyJellyfin -destinatio
 ## On the Mac
 
 No sidebar: Home and one tab per video library in the top bar. Home leads with where you left
-off (Enter resumes it), then Continue watching, Next up, Added this week, and rows that need no
+off (Enter resumes it), then Continue watching, Next up, Recently added, and rows that need no
 typing: Surprise me (a random unwatched film), Short tonight, Because you watched, Almost done,
 a genre of the day, the oldest unplayed titles, a decade of the day. Library tabs open with two of
 the day's rows for that library (the ones Home isn't showing first), then one-click filters, a
