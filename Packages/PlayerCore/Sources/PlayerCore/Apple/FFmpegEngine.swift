@@ -84,6 +84,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
         synchronizer.addRenderer(videoRenderer)
         synchronizer.addRenderer(audioRenderer)
         displayLayer.videoGravity = .resizeAspect
+        displayLayer.preventsDisplaySleepDuringVideoPlayback = true   // NO by default on macOS: the screen dimmed on battery
         audioRenderer.audioTimePitchAlgorithm = .spectral   // keep voices' pitch away from 1×
         allowDolbyVision = capabilities.dolbyVision
     }

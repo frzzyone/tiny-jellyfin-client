@@ -41,6 +41,10 @@ final class EngineTests: XCTestCase {
         if case .failed(let message) = engine.state { XCTFail(message, file: file, line: line) }
     }
 
+    func testKeepsTheScreenAwakeWhilePlaying() {
+        XCTAssertTrue(engine().displayLayer.preventsDisplaySleepDuringVideoPlayback, "NO by default on macOS")
+    }
+
     func testPlaysH264AAC() async throws { try await assertPlays(try Fixtures.url("h264_aac.mp4")) }
     func testPlaysHEVC10EAC3() async throws { try await assertPlays(try Fixtures.url("hevc10_eac3.mkv")) }
     func testPlaysDTS() async throws { try await assertPlays(try Fixtures.url("h264_dts.mkv")) }
