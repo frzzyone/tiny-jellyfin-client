@@ -4,7 +4,15 @@ import SwiftUI
 @main
 struct TinyJellyfinPhoneApp: App {
     @UIApplicationDelegateAdaptor(PhoneAppDelegate.self) private var delegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        // Here, not in a view: iOS can launch the app in the background just to hand over downloads.
+        DownloadManager.shared.activate(model.downloads)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -21,7 +29,21 @@ struct TinyJellyfinPhoneApp: App {
                         await model.session.connect(address: address)
                         if let user = env["TJ_USER"] { await model.session.signIn(username: user, password: "") }
                     }
+                    // TJ_DOWNLOAD=<title>: downloads the first film or episode found by title.
+                    if let title = env["TJ_DOWNLOAD"], let client = model.client {
+                        var query = ItemQuery(types: [.movie, .episode], limit: 1)
+                        query.searchTerm = title
+                        if let item = try? await client.items(query).items.first { await model.downloads.download(item) }
+                    }
                     #endif
+                    await model.downloads.sync()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    switch phase {
+                    case .active: Task { await model.downloads.sync() }
+                    case .background: DownloadManager.shared.scheduleRefresh()
+                    default: break
+                    }
                 }
                 // Swiped away from the app switcher mid-film (background audio keeps the app
                 // running): tell the server, or it keeps transcoding for nobody.

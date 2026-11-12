@@ -107,7 +107,9 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
-        UIBackgroundModes: [audio]
+        # fetch: the refresh that keeps Downloads for you topped up.
+        UIBackgroundModes: [audio, fetch]
+        BGTaskSchedulerPermittedIdentifiers: [app.tinyjellyfin.Tinyfin.refresh]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIRequiresFullScreen: true
         # Self-hosted Jellyfin servers are commonly plain HTTP on the LAN.

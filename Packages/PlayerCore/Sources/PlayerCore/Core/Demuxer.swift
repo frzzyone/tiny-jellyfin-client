@@ -203,3 +203,15 @@ final class Demuxer {
                           isForced: (stream.pointee.disposition & 0x40) != 0)
     }
 }
+
+/// A file read without playing it: what a finished download needs to know.
+public enum MediaFileInfo {
+    /// The container's first timestamp and its length, in seconds. A server's MPEG-TS copy starts
+    /// at about 1.4 s (the muxer's delay), and the engine plays timestamps as they are, so the
+    /// download's `timelineOffset` is `-start`.
+    public static func read(_ url: URL) throws -> (start: Double, duration: Double?) {
+        let demuxer = Demuxer(url: url, factory: DefaultByteSourceFactory())
+        try demuxer.open()
+        return (demuxer.startTime, demuxer.duration)
+    }
+}

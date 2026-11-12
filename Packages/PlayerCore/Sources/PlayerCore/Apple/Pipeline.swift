@@ -81,8 +81,9 @@ final class Pipeline: @unchecked Sendable {
         try demuxer.open(seekBeforeProbe: startAt)
         let opened = Date()
         tracks = demuxer.tracks
-        // A playlist's duration is already item time; a progressive transcode's is what remains.
-        duration = demuxer.duration.map { $0 + (demuxer.isSegmented ? 0 : source.timelineOffset) }
+        // A playlist's duration is already item time. A file ends at its last timestamp (its start
+        // plus its length: an MPEG-TS file starts at about 1.4 s) moved by the offset.
+        duration = demuxer.duration.map { $0 + (demuxer.isSegmented ? 0 : demuxer.startTime + source.timelineOffset) }
         videoStream = demuxer.bestStream(AVMEDIA_TYPE_VIDEO).flatMap { index in
             tracks.first { $0.id == index && $0.kind == .video }?.id
         }

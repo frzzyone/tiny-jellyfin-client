@@ -18,6 +18,12 @@ protocol PlaybackService: PlaybackReporter {
     /// sends nothing for `wait` seconds: it is still extracting the track from the file.
     func pictureSubtitleData(itemId: String, mediaSourceId: String, streamIndex: Int, wait: TimeInterval) async throws -> Data
     func primaryImageURL(for item: BaseItem) -> URL?
+    /// A copy on the phone: no quality to choose, and nothing the server could burn in.
+    var isDownloaded: Bool { get }
+}
+
+extension PlaybackService {
+    var isDownloaded: Bool { false }
 }
 
 struct JellyfinPlaybackService: PlaybackService {

@@ -74,7 +74,7 @@ struct PhoneHomeView: View {
                 Text(session.userName)
                 Text(session.server.name)
                 Button("Acknowledgements") { showAcknowledgements = true }
-                Button("Sign Out", role: .destructive) { Task { await model.session.signOut() } }
+                Button("Sign Out", role: .destructive) { Task { await model.signOut() } }
             } label: {
                 Text(String(session.userName.prefix(1)).uppercased())
                     .scaledFont(size: 13, weight: .semibold)

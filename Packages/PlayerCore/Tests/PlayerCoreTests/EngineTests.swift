@@ -52,6 +52,24 @@ final class EngineTests: XCTestCase {
     func testPlaysAnnexBTransportStream() async throws { try await assertPlays(try Fixtures.url("annexb.ts")) }
     func testPlaysHDR10() async throws { try await assertPlays(try Fixtures.url("hdr10.mkv")) }
 
+    /// A downloaded server copy is MPEG-TS starting at about 1.4 s, like `annexb.ts`. With the
+    /// offset the download stores (`-start`), it plays from item time 0 and ends at its length.
+    func testDownloadedTransportStreamPlaysInItemTime() async throws {
+        let url = try Fixtures.url("annexb.ts")
+        let info = try MediaFileInfo.read(url)
+        XCTAssertGreaterThan(info.start, 1, "the muxer's delay")
+        let engine = engine()
+        defer { engine.stop() }
+        try await engine.prepare(source: MediaSource(url: url, timelineOffset: -info.start), startAt: 0)
+        XCTAssertEqual(engine.duration ?? 0, info.duration ?? -1, accuracy: 0.05)
+        XCTAssertLessThan(engine.currentTime, 0.2)
+        await engine.seek(to: 3)
+        engine.play()
+        let playing = await waitFor(5) { engine.state == .playing }
+        XCTAssertTrue(playing, engine.debugSummary)
+        XCTAssertEqual(engine.currentTime, 3, accuracy: 0.6)
+    }
+
     /// What the Apple TV switches its display mode to.
     func testReportsFrameRateAndFormat() async throws {
         for (name, codec, pq) in [("h264_aac.mp4", kCMVideoCodecType_H264, false),

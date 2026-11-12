@@ -15,6 +15,9 @@ final class AppModel {
     let preferences: AppPreferences
     let session: SessionModel
     let player: PlaybackController
+    #if os(iOS)
+    let downloads = Downloads(store: DownloadStore(), server: { nil }, probe: MediaFileInfo.read)
+    #endif
 
     init() {
         #if os(tvOS)
@@ -42,6 +45,12 @@ final class AppModel {
         player = PlaybackController(engineFactory: { FFmpegEngine() }, preferences: preferences,
                                     capabilities: PlaybackCapabilities(EngineCapabilities.current()))
         FFmpegLog.configure()
+        #if os(iOS)
+        let capabilities = PlaybackCapabilities(EngineCapabilities.current())
+        downloads.server = { [weak self] in
+            self?.session.client.map { JellyfinDownloadServer(client: $0, capabilities: capabilities) }
+        }
+        #endif
     }
 
     var client: JellyfinClient? { session.client }
@@ -57,8 +66,24 @@ final class AppModel {
 
     /// Starts playback of an item in the player window (one playback at a time).
     func play(_ item: BaseItem, resume: Bool) {
+        #if os(iOS)
+        // A downloaded title plays from the phone, connected or not.
+        if let local = downloads.playbackService(for: item) {
+            downloads.playingId = item.id
+            player.start(item: item, resume: resume, service: local)
+            return
+        }
+        #endif
         guard let client else { return }
         player.start(item: item, resume: resume, service: JellyfinPlaybackService(client: client))
+    }
+
+    /// Signs out; on the iPhone, downloads go too, after what was watched is sent.
+    func signOut() async {
+        #if os(iOS)
+        await downloads.signOut()
+        #endif
+        await session.signOut()
     }
 }
 

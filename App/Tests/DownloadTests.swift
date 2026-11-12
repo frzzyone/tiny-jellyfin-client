@@ -1,3 +1,4 @@
+import PlayerCore
 import JellyfinKit
 import XCTest
 @testable import TinyJellyfin
@@ -253,4 +254,271 @@ func source(streams: [MediaStream]) -> MediaSourceInfo {
     source.id = "src"
     source.mediaStreams = streams
     return source
+}
+
+/// A download plays in the same player, answered from the phone.
+@MainActor
+final class LocalPlaybackTests: XCTestCase {
+    final class Reports: @unchecked Sendable {
+        let lock = NSLock()
+        var all: [(id: String, position: Double, stopped: Bool)] = []
+        func add(_ id: String, _ position: Double, _ stopped: Bool) { lock.withLock { all.append((id, position, stopped)) } }
+        var stops: [Double] { lock.withLock { all.filter(\.stopped).map(\.position) } }
+    }
+
+    func testACopyPlaysFromThePhoneWithItsSubtitlesAndNoQualityMenu() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("dl-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data("1\n00:00:01,000 --> 00:00:04,000\nHello from the phone\n".utf8)
+            .write(to: folder.appendingPathComponent(LocalPlaybackService.subtitleFile(2, picture: false)))
+
+        var item = movie(height: 2160)
+        item.mediaSources = [DownloadedSource.make(item.mediaSources![0], isCopy: true, audio: nil, subtitles: [2])]
+        var download = DownloadRecord(item: item, kind: .user, isCopy: true, mediaFile: "media.ts", expectedBytes: 1)
+        download.status = .done
+        download.timelineOffset = -1.44
+        let reports = Reports()
+        let service = LocalPlaybackService(record: download, folder: folder,
+                                           userData: UserItemData(playbackPositionTicks: Ticks.from(seconds: 120)),
+                                           onReport: { reports.add($0, $1, $2) })
+
+        var engines: [FakeEngine] = []
+        let controller = PlaybackController(engineFactory: { let e = FakeEngine(); engines.append(e); return e },
+                                            preferences: AppPreferences(defaults: UserDefaults(suiteName: "lp-\(UUID().uuidString)")!),
+                                            capabilities: PlaybackCapabilities(av1: false))
+        controller.start(item: item, resume: true, service: service)
+        let started = await eventually { controller.session != nil }
+        XCTAssertTrue(started, "\(controller.status)")
+        let engine = engines.last!
+        let (source, startAt) = engine.prepared[0]
+        XCTAssertEqual(source.url, folder.appendingPathComponent("media.ts"))
+        XCTAssertTrue(source.headers.isEmpty)
+        XCTAssertEqual(source.timelineOffset, -1.44)
+        XCTAssertNil(source.audioTrack, "a copy has one audio track")
+        XCTAssertEqual(startAt, 120, "from where the phone knows the user stopped")
+        XCTAssertEqual(controller.qualityOptions, [])
+        XCTAssertEqual(controller.qualityLabel, "Downloaded")
+        XCTAssertEqual(controller.subtitleOptions.map(\.id), [2])
+
+        controller.selectSubtitle(2)
+        let cues = await eventually { engine.externalCues?.first?.text == "Hello from the phone" }
+        XCTAssertTrue(cues, "subtitles from the file beside the copy")
+
+        engine.currentTime = 300
+        controller.stop()
+        let stopped = await eventually { reports.stops == [300] }
+        XCTAssertTrue(stopped, "the stop goes to the phone's queue: \(reports.all)")
+    }
+}
+
+@MainActor
+final class DownloadsTests: XCTestCase {
+    final class FakeTransfer: DownloadTransfer {
+        var begun: [(id: String, url: URL?, resume: Data?, destination: URL)] = []
+        var cancelled: [String] = []
+        func begin(id: String, request: URLRequest, resumeData: Data?, destination: URL) {
+            begun.append((id, request.url, resumeData, destination))
+        }
+        func cancel(id: String) { cancelled.append(id) }
+        func cancelAll() { cancelled.append("*") }
+    }
+
+    final class FakeServer: DownloadServer, @unchecked Sendable {
+        var streams: [String: ResolvedStream] = [:]
+        var items: [String: BaseItem] = [:]
+        var nextUpBySeries: [String: BaseItem] = [:]
+        var nextUpRow: [BaseItem] = []
+        var ended: [String] = []
+        var userData: [String: UserItemData] = [:]
+        var updates: [String] = []
+        let files: URL
+
+        init(files: URL) { self.files = files }
+
+        func resolveDownload(_ item: BaseItem) async throws -> ResolvedStream {
+            guard let stream = streams[item.id] else { throw JellyfinError.noPlayableStream(nil) }
+            return stream
+        }
+        func item(id: String) async throws -> BaseItem {
+            guard let item = items[id] else { throw JellyfinError.noPlayableStream(nil) }
+            return item
+        }
+        func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] {
+            seriesId.map { nextUpBySeries[$0].map { [$0] } ?? [] } ?? nextUpRow
+        }
+        func resumeItems(limit: Int) async throws -> [BaseItem] { [] }
+        func endEncoding(playSessionId: String) async throws { ended.append(playSessionId) }
+        func userData(itemId: String) async throws -> UserItemData? { userData[itemId] }
+        func updateUserData(_ itemId: String, positionSeconds: Double, played: Bool, lastPlayed: Date) async throws -> UserItemData {
+            updates.append(itemId)
+            return UserItemData(played: played)
+        }
+        func request(_ url: URL) -> URLRequest { URLRequest(url: url) }
+        func subtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int, picture: Bool) -> URL {
+            files.appendingPathComponent("sub\(streamIndex).\(picture ? "sup" : "srt")")
+        }
+        func posterURL(for item: BaseItem) -> URL? { nil }
+    }
+
+    var root: URL!
+    var transfer: FakeTransfer!
+    var server: FakeServer!
+    var probed: (start: Double, duration: Double?) = (0, 600)
+
+    override func setUp() async throws {
+        root = FileManager.default.temporaryDirectory.appendingPathComponent("dls-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        transfer = FakeTransfer()
+        server = FakeServer(files: root)
+        try Data("1\n00:00:01,000 --> 00:00:02,000\nHi\n".utf8).write(to: root.appendingPathComponent("sub2.srt"))
+    }
+
+    override func tearDown() { try? FileManager.default.removeItem(at: root) }
+
+    func makeDownloads(free: Int64 = 100_000_000_000) -> Downloads {
+        let downloads = Downloads(store: DownloadStore(root: root.appendingPathComponent("store")), server: { [server] in server },
+                                  probe: { [unowned self] _ in self.probed })
+        downloads.transfer = transfer
+        downloads.freeBytes = { free }
+        return downloads
+    }
+
+    func film(_ id: String, bitrate: Int = 20_000_000) -> BaseItem {
+        var item = movie()
+        item.id = id
+        item.mediaSources![0].size = 3_000_000_000
+        item.mediaSources![0].bitrate = bitrate
+        item.mediaSources![0].container = "mkv"
+        return item
+    }
+
+    func stream(_ item: BaseItem, copy: Bool, session: String? = nil) -> ResolvedStream {
+        ResolvedStream(url: URL(string: "https://jf.test/\(item.id)/\(copy ? "stream.ts" : "stream")")!,
+                       playMethod: copy ? .transcode : .directPlay, mediaSource: item.mediaSources![0],
+                       mediaSourceId: "src", playSessionId: session, timelineOffset: 0)
+    }
+
+    /// Writes the file the transfer would have saved, then reports it finished.
+    func finish(_ downloads: Downloads, _ id: String) async throws {
+        let destination = transfer.begun.last { $0.id == id }!.destination
+        try Data(count: 4096).write(to: destination)
+        await downloads.finished(id)
+    }
+
+    func testAnOriginalDownloadsAsItIsWithItsExternalSubtitles() async throws {
+        let item = film("small", bitrate: 5_000_000)
+        server.items["small"] = item
+        server.streams["small"] = stream(item, copy: false)
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        let record = try XCTUnwrap(downloads.record("small"))
+        XCTAssertFalse(record.isCopy)
+        XCTAssertEqual(record.mediaFile, "media.mkv")
+        XCTAssertEqual(record.status, .downloading)
+        XCTAssertEqual(record.expectedBytes, 3_000_000_000, "the file's own size")
+        XCTAssertEqual(transfer.begun.map(\.url?.path), ["/small/stream"])
+        XCTAssertEqual(record.source?.subtitleStreams.map(\.index), [2, 3], "embedded tracks stay; external 4's file never came")
+        try await finish(downloads, "small")
+        XCTAssertEqual(downloads.record("small")?.status, .done)
+        XCTAssertEqual(downloads.fraction(downloads.record("small")!), 1)
+        XCTAssertNotNil(downloads.playbackService(for: item))
+    }
+
+    func testACopyStoresItsStartAndEndsItsEncode() async throws {
+        let item = film("remux")
+        server.streams["remux"] = stream(item, copy: true, session: "ps1")
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        XCTAssertEqual(downloads.record("remux")?.mediaFile, "media.ts")
+        XCTAssertEqual(downloads.record("remux")?.source?.audioStreams.map(\.index), [1], "one audio track")
+        XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2], "the text track whose file came")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: downloads.store.file("remux", "sub-2.srt").path))
+        probed = (1.44, 600)
+        try await finish(downloads, "remux")
+        XCTAssertEqual(downloads.record("remux")?.status, .done)
+        XCTAssertEqual(downloads.record("remux")?.timelineOffset, -1.44)
+        let ended = await eventually { self.server.ended == ["ps1"] }
+        XCTAssertTrue(ended, "the server stops encoding: \(server.ended)")
+    }
+
+    func testATruncatedCopyIsMadeAgainThenFails() async throws {
+        let item = film("remux")
+        server.streams["remux"] = stream(item, copy: true, session: "ps1")
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        probed = (1.44, 300)
+        try await finish(downloads, "remux")
+        XCTAssertEqual(transfer.begun.count, 2, "a second copy")
+        try await finish(downloads, "remux")
+        try await finish(downloads, "remux")
+        XCTAssertEqual(transfer.begun.count, 3)
+        XCTAssertEqual(downloads.record("remux")?.status, .failed("The server stopped making the copy"))
+        await downloads.tryAgain("remux")
+        XCTAssertEqual(transfer.begun.count, 4)
+    }
+
+    func testOneCopyAtATimeAndOriginalsAlongside() async throws {
+        let a = film("a"), b = film("b"), small = film("small", bitrate: 4_000_000)
+        server.streams = ["a": stream(a, copy: true), "b": stream(b, copy: true), "small": stream(small, copy: false)]
+        let downloads = makeDownloads()
+        await downloads.download(a)
+        await downloads.download(b)
+        await downloads.download(small)
+        XCTAssertEqual(transfer.begun.map(\.id), ["a", "small"])
+        XCTAssertEqual(downloads.record("b")?.status, .queued)
+        try await finish(downloads, "a")
+        XCTAssertEqual(transfer.begun.map(\.id), ["a", "small", "b"])
+    }
+
+    func testAnInterruptedOriginalResumes() async throws {
+        let item = film("small", bitrate: 5_000_000)
+        server.streams["small"] = stream(item, copy: false)
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        await downloads.failed("small", error: URLError(.networkConnectionLost), resumeData: Data("resume".utf8))
+        XCTAssertEqual(transfer.begun.last?.resume, Data("resume".utf8))
+        XCTAssertEqual(downloads.record("small")?.status, .downloading)
+    }
+
+    func testNotEnoughSpace() async {
+        let item = film("remux")
+        server.streams["remux"] = stream(item, copy: true)
+        let downloads = makeDownloads(free: 1_000_000_000)
+        await downloads.download(item)
+        XCTAssertEqual(downloads.record("remux")?.status, .failed("Not enough space on this iPhone"))
+        XCTAssertEqual(transfer.begun.count, 0)
+    }
+
+    func testDeletingAPickDismissesItAndStopsTheTransfer() async {
+        let item = film("remux")
+        server.streams["remux"] = stream(item, copy: true, session: "ps9")
+        let downloads = makeDownloads()
+        await downloads.download(item, kind: .forYou)
+        downloads.delete("remux")
+        XCTAssertNil(downloads.record("remux"))
+        XCTAssertEqual(transfer.cancelled, ["remux"])
+        XCTAssertEqual(downloads.store.dismissed, ["remux"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: downloads.store.folder("remux").path))
+    }
+
+    func testFinishingAnEpisodeSwapsItForTheNextAfterTheSync() async throws {
+        var e3 = film("e3", bitrate: 4_000_000)
+        e3.type = .episode
+        e3.seriesId = "silo"
+        var e4 = e3
+        e4.id = "e4"
+        server.streams = ["e3": stream(e3, copy: false), "e4": stream(e4, copy: false)]
+        server.items = ["e3": e3, "e4": e4]
+        server.nextUpBySeries["silo"] = e4
+        let downloads = makeDownloads()
+        await downloads.download(e3)
+        try await finish(downloads, "e3")
+        downloads.played("e3", position: 595, stopped: false)
+        await downloads.sync()
+        XCTAssertEqual(server.updates, ["e3"], "watched, sent")
+        XCTAssertNil(downloads.record("e3"), "deleted once the server knows")
+        XCTAssertEqual(downloads.record("e4")?.kind, .user)
+        XCTAssertEqual(downloads.record("e4")?.status, .downloading)
+    }
 }

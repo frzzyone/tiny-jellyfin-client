@@ -3,11 +3,11 @@ import JellyfinKit
 
 /// One title on the phone: the item (its media source as downloaded), where its transfer is, and
 /// whose it is.
-struct DownloadRecord: Codable, Equatable, Identifiable {
+struct DownloadRecord: Codable, Equatable, Identifiable, Sendable {
     /// Downloaded by the user, or picked by Downloads for you (which also removes it again).
-    enum Kind: String, Codable { case user, forYou }
+    enum Kind: String, Codable, Sendable { case user, forYou }
 
-    enum Status: Codable, Equatable {
+    enum Status: Codable, Equatable, Sendable {
         case queued, downloading, done
         case failed(String)
     }
@@ -139,17 +139,23 @@ enum DownloadedSource {
 
 enum DownloadSize {
     /// Bytes a download of `item` should take: the file itself when it is already within the
-    /// download quality, otherwise the copy's bitrate over the runtime (an upper bound: copies
-    /// come out near 70% of it).
+    /// download quality, otherwise the copy's.
     static func estimate(_ item: BaseItem) -> Int64? {
-        let source = item.mediaSources?.first
-        let seconds = Ticks.seconds(item.runTimeTicks ?? source?.runTimeTicks ?? 0)
-        if let source, let size = source.size, let bitrate = source.bitrate,
-           bitrate <= QualityPreset.download.maxStreamingBitrate,
-           (source.videoStream?.height ?? 0) <= (QualityPreset.download.maxHeight ?? 0) + 8 {
-            return size
-        }
-        guard seconds > 0 else { return source?.size }
+        isOriginal(item) ? item.mediaSources?.first?.size : (copy(item) ?? item.mediaSources?.first?.size)
+    }
+
+    /// Whether the file is already within the download quality, so the server will likely offer it
+    /// as it is. The server has the last word when the download begins.
+    static func isOriginal(_ item: BaseItem) -> Bool {
+        guard let source = item.mediaSources?.first, source.size != nil, let bitrate = source.bitrate else { return false }
+        return bitrate <= QualityPreset.download.maxStreamingBitrate
+            && (source.videoStream?.height ?? 0) <= (QualityPreset.download.maxHeight ?? 0) + 8
+    }
+
+    /// A server copy: its bitrate over the runtime, an upper bound (copies come out near 70% of it).
+    static func copy(_ item: BaseItem) -> Int64? {
+        let seconds = Ticks.seconds(item.runTimeTicks ?? item.mediaSources?.first?.runTimeTicks ?? 0)
+        guard seconds > 0 else { return nil }
         return Int64(Double(QualityPreset.download.maxStreamingBitrate) * seconds / 8)
     }
 }

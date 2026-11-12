@@ -97,6 +97,7 @@ final class PlaybackController {
     /// "720p 4 Mbps · Transcode"
     var qualityLabel: String? {
         guard let session else { return nil }
+        if service?.isDownloaded == true { return "Downloaded" }
         return "\(session.quality.label) · \(session.playMethod.label)"
     }
 
@@ -193,7 +194,7 @@ final class PlaybackController {
             }
             chapters = Self.chapters(full)
             let sourceHeight = full.mediaSources?.first?.videoStream?.height
-            qualityOptions = QualitySelection.visibleOptions(sourceHeight: sourceHeight)
+            qualityOptions = service.isDownloaded ? [] : QualitySelection.visibleOptions(sourceHeight: sourceHeight)
             let quality = requested ?? QualitySelection.startingQuality(
                 preferredId: preferences.preferredQualityId(server: service.serverURL), sourceHeight: sourceHeight)
 
@@ -686,6 +687,8 @@ final class PlaybackController {
                 if self.selectedSubtitle == index { self.drawnPictureFile = file }
             } catch {
                 guard let self, !Task.isCancelled else { return }
+                // A download has no server to burn it in: the track just isn't drawn.
+                if service.isDownloaded { return }
                 PlayerLog.engine("Controller: subtitle \(index) has no extracted copy on the server (\(error.localizedDescription)); burning it in")
                 self.pictureFileMissing.insert(index)
                 // A restart, not a seamless switch: a stream that burns subtitles in rarely catches

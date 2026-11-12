@@ -347,8 +347,10 @@ struct PhonePlayerView: View {
                 }
             }
             Spacer()
-            menuButton(.quality, title: player.isSwitching ? "Switching…" : "Quality") {
-                QualityMenuItems(player: player) { openMenu = nil }
+            if !player.qualityOptions.isEmpty {   // empty for a download
+                menuButton(.quality, title: player.isSwitching ? "Switching…" : "Quality") {
+                    QualityMenuItems(player: player) { openMenu = nil }
+                }
             }
             if player.audioOptions.count > 1 {
                 menuButton(.audio, title: "Audio") {
@@ -546,5 +548,16 @@ enum PhoneOrientation {
 final class PhoneAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         PhoneOrientation.locked
+    }
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        DownloadManager.shared.registerRefresh()
+        return true
+    }
+
+    /// iOS woke the app for the download session: finished files are handed over, then this is called.
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        DownloadManager.shared.backgroundCompletion = completionHandler
     }
 }

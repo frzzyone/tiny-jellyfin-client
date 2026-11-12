@@ -2,7 +2,7 @@
 
 ## 1. Look and server facts first
 
-- [ ] 1.1 Mockups of the detail sheet's Download button (four states), an episode row's icon, the Downloads tab (films, series, series opened, Downloaded for you captions and footer, empty) and offline Home; verify the user approves them
+- [x] 1.1 Mockups of the detail sheet's Download button (four states), an episode row's icon, the Downloads tab (films, series, series opened, Downloaded for you captions and footer, empty) and offline Home; verify the user approves them
 - [x] 1.2 Against the user's server, by hand with `curl` or a scratch test: PlaybackInfo with the download profile returns DirectPlay for a small 1080p file and a `stream.ts` transcoding URL for a 4K remux; the `stream.ts` timestamps start where the engine expects (D4 risk); `POST /UserItems/{id}/UserData` updates the position and played flag; verify by writing the answers into design.md's Risks
 
 ## 2. JellyfinKit
@@ -20,12 +20,12 @@
 
 ## 4. Playback of a download
 
-- [ ] 4.1 `PlaybackService.isDownloaded` and `LocalPlaybackService` (D4); controller: no quality options, "Downloaded" label, no burn-in fallback; verify `PlaybackControllerTests` with a fake engine (local URL opened, resume from the newer of stored and queued position, subtitles from disk, no quality menu)
-- [ ] 4.2 `AppModel.play` picks the local service for a downloaded item; verify a test and an engine test that plays a `.ts` fixture from a `file://` URL with external SRT
+- [x] 4.1 `PlaybackService.isDownloaded` and `LocalPlaybackService` (D4); controller: no quality options, "Downloaded" label, no burn-in fallback; verify `PlaybackControllerTests` with a fake engine (local URL opened, resume from the newer of stored and queued position, subtitles from disk, no quality menu)
+- [x] 4.2 `AppModel.play` picks the local service for a downloaded item; verify a test and an engine test that plays a `.ts` fixture from a `file://` URL with external SRT
 
 ## 5. Downloader (App/iOS)
 
-- [ ] 5.1 `DownloadManager`: background session, start (PlaybackInfo with the download profile → original or copy), subtitles and images, progress, cancel, original resume, copy restart ×3, truncation check, not-enough-space, `endEncoding`, one copy at a time; `PhoneAppDelegate` forwards session events; verify the logic it can test with an injected transfer (states, retries, truncation) and a real download on the simulator against the demo server
+- [x] 5.1 `DownloadManager`: background session, start (PlaybackInfo with the download profile → original or copy), subtitles and images, progress, cancel, original resume, copy restart ×3, truncation check, not-enough-space, `endEncoding`, one copy at a time; `PhoneAppDelegate` forwards session events; verify the logic it can test with an injected transfer (states, retries, truncation) and a real download on the simulator against the demo server
 - [ ] 5.2 Wi-Fi only with Waiting for Wi-Fi from `NWPathMonitor`; verify on a phone with Wi-Fi off (cellular only) that a download waits and starts when Wi-Fi returns
 - [ ] 5.3 `BGAppRefreshTask` `app.tinyjellyfin.Tinyfin.refresh` (Info.plist permitted identifier, `fetch` background mode in project.yml): flush, plan, start downloads, reschedule for 6 h; verify with `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.tinyjellyfin.Tinyfin.refresh"]` in the debugger that a pick starts downloading
 
