@@ -128,6 +128,21 @@ extension JellyfinClient {
         return try decode(await send(request))
     }
 
+    /// Sets where the user is in an item, whether they finished it, and when they watched it: how
+    /// viewing done offline reaches the server. Same 10.9 API generation as `/UserPlayedItems`.
+    @discardableResult
+    public func updateUserData(_ itemId: String, positionSeconds: Double, played: Bool,
+                               lastPlayed: Date) async throws -> UserItemData {
+        struct Body: Encodable {
+            var playbackPositionTicks: Int64
+            var played: Bool
+            var lastPlayedDate: String
+        }
+        let body = Body(playbackPositionTicks: Ticks.from(seconds: positionSeconds), played: played,
+                        lastPlayedDate: ISO8601DateFormatter().string(from: lastPlayed))
+        return try await post("/UserItems/\(itemId)/UserData", query: ["userId": try requireUserId()], body: body)
+    }
+
     public func seasons(seriesId: String) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/Shows/\(seriesId)/Seasons", query: [
             "userId": try requireUserId(), "enableUserData": "true",

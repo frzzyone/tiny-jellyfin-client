@@ -109,6 +109,20 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertFalse(plainRanges?.contains("DOVI") ?? true)
     }
 
+    /// A download is one file to save: progressive MPEG-TS at 1080p, 8 Mbps, never HLS.
+    func testDownloadProfileIsOneProgressiveFile() throws {
+        let object = try json(DeviceProfileBuilder.build(capabilities: caps, quality: .download))
+        XCTAssertEqual(object["MaxStreamingBitrate"] as? Int, 8_000_000)
+        let transcoding = (object["TranscodingProfiles"] as! [[String: Any]])[0]
+        XCTAssertEqual(transcoding["Protocol"] as? String, "http")
+        XCTAssertEqual(transcoding["Context"] as? String, "Streaming", "Jellyfin gives a Static profile no URL")
+        XCTAssertEqual(transcoding["Container"] as? String, "ts")
+        XCTAssertEqual(transcoding["MaxAudioChannels"] as? String, "6")
+        let conditions = (object["CodecProfiles"] as! [[String: Any]]).flatMap { $0["Conditions"] as! [[String: Any]] }
+        XCTAssertEqual(conditions.first { $0["Property"] as? String == "Height" }?["Value"] as? String, "1080")
+        XCTAssertFalse(QualityPreset.all.contains(.download), "not in the quality menu")
+    }
+
     func testMacWithoutAV1() throws {
         let profile = DeviceProfileBuilder.build(capabilities: PlaybackCapabilities(av1: false), quality: .original)
         XCTAssertEqual(profile.directPlayProfiles[0].videoCodec, "h264,hevc")

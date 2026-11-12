@@ -254,6 +254,20 @@ final class DiscoveryEndpointTests: XCTestCase {
         XCTAssertEqual(server.lastRequest(path: "/UserPlayedItems/m")?.httpMethod, "DELETE")
     }
 
+    func testUpdateUserDataSendsPositionPlayedAndWhen() async throws {
+        let server = StubServer()
+        server.on("POST", "/UserItems/m/UserData", json: #"{"PlaybackPositionTicks":6000000000,"Played":false}"#)
+        let data = try await server.client().updateUserData("m", positionSeconds: 600, played: false,
+                                                            lastPlayed: Date(timeIntervalSince1970: 1_794_000_000))
+        XCTAssertEqual(data.playbackPositionTicks, 6_000_000_000)
+        let request = server.lastRequest(path: "/UserItems/m/UserData")
+        XCTAssertEqual(request?.url?.query, "userId=user1")
+        let body = jsonBody(request)
+        XCTAssertEqual(body["PlaybackPositionTicks"] as? Int, 6_000_000_000)
+        XCTAssertEqual(body["Played"] as? Bool, false)
+        XCTAssertEqual(body["LastPlayedDate"] as? String, "2026-11-06T21:20:00Z")
+    }
+
     func testBackdropFallsBackToParentOrNothing() {
         let server = StubServer()
         var own = BaseItem(id: "x")

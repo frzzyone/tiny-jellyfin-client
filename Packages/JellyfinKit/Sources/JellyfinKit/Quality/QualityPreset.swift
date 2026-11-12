@@ -25,6 +25,10 @@ public struct QualityPreset: Hashable, Sendable, Identifiable {
 
     public static let all: [QualityPreset] = [original] + presets
 
+    /// What the iPhone downloads: a phone-sized copy, or the original when it is already that small.
+    /// Not offered in the quality menu.
+    public static let download = QualityPreset(id: "download", label: "Download", maxBitrate: 8_000_000, maxHeight: 1080)
+
     public static func with(id: String) -> QualityPreset? { all.first { $0.id == id } }
 
     /// Bitrate sent as MaxStreamingBitrate for Original: effectively uncapped.

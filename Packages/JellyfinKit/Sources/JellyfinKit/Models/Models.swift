@@ -210,6 +210,8 @@ public struct MediaStream: Codable, Sendable, Equatable {
 public struct MediaSourceInfo: Codable, Sendable, Equatable {
     public var id: String?
     public var container: String?
+    /// Bytes of the file.
+    public var size: Int64?
     public var bitrate: Int?
     public var runTimeTicks: Int64?
     public var supportsDirectPlay: Bool?
