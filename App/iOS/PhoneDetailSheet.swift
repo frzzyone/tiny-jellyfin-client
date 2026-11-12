@@ -22,6 +22,8 @@ struct PhoneDetailSheet: View {
     }
     private var inProgress: Bool { shown.resumePositionSeconds != nil }
     private var playable: Bool { shown.type?.isPlayable ?? false }
+    /// Offline, only a download can play.
+    private var canPlay: Bool { model.downloads.isOnline || model.downloads.record(shown.id)?.isDone == true }
     private var watched: Bool { shown.userData?.played == true }
 
     var body: some View {
@@ -116,18 +118,23 @@ struct PhoneDetailSheet: View {
     @ViewBuilder
     private var actions: some View {
         if playable {
-            Button { onPlay(shown, inProgress) } label: {
-                Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
-                    .scaledFont(size: 16, weight: .semibold)
-                    .padding(.vertical, 8).frame(maxWidth: .infinity, minHeight: 48)
-                    .foregroundStyle(BrowserStyle.ground)
-                    .background(BrowserStyle.accent, in: Capsule())
+            if canPlay {
+                Button { onPlay(shown, inProgress) } label: {
+                    Label(inProgress ? "Resume" : "Play", systemImage: "play.fill")
+                        .scaledFont(size: 16, weight: .semibold)
+                        .padding(.vertical, 8).frame(maxWidth: .infinity, minHeight: 48)
+                        .foregroundStyle(BrowserStyle.ground)
+                        .background(BrowserStyle.accent, in: Capsule())
+                }
             }
             (typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))) {
-                if inProgress { wide("Start over") { onPlay(shown, false) } }
+                if inProgress && canPlay { wide("Start over") { onPlay(shown, false) } }
                 wide(watched ? "Mark unwatched" : "Mark watched") { Task { await mark(!watched) } }
-                    .disabled(marking)
+                    .disabled(marking || !model.downloads.isOnline)
+                // Beside Mark watched, or on its own line when Start over is there too.
+                if !inProgress { DownloadControl(item: shown) }
             }
+            if inProgress { DownloadControl(item: shown) }
         } else {
             NavigationLink(value: shown) {
                 Label("Open series", systemImage: "chevron.right")

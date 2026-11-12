@@ -10,6 +10,7 @@ struct PhoneHomeView: View {
     /// The library tabs failed to load: say so here, since there is no tab to show it in.
     var librariesError: String?
     var onRetryLibraries: () -> Void = {}
+    var onGoToDownloads: () -> Void = {}
     let onPlay: (BaseItem, Bool) -> Void
     @State private var surpriseError: String?
     @State private var showAcknowledgements = false
@@ -18,44 +19,22 @@ struct PhoneHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
-                if let librariesError {
-                    InlineError(message: "Couldn't load your libraries. \(librariesError)", retry: onRetryLibraries)
-                }
-                if let hero = home.hero {
-                    PhoneHero(item: hero, onPlay: onPlay, onOpen: { browser.openQuickLook(hero, in: [hero]) })
-                } else if let error = home.heroError {
-                    InlineError(message: error) { Task { await home.load() } }
-                } else if home.isLoading {
-                    ProgressView().frame(maxWidth: .infinity).frame(height: 300)
-                } else if home.isEmpty {
-                    Text(HomeModel.emptyMessage).foregroundStyle(BrowserStyle.muted).padding(PhoneStyle.side)
-                }
-                ForEach(home.visibleRows) { row in
-                    if let error = row.error {
-                        InlineError(message: error) { Task { await home.load() } }
-                    } else {
-                        PhoneRow(title: row.title, items: row.items, shape: row.shape)
-                        if !row.genres.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(row.genres) { genre in
-                                        Pill(title: genre.name ?? "?", on: genre.id == row.genreId) {
-                                            Task { await home.selectGenre(genre.id) }
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, PhoneStyle.side)
-                            }
-                            .padding(.top, -12)
-                        }
+                if !model.downloads.isOnline && home.hero == nil {
+                    // Nothing below could load: just the way to what can play.
+                    PhoneOfflineNote(server: session.server.name, onGoToDownloads: onGoToDownloads) {
+                        Task { await home.load(); onRetryLibraries() }
                     }
+                } else {
+                    content
                 }
-                surprise
             }
             .padding(.bottom, 24)
         }
         .background(BrowserStyle.ground)
-        .refreshable { await home.load() }
+        .refreshable {
+            await home.load()
+            await model.downloads.sync()
+        }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showAcknowledgements) {
             NavigationStack {
@@ -63,6 +42,42 @@ struct PhoneHomeView: View {
                     .toolbar { Button("Done") { showAcknowledgements = false } }
             }
         }
+    }
+
+    @ViewBuilder private var content: some View {
+            if let librariesError {
+                InlineError(message: "Couldn't load your libraries. \(librariesError)", retry: onRetryLibraries)
+            }
+            if let hero = home.hero {
+                PhoneHero(item: hero, onPlay: onPlay, onOpen: { browser.openQuickLook(hero, in: [hero]) })
+            } else if let error = home.heroError {
+                InlineError(message: error) { Task { await home.load() } }
+            } else if home.isLoading {
+                ProgressView().frame(maxWidth: .infinity).frame(height: 300)
+            } else if home.isEmpty {
+                Text(HomeModel.emptyMessage).foregroundStyle(BrowserStyle.muted).padding(PhoneStyle.side)
+            }
+            ForEach(home.visibleRows) { row in
+                if let error = row.error {
+                    InlineError(message: error) { Task { await home.load() } }
+                } else {
+                    PhoneRow(title: row.title, items: row.items, shape: row.shape)
+                    if !row.genres.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(row.genres) { genre in
+                                    Pill(title: genre.name ?? "?", on: genre.id == row.genreId) {
+                                        Task { await home.selectGenre(genre.id) }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, PhoneStyle.side)
+                        }
+                        .padding(.top, -12)
+                    }
+                }
+            }
+            surprise
     }
 
     private var header: some View {

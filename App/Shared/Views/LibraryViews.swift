@@ -62,27 +62,33 @@ struct SeasonView: View {
             switch episodes?.state {
             case .loaded(let items)?:
                 ForEach(items) { episode in
-                    Button {
-                        browser.openQuickLook(episode, in: items)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(episode.indexNumber.map { "\($0)" } ?? "–")
-                                .font(.body.monospacedDigit()).foregroundStyle(BrowserStyle.muted).frame(width: 28)
-                            Text(episode.displayName)
-                            Spacer()
-                            if let minutes = episode.runtimeMinutes {
-                                Text(ItemLabels.minutes(minutes)).font(.caption).foregroundStyle(BrowserStyle.muted)
+                    HStack(spacing: 0) {
+                        Button {
+                            browser.openQuickLook(episode, in: items)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(episode.indexNumber.map { "\($0)" } ?? "–")
+                                    .font(.body.monospacedDigit()).foregroundStyle(BrowserStyle.muted).frame(width: 28)
+                                Text(episode.displayName)
+                                Spacer()
+                                if let minutes = episode.runtimeMinutes {
+                                    Text(ItemLabels.minutes(minutes)).font(.caption).foregroundStyle(BrowserStyle.muted)
+                                }
+                                if episode.userData?.played == true {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(BrowserStyle.accent)
+                                        .accessibilityLabel("Watched")
+                                } else if let pct = episode.userData?.playedPercentage, pct > 0 {
+                                    ProgressLine(fraction: pct / 100).frame(width: 50).clipShape(Capsule())
+                                }
                             }
-                            if episode.userData?.played == true {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(BrowserStyle.accent)
-                                    .accessibilityLabel("Watched")
-                            } else if let pct = episode.userData?.playedPercentage, pct > 0 {
-                                ProgressLine(fraction: pct / 100).frame(width: 50).clipShape(Capsule())
-                            }
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        #if os(iOS)
+                        // Beside the row's button, not in it: a button inside a button takes no taps.
+                        DownloadControl(item: episode, style: .icon)
+                        #endif
                     }
-                    .buttonStyle(.plain)
                 }
             case .failed(let message)?:
                 InlineError(message: message) { Task { await episodes?.load() } }

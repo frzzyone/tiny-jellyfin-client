@@ -136,7 +136,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: App/Shared
-        excludes: [Views/SignInViews.swift]  # the TV has its own, with Quick Connect
+        # The TV has its own sign-in (with Quick Connect), and no downloads.
+        excludes: [Views/SignInViews.swift, Downloads/**]
       - path: App/tvOS
       - path: App/Resources/Assets.xcassets
       - path: App/Resources/TV.xcassets

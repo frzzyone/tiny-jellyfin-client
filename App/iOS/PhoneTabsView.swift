@@ -19,7 +19,8 @@ struct PhoneTabsView: View {
             NavigationStack {
                 if let home {
                     PhoneHomeView(home: home, session: session, librariesError: librariesError,
-                                  onRetryLibraries: { Task { await loadLibraries() } }, onPlay: play)
+                                  onRetryLibraries: { Task { await loadLibraries() } },
+                                  onGoToDownloads: { tab = "downloads" }, onPlay: play)
                 } else {
                     ProgressView()
                 }
@@ -40,6 +41,12 @@ struct PhoneTabsView: View {
             }
             .tabItem { Label("Search", systemImage: "magnifyingglass") }
             .tag("search")
+
+            NavigationStack {
+                PhoneDownloadsView(onPlay: play)
+            }
+            .tabItem { Label("Downloads", systemImage: "arrow.down.to.line") }
+            .tag("downloads")
         }
         .tint(BrowserStyle.accent)
         .sheet(item: Binding(get: { browser.quickLook }, set: { if $0 == nil { browser.closeQuickLook() } })) { item in
@@ -67,6 +74,8 @@ struct PhoneTabsView: View {
             async let libs: Void = loadLibraries()
             await home.load()
             await libs
+            // Opened with no connection: straight to what can play.
+            if !model.downloads.isOnline && home.hero == nil { tab = "downloads" }
             #if DEBUG
             // Screenshot hooks (simctl launch with SIMCTL_CHILD_…): TJ_BROWSER_TAB=<library name>|Search,
             // TJ_BROWSER_QUICKLOOK=hero.

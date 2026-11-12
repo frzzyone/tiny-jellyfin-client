@@ -173,8 +173,8 @@ final class Downloads {
             let missing = Set(subtitles.map(\.index)).subtracting(fetched)
             if !missing.isEmpty {
                 updated.item.mediaSources![0].mediaStreams?.removeAll { $0.type == .subtitle && missing.contains($0.index) }
-                save(updated)
             }
+            save(updated)   // also redraws the lists, which now have the poster
         }
     }
 
