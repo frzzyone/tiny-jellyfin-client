@@ -31,11 +31,11 @@
 
 ## 6. iPhone UI
 
-- [ ] 6.1 `DownloadButton` on the detail sheet and the episode-row icon, as approved in 1.1; verify by simulator screenshots of each state (`TJ_*` hooks as needed)
-- [ ] 6.2 Downloads tab: sections, series list, swipe to delete, empty state, posters from disk; verify by screenshots, including in flight mode
+- [x] 6.1 `DownloadButton` on the detail sheet and the episode-row icon, as approved in 1.1; verify by simulator screenshots of each state (`TJ_*` hooks as needed)
+- [x] 6.2 Downloads tab: sections, series list, swipe to delete, empty state, posters from disk; verify by screenshots, including in flight mode
 - [ ] 6.3 Offline launch to Downloads, Go to Downloads on Home and library errors, no Play for titles that aren't downloaded while offline; verify on the simulator with the network off (or a phone in flight mode)
 - [ ] 6.4 Flush, Smart Downloads and Downloads for you triggers (launch, foreground, network back, after a stop, Home refresh); deleting a pick by hand dismisses it; sign out deletes everything after a best-effort flush; verify on a phone: finish a downloaded episode offline, reconnect, see it watched on the server and the next one downloading
-- [ ] 6.5 Dynamic Type for the new screens (the iPhone app follows it); verify a screenshot at accessibility-extra-extra-extra-large
+- [x] 6.5 Dynamic Type for the new screens (the iPhone app follows it); verify a screenshot at accessibility-extra-extra-extra-large
 
 ## 7. Integration and docs
 

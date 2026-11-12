@@ -114,6 +114,13 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   short frames up to `minimumFrames`, and carries each frame on from the last one's end unless the
   container's stamp (Matroska rounds to the millisecond) is more than `stampTolerance` away.
   `assertDecodes` checks both for every codec.
+- **iPhone downloads ask PlaybackInfo at `QualityPreset.download`** (1080p, 8 Mbps) with a
+  progressive MPEG-TS profile: Direct Play means the original file (static stream, resumable),
+  anything else one `stream.ts` the server encodes while sending. The profile's context must be
+  `Streaming`: Jellyfin 12.4 gives a `Static` one no transcoding URL. A copy's timestamps start at
+  about 1.44 s (the muxer's delay, not the 10 s of HLS segments), so a finished download stores
+  `timelineOffset = -MediaFileInfo.read(file).start`, and a file's end is its start plus its length.
+  `DownloadManager` moves a finished file in the delegate callback: iOS deletes it on return.
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
   lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and
@@ -153,7 +160,9 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   (add `TJ_AUTOSTOP=10` so the player closes properly and the server stops transcoding), and
   `xcrun simctl io … screenshot` captures it (`xcrun simctl ui … content_size accessibility-extra-extra-extra-large` for Dynamic Type). Display matching and HDMI audio only exist on a real
   Apple TV. The iPhone simulator takes the same `SIMCTL_CHILD_` hooks (`TJ_SERVER` with `TJ_USER` signs in with an empty password, as on the demo server), plus
-  `TJ_PHONE_MENU=Quality|Subtitles` and `TJ_AUTOSTOP` in the player.
+  `TJ_PHONE_MENU=Quality|Subtitles` and `TJ_AUTOSTOP` in the player, and `TJ_DOWNLOAD=<title>`
+  downloads a film or episode (the app container's `Library/Application Support/Downloads` holds
+  them; on the demo server Downloads for you starts fetching too, so uninstall when done).
 - `Picture bars: x% top, y% bottom` is the letterbox detector finding black bars inside the frames;
   subtitles sit above them. It needs macOS 14.4 (`displayedPixelBuffer`), only ever narrows, and
   stops looking once the bars have held for ten looks (`Picture bars settled …`). A reading that is
