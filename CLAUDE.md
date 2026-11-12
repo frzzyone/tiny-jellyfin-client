@@ -121,6 +121,10 @@ These cost real debugging time. Breaking one usually shows up as "the spinner ne
   about 1.44 s (the muxer's delay, not the 10 s of HLS segments), so a finished download stores
   `timelineOffset = -MediaFileInfo.read(file).start`, and a file's end is its start plus its length.
   `DownloadManager` moves a finished file in the delegate callback: iOS deletes it on return.
+- **A seek interrupts the demuxer before it is published.** `Pipeline.seek` sets the interrupt and
+  flushes the queues, then sets `pendingSeek`; the reader clears the interrupt when it takes the
+  seek. The other order let a late interrupt outlast the seek, so every read failed and playback
+  sat in buffering with empty queues (`testSeekAccuracy`, about 2 runs in 5 on the simulator).
 - **Skip packets without timestamps** (`packet.hasTimestamp`) before making sample buffers.
 - **Never read a displayed pixel buffer as rows.** `displayedPixelBuffer()` hands back VideoToolbox's
   lossless-compressed layout (`&8v0`) on Apple Silicon; its memory is smaller than rows × stride and

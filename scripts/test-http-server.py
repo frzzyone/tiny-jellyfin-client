@@ -113,4 +113,16 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 server = Server(("127.0.0.1", 0), Handler)
 print(server.server_address[1], flush=True)
+
+
+def exit_with_parent(parent=os.getppid()):
+    # Whoever started us may be gone without stopping us (a killed test run, or a launcher whose
+    # child this is): a leftover server keeps their output pipe open, so the run never ends.
+    while os.getppid() == parent:
+        time.sleep(1)
+    os._exit(0)
+
+
+import threading
+threading.Thread(target=exit_with_parent, daemon=True).start()
 server.serve_forever()

@@ -8,10 +8,14 @@ DEVICE="${1:-$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [^(]+'
 [[ -n "$DEVICE" ]] || { echo "No iPhone simulator; install one: xcodebuild -downloadPlatform iOS" >&2; exit 1; }
 if [[ "$DEVICE" == Apple\ TV* ]]; then DEST="platform=tvOS Simulator,name=$DEVICE"; else DEST="platform=iOS Simulator,name=$DEVICE"; fi
 
-exec 3< <(python3 "$ROOT/scripts/test-http-server.py" "$ROOT/Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures")
+# A plain background job, so $! is the server even in macOS's bash 3.2 (it doesn't set $! for a
+# process substitution, which left the server running, holding the output open, after the tests).
+PORTFILE="$(mktemp)"
+python3 "$ROOT/scripts/test-http-server.py" "$ROOT/Packages/PlayerCore/Tests/PlayerCoreTests/Fixtures" > "$PORTFILE" &
 SERVER=$!
-trap 'kill $SERVER 2>/dev/null || true' EXIT
-read -r PORT <&3
+trap 'kill $SERVER 2>/dev/null || true; rm -f "$PORTFILE"' EXIT
+until [[ -s "$PORTFILE" ]]; do sleep 0.1; done
+read -r PORT < "$PORTFILE"
 echo "fixture server on port $PORT, testing on $DEVICE"
 
 for pkg in JellyfinKit PlayerCore; do

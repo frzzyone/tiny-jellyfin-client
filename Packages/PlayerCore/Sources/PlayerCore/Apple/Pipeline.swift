@@ -174,6 +174,13 @@ final class Pipeline: @unchecked Sendable {
     /// Repositions the reader at the keyframe before `time` and flushes queued packets.
     func seek(to time: Double, audioStream: Int? = nil) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            // Interrupt before the seek is visible: the reader clears the interrupt when it takes
+            // the seek, so one set afterwards could outlast it and fail every read from then on
+            // (buffering forever with empty queues). Not under `condition`: a blocked push holds
+            // its queue's lock and asks for `condition`.
+            demuxer.interrupt()
+            videoQueue.flush()
+            audioQueue.flush()
             condition.lock()
             if stopped {
                 condition.unlock()
@@ -185,9 +192,6 @@ final class Pipeline: @unchecked Sendable {
             seekWaiters.append(continuation)
             condition.broadcast()
             condition.unlock()
-            demuxer.interrupt()
-            videoQueue.flush()
-            audioQueue.flush()
         }
     }
 
