@@ -18,18 +18,18 @@ enum Fixtures {
     }
 }
 
-/// Runs scripts/test-http-server.py over the fixtures directory. On iOS the test process cannot
+/// Runs scripts/test-http-server.py over the fixtures directory. On iOS and tvOS the test process cannot
 /// launch it, so scripts/test-ios.sh starts it on the host and passes its port in TEST_HTTP_PORT
 /// (the simulator shares the host's network).
 final class TestHTTPServer {
     let port: Int
-    #if os(macOS)
+    #if os(macOS) || os(Linux)
     let process = Process()
     #endif
 
     init() throws {
         _ = try Fixtures.url("h264_aac.mp4")
-        #if os(macOS)
+        #if os(macOS) || os(Linux)
         let script = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("../../scripts/test-http-server.py").standardizedFileURL
@@ -53,7 +53,7 @@ final class TestHTTPServer {
         #endif
     }
 
-    #if os(macOS)
+    #if os(macOS) || os(Linux)
     deinit { process.terminate() }
     #endif
 

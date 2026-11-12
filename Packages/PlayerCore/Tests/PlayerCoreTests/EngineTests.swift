@@ -646,7 +646,6 @@ final class VideoFormatTests: XCTestCase {
         #endif
     }
 }
-#endif
 
 private final class Counter: @unchecked Sendable {
     private let lock = NSLock()
@@ -654,3 +653,4 @@ private final class Counter: @unchecked Sendable {
     var value: Int { lock.withLock { count } }
     func add() { lock.withLock { count += 1 } }
 }
+#endif
