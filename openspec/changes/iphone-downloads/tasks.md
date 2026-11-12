@@ -40,7 +40,7 @@
 ## 7. Integration and docs
 
 - [ ] 7.1 Real-world pass on the user's iPhone: a 2-hour 4K film downloaded with the phone locked, Downloads for you filling overnight on Wi-Fi within 15 GB, played in flight mode with subtitles, progress back on the server, an interrupted copy retried; verify and record anything still needing a person in `manual-checklist.md`
-- [ ] 7.2 README (iPhone section: Downloads), CLAUDE.md (download invariants found on the way), `openspec validate iphone-downloads --strict`; verify the validate passes and CI is green
+- [x] 7.2 README (iPhone section: Downloads), CLAUDE.md (download invariants found on the way), `openspec validate iphone-downloads --strict`; verify the validate passes and CI is green
 
 ## Workflow follow-up
 
