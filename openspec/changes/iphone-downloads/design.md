@@ -220,7 +220,9 @@ Mockups go to the user before any UI code is written (tasks.md 1.1).
 - [A copy cut off by the server can still end like a normal response, leaving a truncated file
   that looks complete] → At completion, check the received length against the estimate. Below 90%
   of it, open the file with the engine's demuxer and compare its duration with the runtime; more
-  than 1% short counts as failed and retries.
+  than 1% short counts as failed, with no retry: the server's encode failed (on the user's server
+  a full 8.4 GB transcode disk cut a 2¼-hour film off twice at 8.1 GB), and a retry is another
+  full encode. Try again starts it by hand.
 - [Progressive MPEG-TS from Jellyfin starts its timestamps late] → **Measured: 1.44 s**, the
   MPEG-TS muxer's default delay, not the 10 s of its HLS segments. The engine uses timestamps as
   they are plus `MediaSource.timelineOffset`, so at the end of every download the file's

@@ -196,10 +196,15 @@ final class Downloads {
         do {
             let info = try probe(url)
             let runtime = Ticks.seconds(record.item.runTimeTicks ?? 0)
-            // A copy the server stopped early can still end like a whole response.
+            // A copy the server stopped early can still end like a whole response. Not retried: its
+            // encode failed (a full transcode disk cut The Tin Drum off twice at 8.1 GB), and each
+            // retry is another full encode. A dropped connection is an error and does retry.
             if record.isCopy, runtime > 0, let duration = info.duration, duration < runtime * 0.99 {
                 PlayerLog.engine("Download: \(id) ended at \(Int(duration)) s of \(Int(runtime)) s")
-                await retry(record, reason: "The server stopped making the copy")
+                try? FileManager.default.removeItem(at: url)
+                record.status = .failed("The server stopped making the copy")
+                save(record)
+                await startNext()
                 return
             }
             record.timelineOffset = -info.start

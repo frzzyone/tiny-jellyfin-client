@@ -449,20 +449,19 @@ final class DownloadsTests: XCTestCase {
         XCTAssertTrue(ended, "the server stops encoding: \(server.ended)")
     }
 
-    func testATruncatedCopyIsMadeAgainThenFails() async throws {
+    func testACopyTheServerCutShortFailsWithoutAnotherEncode() async throws {
         let item = film("remux")
         server.streams["remux"] = stream(item, copy: true, session: "ps1")
         let downloads = makeDownloads()
         await downloads.download(item)
         probed = (1.44, 300)
         try await finish(downloads, "remux")
-        XCTAssertEqual(transfer.begun.count, 2, "a second copy")
-        try await finish(downloads, "remux")
-        try await finish(downloads, "remux")
-        XCTAssertEqual(transfer.begun.count, 3)
+        XCTAssertEqual(transfer.begun.count, 1, "the same encode would fail the same way")
         XCTAssertEqual(downloads.record("remux")?.status, .failed("The server stopped making the copy"))
+        let ended = await eventually { self.server.ended == ["ps1"] }
+        XCTAssertTrue(ended, "the server stops encoding: \(server.ended)")
         await downloads.tryAgain("remux")
-        XCTAssertEqual(transfer.begun.count, 4)
+        XCTAssertEqual(transfer.begun.count, 2)
     }
 
     func testOneCopyAtATimeAndOriginalsAlongside() async throws {
