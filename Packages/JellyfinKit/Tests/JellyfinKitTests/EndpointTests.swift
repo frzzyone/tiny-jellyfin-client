@@ -268,6 +268,17 @@ final class DiscoveryEndpointTests: XCTestCase {
         XCTAssertEqual(body["LastPlayedDate"] as? String, "2026-11-06T21:20:00Z")
     }
 
+    func testEpisodesFromOneOnAskForThatManyPresentOnes() async throws {
+        let server = StubServer()
+        server.on("GET", "/Shows/s/Episodes", json: #"{"Items":[{"Id":"e2"},{"Id":"e3"}],"TotalRecordCount":2}"#)
+        let episodes = try await server.client().episodes(seriesId: "s", from: "e2", limit: 3)
+        XCTAssertEqual(episodes.map(\.id), ["e2", "e3"])
+        let request = server.lastRequest(path: "/Shows/s/Episodes")
+        XCTAssertEqual(queryValue(request, "startItemId"), "e2")
+        XCTAssertEqual(queryValue(request, "limit"), "3")
+        XCTAssertEqual(queryValue(request, "isMissing"), "false")
+    }
+
     func testBackdropFallsBackToParentOrNothing() {
         let server = StubServer()
         var own = BaseItem(id: "x")

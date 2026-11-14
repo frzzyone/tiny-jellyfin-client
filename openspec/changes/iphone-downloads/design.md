@@ -148,15 +148,17 @@ pure function over the record and the Next up answer, and is tested on its own.
 A pure function plans what to keep:
 
 ```
-plan(nextUp, resume, records, dismissed, freeBytes) -> (download: [item], delete: [itemId])
+plan(shows, resume, records, dismissed, freeBytes) -> (download: [item], delete: [itemId])
 ```
 
-**Wanted** is the first episode of each of the first 3 series in Next up, then the first film in
-Continue watching. Items in `dismissed` are left out, and an item the user already downloaded counts
+**Wanted** is taken in rounds from the first 3 series in Next up and the first 3 films in Continue
+watching: the Next up episode of each series, then the first film; then each series' episode after
+that and the second film; then the third of each. So every show has its next episode before any has
+its third. Up to 9 episodes and 3 films, about 30 GB at the download quality. Items in `dismissed` are left out, and an item the user already downloaded counts
 as ready and costs nothing.
 
 **download:** wanted items not yet on the phone, taken in order while two limits hold:
-- the estimated sizes of all `forYou` records plus the new ones stay within 15 GB;
+- the estimated sizes of all `forYou` records plus the new ones stay within 30 GB;
 - free space after each one stays at least 5 GB.
 
 The first item that doesn't fit stops the list. Nothing jumps ahead of it, so the order holds.
@@ -170,7 +172,10 @@ progress still waiting to be sent.
 - from a `BGAppRefreshTask` (`app.tinyjellyfin.Tinyfin.refresh`, asked for every 6 hours at the
   earliest), which flushes, plans and starts the downloads in the background session.
 
-Each run reads `nextUp(limit: 3)` and `resumeItems` (films only), the calls Home already makes.
+Each run reads `nextUp(limit: 3)` and `resumeItems` (films only), the calls Home already makes, and
+for each Next up episode `/Shows/{series}/Episodes?startItemId=…&limit=3&isMissing=false`: that
+episode and the ones after it, across seasons, without those missing from the library. Watched ones
+are left out.
 Free space comes from `volumeAvailableCapacityForImportantUsage`.
 
 Smart Downloads (D6) becomes the same planner for one series. Its new download takes the finished
@@ -196,8 +201,8 @@ Alternatives considered:
 - **Downloads tab:** after Search (the order Netflix uses). `List` sections with films and series;
   a series opens a list of its episodes. Swipe to delete. Each row shows the poster from disk,
   title, size and progress, plus a "Downloaded for you" caption on picks the app made. A footer
-  explains them in one line: "Tinyfin keeps your next episodes and film ready on Wi-Fi, up to
-  15 GB". The empty state says "Tap Download on a film or an episode."
+  explains them in one line: "Tinyfin keeps your next episodes and films ready on Wi-Fi, up to
+  30 GB". The empty state says "Tap Download on a film or an episode."
 - **Offline launch:** when `NWPathMonitor` reports no route at launch, `tab = "downloads"`.
   Home's and the libraries' error views gain Go to Downloads. With no connection, the detail sheet
   of a title that isn't downloaded hides Play.
@@ -240,7 +245,7 @@ Measured against the user's server (12.4.0) on 2026-11-12:
   static stream still plays, as D1 assumed.
 - [A long encode keeps the server busy] → One copy at a time: further downloads wait in the queue.
   Originals can run alongside, since they are plain file reads.
-- [Storage] → The size is shown before downloading. Automatic downloads stop at 15 GB and never
+- [Storage] → The size is shown before downloading. Automatic downloads stop at 30 GB and never
   take the phone below 5 GB free.
 - [Downloads for you starts large transcodes the user didn't ask for] → One copy at a time, and only
   when Next up or Continue watching changes, which happens about once an episode. A small original
@@ -249,7 +254,7 @@ Measured against the user's server (12.4.0) on 2026-11-12:
   Every launch, foreground return and Home refresh plans too, so "ready by morning" holds for
   someone who opened the app the evening before.
 - [Sizes are estimates] → A copy's real size can differ from bitrate × runtime by about 20%. The
-  budget uses the real size of finished downloads and the estimate for the rest. Passing 15 GB by
+  budget uses the real size of finished downloads and the estimate for the rest. Passing 30 GB by
   a little is acceptable.
 
 ## Migration Plan

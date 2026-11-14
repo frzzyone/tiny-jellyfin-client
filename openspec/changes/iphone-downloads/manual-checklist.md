@@ -30,8 +30,8 @@ These need a real iPhone:
   - The server marks the episode watched, the phone deletes it, and the next episode downloads.
 - [ ] **Downloads for you (5.3, 7.1):**
   - Leave the phone on Wi-Fi overnight after watching an episode at home. By morning the next
-    episode is there, marked Downloaded for you.
-  - In the Downloads footer, the total stays within 15 GB.
+    3 episodes are there, marked Downloaded for you, with up to 3 Continue watching films.
+  - In the Downloads footer, the total stays within 30 GB.
   - To force the refresh task, pause in the debugger and run:
     `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.tinyjellyfin.Tinyfin.refresh"]`
 - [ ] **Delete a pick:** swipe a Downloaded for you title and delete it. It doesn't come back while

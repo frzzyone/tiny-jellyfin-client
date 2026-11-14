@@ -107,8 +107,8 @@ on the right, pinch or the button to fill or fit, hold for 2×, and a lock again
 makes a phone-sized copy (1080p, about 2.5–3.5 GB an hour, your audio track); a file that is
 already that small is downloaded as it is. Downloads run in the background on Wi-Fi only and play
 in the same player, and where you stop is sent to the server once it can be reached. Finishing a
-downloaded episode swaps it for the next one, and Tinyfin keeps the next episode of three shows you
-are watching and your top Continue watching film ready by itself, up to 15 GB. Opened with no
+downloaded episode swaps it for the next one, and Tinyfin keeps the next three episodes of three shows you
+are watching and three Continue watching films ready by itself, up to 30 GB. Opened with no
 connection, the app goes straight to Downloads. Signing out deletes them.
 
 To run it on your phone, put your team in `App/Signing.local.xcconfig` (git-ignored):

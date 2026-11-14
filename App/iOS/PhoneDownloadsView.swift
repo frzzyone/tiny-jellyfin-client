@@ -193,7 +193,7 @@ struct PhoneDownloadsView: View {
         for offset in offsets { model.downloads.delete(list[offset].id) }
     }
 
-    static let forYouNote = "Tinyfin keeps your next episodes and film ready on Wi-Fi, up to 15 GB."
+    static let forYouNote = "Tinyfin keeps your next episodes and films ready on Wi-Fi, up to 30 GB."
 
     static func episodeOrder(_ a: DownloadRecord, _ b: DownloadRecord) -> Bool {
         (a.item.parentIndexNumber ?? 0, a.item.indexNumber ?? 0) < (b.item.parentIndexNumber ?? 0, b.item.indexNumber ?? 0)

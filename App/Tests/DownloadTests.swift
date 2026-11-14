@@ -190,45 +190,47 @@ final class DownloadPlannerTests: XCTestCase {
         XCTAssertNil(none.download)
     }
 
-    func testKeepsThreeShowsAndTheTopFilmInOrder() {
-        let nextUp = [episode("a2", series: "a"), episode("b5", series: "b"), episode("c1", series: "c"), episode("d9", series: "d")]
-        let resume = [episode("a1", series: "a"), film("finch"), film("dune")]
-        let plan = DownloadPlanner.forYou(nextUp: nextUp, resume: resume, records: [], dismissed: [], busy: [],
-                                          freeBytes: 100 * gb, size: { _ in 3 * self.gb })
-        XCTAssertEqual(plan.download.map(\.id), ["a2", "b5", "c1", "finch"])
+    func testKeepsThreeEpisodesOfThreeShowsAndThreeFilmsInRounds() {
+        let shows = [["a2", "a3", "a4", "a5"].map { episode($0, series: "a") }, ["b5", "b6"].map { episode($0, series: "b") },
+                     ["c1", "c2", "c3"].map { episode($0, series: "c") }, [episode("d9", series: "d")]]
+        let resume = [episode("a1", series: "a"), film("finch"), film("dune"), film("alien"), film("tron")]
+        let plan = DownloadPlanner.forYou(shows: shows, resume: resume, records: [], dismissed: [], busy: [],
+                                          freeBytes: 100 * gb, size: { _ in self.gb })
+        XCTAssertEqual(plan.download.map(\.id), ["a2", "b5", "c1", "finch", "a3", "b6", "c2", "dune", "a4", "c3", "alien"],
+                       "every show's next episode before any show's third; d is the fourth show")
     }
 
     func testStopsAtTheBudgetWithoutSkippingAhead() {
-        let nextUp = [episode("a2", series: "a"), episode("b5", series: "b"), episode("c1", series: "c")]
-        let sizes: [String: Int64] = ["a2": 6 * gb, "b5": 6 * gb, "c1": 6 * gb, "finch": 2 * gb]
-        let plan = DownloadPlanner.forYou(nextUp: nextUp, resume: [film("finch")], records: [], dismissed: [], busy: [],
+        let shows = [[episode("a2", series: "a")], [episode("b5", series: "b")], [episode("c1", series: "c")]]
+        let sizes: [String: Int64] = ["a2": 12 * gb, "b5": 12 * gb, "c1": 12 * gb, "finch": 2 * gb]
+        let plan = DownloadPlanner.forYou(shows: shows, resume: [film("finch")], records: [], dismissed: [], busy: [],
                                           freeBytes: 100 * gb, size: { sizes[$0.id]! })
-        XCTAssertEqual(plan.download.map(\.id), ["a2", "b5"], "c1 would pass 15 GB, and the small film waits behind it")
+        XCTAssertEqual(plan.download.map(\.id), ["a2", "b5"], "c1 would pass 30 GB, and the small film waits behind it")
     }
 
     func testKeepsFiveGigabytesFree() {
-        let plan = DownloadPlanner.forYou(nextUp: [episode("a2", series: "a")], resume: [], records: [], dismissed: [], busy: [],
+        let plan = DownloadPlanner.forYou(shows: [[episode("a2", series: "a")]], resume: [], records: [], dismissed: [], busy: [],
                                           freeBytes: 6 * gb, size: { _ in 3 * self.gb })
         XCTAssertEqual(plan.download, [])
         // Space a download under way still needs counts as taken.
         var underWay = download("x", kind: .user)
         underWay.status = .downloading
         underWay.expectedBytes = 4 * gb
-        let tight = DownloadPlanner.forYou(nextUp: [episode("a2", series: "a")], resume: [], records: [underWay], dismissed: [], busy: [],
+        let tight = DownloadPlanner.forYou(shows: [[episode("a2", series: "a")]], resume: [], records: [underWay], dismissed: [], busy: [],
                                            freeBytes: 11 * gb, size: { _ in 3 * self.gb })
         XCTAssertEqual(tight.download, [], "11 GB free, 4 GB still coming: 3 GB more would leave 4")
     }
 
     func testUserDownloadsCountAsReadyAndDismissedPicksStayOut() {
-        let nextUp = [episode("a2", series: "a"), episode("b5", series: "b")]
+        let shows = [[episode("a2", series: "a")], [episode("b5", series: "b")]]
         var mine = download("a2", kind: .user, type: .episode)
         mine.status = .done
         mine.receivedBytes = 14 * gb
-        let plan = DownloadPlanner.forYou(nextUp: nextUp, resume: [film("finch")], records: [mine], dismissed: ["b5"], busy: [],
+        let plan = DownloadPlanner.forYou(shows: shows, resume: [film("finch")], records: [mine], dismissed: ["b5"], busy: [],
                                           freeBytes: 100 * gb, size: { _ in 3 * self.gb })
         XCTAssertEqual(plan.download.map(\.id), ["finch"], "a2 is the user's (not counted), b5 was deleted by hand")
         XCTAssertEqual(plan.delete, [])
-        XCTAssertEqual(DownloadPlanner.stillDismissed(["b5", "gone"], nextUp: nextUp, resume: []), ["b5"],
+        XCTAssertEqual(DownloadPlanner.stillDismissed(["b5", "gone"], shows: shows, resume: []), ["b5"],
                        "a dismissed pick that left the rows may be picked again later")
     }
 
@@ -237,7 +239,7 @@ final class DownloadPlannerTests: XCTestCase {
         old.status = .done
         let playing = download("b4", kind: .forYou, type: .episode)
         let mine = download("z1", kind: .user, type: .episode)
-        let plan = DownloadPlanner.forYou(nextUp: [episode("a2", series: "a")], resume: [], records: [old, playing, mine],
+        let plan = DownloadPlanner.forYou(shows: [[episode("a2", series: "a")]], resume: [], records: [old, playing, mine],
                                           dismissed: [], busy: ["b4"], freeBytes: 100 * gb, size: { _ in self.gb })
         XCTAssertEqual(plan.delete, ["a1"])
         XCTAssertEqual(plan.download.map(\.id), ["a2"])
@@ -329,6 +331,7 @@ final class DownloadsTests: XCTestCase {
         var items: [String: BaseItem] = [:]
         var nextUpBySeries: [String: BaseItem] = [:]
         var nextUpRow: [BaseItem] = []
+        var coming: [String: [BaseItem]] = [:]
         var ended: [String] = []
         var userData: [String: UserItemData] = [:]
         var updates: [String] = []
@@ -346,6 +349,10 @@ final class DownloadsTests: XCTestCase {
         }
         func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] {
             seriesId.map { nextUpBySeries[$0].map { [$0] } ?? [] } ?? nextUpRow
+        }
+        func episodes(seriesId: String, from startItemId: String, limit: Int) async throws -> [BaseItem] {
+            guard let coming = coming[seriesId] else { throw JellyfinError.noPlayableStream(nil) }
+            return Array(coming.prefix(limit))
         }
         func resumeItems(limit: Int) async throws -> [BaseItem] { [] }
         func endEncoding(playSessionId: String) async throws { ended.append(playSessionId) }
@@ -520,5 +527,22 @@ final class DownloadsTests: XCTestCase {
         XCTAssertNil(downloads.record("e3"), "deleted once the server knows")
         XCTAssertEqual(downloads.record("e4")?.kind, .user)
         XCTAssertEqual(downloads.record("e4")?.status, .downloading)
+    }
+
+    func testDownloadsForYouTakesTheComingUnwatchedEpisodes() async {
+        let episodes = ["e4", "e5", "e6", "e7"].map { id -> BaseItem in
+            var item = film(id, bitrate: 4_000_000)
+            item.type = .episode
+            item.seriesId = "silo"
+            if id == "e5" { item.userData = UserItemData(played: true) }
+            server.streams[id] = stream(item, copy: false)
+            return item
+        }
+        server.nextUpRow = [episodes[0]]
+        server.coming["silo"] = episodes
+        let downloads = makeDownloads()
+        await downloads.sync()
+        XCTAssertEqual(downloads.records.map(\.id).sorted(), ["e4", "e6"], "three asked for, e5 already watched")
+        XCTAssertEqual(Set(downloads.records.map(\.kind)), [.forYou])
     }
 }

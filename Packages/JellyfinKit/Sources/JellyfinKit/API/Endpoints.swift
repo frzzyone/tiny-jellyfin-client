@@ -157,6 +157,16 @@ extension JellyfinClient {
         return result.items.sorted { ($0.indexNumber ?? 0) < ($1.indexNumber ?? 0) }
     }
 
+    /// Up to `limit` episodes of a series in order, from `startItemId` on and across seasons,
+    /// leaving out the ones missing from the library.
+    public func episodes(seriesId: String, from startItemId: String, limit: Int) async throws -> [BaseItem] {
+        let result: ItemsResult = try await get("/Shows/\(seriesId)/Episodes", query: [
+            "userId": try requireUserId(), "startItemId": startItemId, "limit": String(limit), "isMissing": "false",
+            "fields": itemFields, "enableUserData": "true",
+        ])
+        return result.items
+    }
+
     public func item(id: String) async throws -> BaseItem {
         try await get("/Items/\(id)", query: ["userId": try requireUserId()])
     }

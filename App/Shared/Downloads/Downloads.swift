@@ -21,6 +21,7 @@ protocol DownloadServer: ProgressServer {
     func resolveDownload(_ item: BaseItem) async throws -> ResolvedStream
     func item(id: String) async throws -> BaseItem
     func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem]
+    func episodes(seriesId: String, from startItemId: String, limit: Int) async throws -> [BaseItem]
     func resumeItems(limit: Int) async throws -> [BaseItem]
     func endEncoding(playSessionId: String) async throws
     /// A request for one of the server's URLs, signed in.
@@ -312,9 +313,19 @@ final class Downloads {
         }
         guard let nextUp = try? await server.nextUp(limit: DownloadPlanner.shows, seriesId: nil),
               let resume = try? await server.resumeItems(limit: 12) else { await startNext(); return }
-        store.dismissed = DownloadPlanner.stillDismissed(store.dismissed, nextUp: nextUp, resume: resume)
+        var shows: [[BaseItem]] = []
+        for episode in nextUp {
+            var coming = [episode]
+            if let seriesId = episode.seriesId,
+               let list = try? await server.episodes(seriesId: seriesId, from: episode.id, limit: DownloadPlanner.episodes) {
+                let unwatched = list.filter { $0.userData?.played != true }
+                if !unwatched.isEmpty { coming = unwatched }
+            }
+            shows.append(coming)
+        }
+        store.dismissed = DownloadPlanner.stillDismissed(store.dismissed, shows: shows, resume: resume)
         let busy = Set(queue.entries.keys).union([playingId].compactMap { $0 })
-        let plan = DownloadPlanner.forYou(nextUp: nextUp, resume: resume, records: records, dismissed: store.dismissed,
+        let plan = DownloadPlanner.forYou(shows: shows, resume: resume, records: records, dismissed: store.dismissed,
                                           busy: busy, freeBytes: freeBytes()) { DownloadSize.estimate($0) ?? 0 }
         for id in plan.delete { delete(id, byUser: false) }
         for item in plan.download { await download(item, kind: .forYou) }
@@ -361,6 +372,9 @@ struct JellyfinDownloadServer: DownloadServer {
 
     func item(id: String) async throws -> BaseItem { try await client.item(id: id) }
     func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] { try await client.nextUp(limit: limit, seriesId: seriesId) }
+    func episodes(seriesId: String, from startItemId: String, limit: Int) async throws -> [BaseItem] {
+        try await client.episodes(seriesId: seriesId, from: startItemId, limit: limit)
+    }
     func resumeItems(limit: Int) async throws -> [BaseItem] { try await client.resumeItems(limit: limit) }
     func endEncoding(playSessionId: String) async throws { try await client.endEncoding(playSessionId: playSessionId) }
     func userData(itemId: String) async throws -> UserItemData? { try await client.userData(itemId: itemId) }

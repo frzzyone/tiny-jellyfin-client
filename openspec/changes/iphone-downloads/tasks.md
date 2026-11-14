@@ -16,7 +16,7 @@
 - [x] 3.2 The "as downloaded" `MediaSourceInfo`: a copy keeps one audio track and the downloaded subtitles marked external, an original keeps its own; verify tests for both
 - [x] 3.3 `ProgressQueue` with flush (drop when the server's `lastPlayedDate` is newer, keep on failure, 90% counts as played); verify `ProgressQueueTests` with a fake service
 - [x] 3.4 `SmartDownloads` decision (delete the played episode; next from Next up unless downloaded; the new one takes the finished one's kind); verify tests for next found, end of series, next already downloaded, a film (no action), user vs forYou kind
-- [x] 3.5 Downloads for you planner (D8): wanted = 3 Next up shows then the top Continue watching film; 15 GB budget and 5 GB free floor, in order, stopping at the first that doesn't fit; user downloads count as ready; dismissed left out and cleared once watched; deletes for picks no longer wanted, except one playing or with unsent progress; verify `DownloadsForYouTests` for each of those
+- [x] 3.5 Downloads for you planner (D8): wanted = 3 episodes of each of 3 Next up shows and 3 Continue watching films, in rounds; 30 GB budget and 5 GB free floor, in order, stopping at the first that doesn't fit; user downloads count as ready; dismissed left out and cleared once watched; deletes for picks no longer wanted, except one playing or with unsent progress; verify `DownloadsForYouTests` for each of those
 
 ## 4. Playback of a download
 
@@ -39,7 +39,7 @@
 
 ## 7. Integration and docs
 
-- [ ] 7.1 Real-world pass on the user's iPhone: a 2-hour 4K film downloaded with the phone locked, Downloads for you filling overnight on Wi-Fi within 15 GB, played in flight mode with subtitles, progress back on the server, an interrupted copy retried; verify and record anything still needing a person in `manual-checklist.md`
+- [ ] 7.1 Real-world pass on the user's iPhone: a 2-hour 4K film downloaded with the phone locked, Downloads for you filling overnight on Wi-Fi within 30 GB, played in flight mode with subtitles, progress back on the server, an interrupted copy retried; verify and record anything still needing a person in `manual-checklist.md`
 - [x] 7.2 README (iPhone section: Downloads), CLAUDE.md (download invariants found on the way), `openspec validate iphone-downloads --strict`; verify the validate passes and CI is green
 
 ## Workflow follow-up

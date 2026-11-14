@@ -107,18 +107,23 @@ and Downloaded for you otherwise. There is no setting.
 - **THEN** it is deleted and nothing new is downloaded
 
 ### Requirement: Downloads for you
-The app SHALL keep downloaded, with no setting, the next unwatched episode of each of the first 3
-shows in Next up and the film at the top of Continue watching, in that order. It SHALL download only
-on Wi-Fi, keep at least 5 GB of the phone free, and hold at most 15 GB of these titles; titles that
+The app SHALL keep downloaded, with no setting, the next 3 unwatched episodes of each of the first 3
+shows in Next up and the first 3 films of Continue watching, taken in rounds: each show's next
+episode and the first film, then each show's second and the second film, then the third. It SHALL
+download only on Wi-Fi, keep at least 5 GB of the phone free, and hold at most 30 GB of these titles; titles that
 don't fit SHALL wait. A title already downloaded by the user SHALL count as ready.
 
 #### Scenario: Something ready by morning
 - **WHEN** the user watches episode 2 of a show at home in the evening and leaves the phone on Wi-Fi overnight
 - **THEN** episode 3 is on the phone the next morning, marked Downloaded for you, without the app being opened
 
+#### Scenario: Enough for a long flight
+- **WHEN** the user is watching one show and has two films in Continue watching
+- **THEN** the next 3 episodes of the show and both films are on the phone
+
 #### Scenario: Over the budget
-- **WHEN** the next episodes of three shows and the top film together would need 22 GB
-- **THEN** titles are downloaded in that order until the next one would pass 15 GB, and the rest wait
+- **WHEN** the picks together would need 40 GB
+- **THEN** titles are downloaded in that order until the next one would pass 30 GB, and the rest wait
 
 #### Scenario: Phone nearly full
 - **WHEN** the phone has 6 GB free and the next pick is 3 GB

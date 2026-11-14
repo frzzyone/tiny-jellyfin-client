@@ -26,10 +26,11 @@ when you finish one.
   unwatched episode of the series, next time the phone is on Wi-Fi.
 - **Downloads for you**, always on, so there is always something ready to watch. The app keeps
   these downloaded:
-  - the next unwatched episode of each of the first 3 shows in Next up;
-  - the film at the top of Continue watching.
+  - the next 3 unwatched episodes of each of the first 3 shows in Next up;
+  - the first 3 films in Continue watching.
 
-  It downloads only on Wi-Fi, only while the phone has room, and up to about 15 GB in all. These
+  That is enough for a long flight. It downloads only on Wi-Fi, only while the phone has room, and
+  up to about 30 GB in all. These
   titles are marked "Downloaded for you" and leave once watched or no longer in those rows. A
   title deleted by hand is not picked again. The user's own downloads are never touched.
 - Opened with no connection, the app goes straight to Downloads.
