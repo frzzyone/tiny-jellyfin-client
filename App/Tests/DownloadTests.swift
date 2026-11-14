@@ -435,12 +435,15 @@ final class DownloadsTests: XCTestCase {
     func testACopyStoresItsStartAndEndsItsEncode() async throws {
         let item = film("remux")
         server.streams["remux"] = stream(item, copy: true, session: "ps1")
+        try Data("PG".utf8).write(to: root.appendingPathComponent("sub3.sup"))
         let downloads = makeDownloads()
         await downloads.download(item)
         XCTAssertEqual(downloads.record("remux")?.mediaFile, "media.ts")
         XCTAssertEqual(downloads.record("remux")?.source?.audioStreams.map(\.index), [1], "one audio track")
-        XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2], "the text track whose file came")
+        XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2, 3],
+                       "the tracks whose files came, the picture one too though it isn't the default")
         XCTAssertTrue(FileManager.default.fileExists(atPath: downloads.store.file("remux", "sub-2.srt").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: downloads.store.file("remux", "sub-3.sup").path))
         probed = (1.44, 600)
         try await finish(downloads, "remux")
         XCTAssertEqual(downloads.record("remux")?.status, .done)
@@ -506,6 +509,28 @@ final class DownloadsTests: XCTestCase {
         XCTAssertEqual(transfer.cancelled, ["remux"])
         XCTAssertEqual(downloads.store.dismissed, ["remux"])
         XCTAssertFalse(FileManager.default.fileExists(atPath: downloads.store.folder("remux").path))
+    }
+
+    func testWherePlaybackStoppedOutlastsSendingIt() async throws {
+        let item = film("flipped", bitrate: 4_000_000)
+        server.streams["flipped"] = stream(item, copy: false)
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        try await finish(downloads, "flipped")
+        downloads.played("flipped", position: 300, stopped: false)
+        await downloads.sync()
+        XCTAssertEqual(server.updates, ["flipped"], "sent")
+        let fromDownloads = try await downloads.playbackService(for: downloads.record("flipped")!.item)!.item(id: "flipped")
+        XCTAssertEqual(fromDownloads.resumePositionSeconds, 300)
+        XCTAssertEqual(downloads.record("flipped")?.item.userData?.playedPercentage, 50, "the row's bar")
+        let staleCard = try await downloads.playbackService(for: item)!.item(id: "flipped")
+        XCTAssertEqual(staleCard.resumePositionSeconds, 300, "a card from before")
+
+        var watchedOnTV = item
+        watchedOnTV.userData = UserItemData(playbackPositionTicks: Ticks.from(seconds: 500),
+                                            lastPlayedDate: ISO8601DateFormatter().string(from: Date().addingTimeInterval(60)))
+        let fresherCard = try await downloads.playbackService(for: watchedOnTV)!.item(id: "flipped")
+        XCTAssertEqual(fresherCard.resumePositionSeconds, 500, "viewing elsewhere since")
     }
 
     func testFinishingAnEpisodeSwapsItForTheNextAfterTheSync() async throws {

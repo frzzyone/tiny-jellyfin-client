@@ -74,14 +74,12 @@ final class Downloads {
         return min(0.99, Double(received[record.id] ?? record.receivedBytes) / Double(record.expectedBytes))
     }
 
-    /// The service the player uses for a finished download, with the freshest position the phone
-    /// knows: viewing not yet sent, else the card's.
+    /// The service the player uses for a finished download, with the newer of the card's position
+    /// and the phone's own (kept on the record, so it outlasts sending it to the server).
     func playbackService(for item: BaseItem) -> LocalPlaybackService? {
         guard let record = record(item.id), record.isDone else { return nil }
-        var userData = item.userData ?? record.item.userData
-        if let entry = queue.entries[item.id] {
-            userData = UserItemData(playbackPositionTicks: Ticks.from(seconds: entry.positionSeconds), played: entry.played)
-        }
+        let watched = { (data: UserItemData?) in data?.lastPlayedDate.flatMap(ProgressQueue.date) ?? .distantPast }
+        let userData = watched(item.userData) > watched(record.item.userData) ? item.userData : record.item.userData
         return LocalPlaybackService(record: record, folder: store.folder(record.id), userData: userData) { [weak self] id, position, stopped in
             Task { @MainActor in self?.played(id, position: position, stopped: stopped) }
         }
@@ -143,13 +141,15 @@ final class Downloads {
         }
     }
 
-    /// Text tracks the copy can't carry (all of them for a copy, the external ones for an
-    /// original), and a copy's default picture track when the server has it extracted.
+    /// The tracks the downloaded file doesn't carry: all of them for a copy (picture ones too, the
+    /// ones the server has extracted, or a film with only PGS has none), the external text ones for
+    /// an original.
     static func subtitlesToFetch(_ source: MediaSourceInfo, isCopy: Bool) -> [(index: Int, picture: Bool)] {
+        // ponytail: every picture track, ~30 MB each; pick by language if a big remux's dozens matter.
         source.subtitleStreams.compactMap { stream in
             if !isCopy && stream.isExternal != true { return nil }
             if !stream.isImageSubtitle { return (stream.index, false) }
-            return isCopy && stream.index == source.defaultSubtitleStreamIndex ? (stream.index, true) : nil
+            return isCopy ? (stream.index, true) : nil
         }
     }
 
@@ -295,6 +295,13 @@ final class Downloads {
     func played(_ id: String, position: Double, stopped: Bool) {
         let runtime = record(id).map { Ticks.seconds($0.item.runTimeTicks ?? 0) }
         queue.record(itemId: id, positionSeconds: position, runtimeSeconds: runtime)
+        if var record = record(id), let entry = queue.entries[id] {
+            record.item.userData = UserItemData(
+                playbackPositionTicks: Ticks.from(seconds: entry.positionSeconds),
+                playedPercentage: runtime.map { $0 > 0 ? entry.positionSeconds / $0 * 100 : 0 }, played: entry.played,
+                lastPlayedDate: ISO8601DateFormatter().string(from: entry.watched))
+            save(record)
+        }
         if stopped {
             if playingId == id { playingId = nil }
             Task { await sync() }

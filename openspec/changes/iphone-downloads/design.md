@@ -88,8 +88,9 @@ A folder per item rather than one manifest means a crash can damage at most one 
 
 Subtitles fetched with a download:
 - every text track, as SRT, through the same URL the player uses;
-- the server's default picture track, as `.sup`, when the server already has it extracted
-  (`pictureSubtitleData` with the player's short wait). Others are left out.
+- for a copy, every picture track the server already has extracted, as `.sup` (about 30 MB each).
+  Not only the default: a film with only PGS tracks often has none (Flipped), and then had no
+  subtitles at all offline.
 
 Small files are fetched in the foreground when the download starts. If the app is suspended before
 they finish, they are fetched again at the next launch.
@@ -99,7 +100,7 @@ A second `PlaybackService` built from a `DownloadStore` record:
 
 | Call | Answer |
 |---|---|
-| `item(id:)` | the stored item, with the newer of the stored and the queued position |
+| `item(id:)` | the stored item, with the newer of the card's and the phone's position (each stop is written into the record, so it outlasts the queue) |
 | `resolveStream` | a `file://` URL, the stored source, playSessionId nil, timelineOffset 0; `.directPlay` for an original, `.transcode` for a copy |
 | `subtitleData`, `pictureSubtitleData` | the stored files |
 | `primaryImageURL` | the stored poster |
