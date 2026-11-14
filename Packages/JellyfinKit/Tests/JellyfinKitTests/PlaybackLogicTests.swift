@@ -96,7 +96,8 @@ final class DeviceProfileTests: XCTestCase {
             .flatMap { $0["Conditions"] as! [[String: Any]] }
         let ranges = conditions.first { $0["Property"] as? String == "VideoRangeType" }?["Value"] as? String
         XCTAssertNotNil(ranges)
-        for expected in ["DOVI", "DOVIWithHDR10", "HDR10", "HLG", "SDR"] {
+        // DOVIWithHDR10Plus: without it, Jellyfin 12.4 transcoded such a 4K film in full at Original.
+        for expected in ["DOVI", "DOVIWithHDR10", "DOVIWithHDR10Plus", "HDR10", "HLG", "SDR"] {
             XCTAssertTrue(ranges!.contains(expected), "missing \(expected) in \(ranges!)")
         }
 

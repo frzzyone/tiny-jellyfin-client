@@ -160,7 +160,8 @@ public enum DeviceProfileBuilder {
     static func hevcRangeTypes(_ caps: PlaybackCapabilities) -> [String] {
         var types = ["SDR", "HDR10", "HLG", "HDR10Plus"]
         if caps.dolbyVision {
-            types += ["DOVI", "DOVIWithHDR10", "DOVIWithHLG", "DOVIWithSDR"]
+            // Not the profile 7 types (DOVIWithEL…): their enhancement layer is untested here.
+            types += ["DOVI", "DOVIWithHDR10", "DOVIWithHLG", "DOVIWithSDR", "DOVIWithHDR10Plus"]
         }
         return types
     }
