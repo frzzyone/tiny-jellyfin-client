@@ -7,6 +7,8 @@ import SwiftUI
 struct TinyJellyfinApp: App {
     @State private var model = AppModel()
 
+    init() { Gamepad.start() }
+
     var body: some Scene {
         WindowGroup("Tinyfin", id: "main") {
             RootView()

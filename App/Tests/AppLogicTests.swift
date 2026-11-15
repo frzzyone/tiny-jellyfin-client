@@ -181,4 +181,26 @@ final class AppLogicTests: XCTestCase {
         try store.deleteToken(account: account)
         XCTAssertNil(try store.token(account: account))
     }
+
+    /// A controller's sticks point past halfway along their main axis, and its presses read as the
+    /// keys the browser (KeyMonitor) and the player (onKeyPress) check.
+    func testGamepadPressesAreTheAppsKeys() throws {
+        XCTAssertNil(Gamepad.direction(x: 0.3, y: -0.4))
+        XCTAssertEqual(Gamepad.direction(x: 0.9, y: 0.6), .right)
+        XCTAssertEqual(Gamepad.direction(x: -0.7, y: 0), .left)
+        XCTAssertEqual(Gamepad.direction(x: 0.2, y: 0.8), .up)
+        XCTAssertEqual(Gamepad.direction(x: -0.6, y: -0.9), .down)
+
+        func event(_ key: Gamepad.Key) throws -> NSEvent { try XCTUnwrap(Gamepad.event(key, .keyDown, window: 0)) }
+        XCTAssertTrue(try event(.returnKey).isReturn)
+        XCTAssertTrue(try event(.escape).isEscape)
+        XCTAssertTrue(try event(.space).isSpace)
+        XCTAssertTrue(try event(.left).isLeftArrow)
+        XCTAssertTrue(try event(.up).isUpArrow)
+        for key in [Gamepad.Key.returnKey, .escape, .left, .right, .up, .down] {
+            XCTAssertNil(try event(key).typedText, "\(key) must not start a search")
+        }
+        XCTAssertEqual(try event(.left).characters, String(KeyEquivalent.leftArrow.character))
+        XCTAssertEqual(try event(.returnKey).characters, String(KeyEquivalent.return.character))
+    }
 }

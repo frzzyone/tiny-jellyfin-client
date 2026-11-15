@@ -87,8 +87,10 @@ struct PlayerWindowView: View {
         .focusEffectDisabled()
         .focused($focused)
         .onAppear { focused = true }
-        .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, "f", "m", "s",
+        .onKeyPress(keys: [.space, .return, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, "f", "m", "s",
                            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) { press in
+            // At the end, Return is the end screen's Play Again.
+            if press.key == .return && player.status == .ended { return .ignored }
             handle(press.key)
             return .handled
         }
@@ -166,7 +168,7 @@ struct PlayerWindowView: View {
     private func handle(_ key: KeyEquivalent) {
         noteActivity()
         switch key {
-        case .space: player.togglePlayPause()
+        case .space, .return: player.togglePlayPause()
         case .leftArrow: player.skip(by: -10)
         case .rightArrow: player.skip(by: 30)
         case .upArrow: player.volume = min(1, player.volume + 0.1)
@@ -176,7 +178,9 @@ struct PlayerWindowView: View {
         case "s": player.cycleSubtitle()
         case _ where key.character.wholeNumberValue != nil: player.jump(toTenth: key.character.wholeNumberValue!)
         case .escape:
+            // Back: out of full screen, then out of the player (a game controller's B is Esc).
             if let window = window ?? NSApp.keyWindow, window.styleMask.contains(.fullScreen) { toggleFullScreen() }
+            else { window?.close() }
         default: break
         }
     }

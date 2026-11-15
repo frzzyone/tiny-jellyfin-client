@@ -172,6 +172,10 @@ trackpad to scrub. Keys: Space play/pause, ← → −10 s / +30 s, ↑ ↓ volu
 S next subtitle (then off), 0–9 jump to that tenth of the film. The control bar also has Audio (when there are several
 tracks), Chapters (when the server lists them) and the speed (0.75×–2×).
 
+A game controller works too, as those keys: the d-pad and left stick are the arrows, A is Return
+(open, play/pause), X is Space (quick look, play/pause) and B is Esc, back: out of a quick look,
+out of full screen, then out of the player.
+
 ## Quality presets
 
 | Option | Max video bitrate | Max height |
