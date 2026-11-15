@@ -205,6 +205,15 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(try event(.left).characters, String(KeyEquivalent.leftArrow.character))
         XCTAssertEqual(try event(.returnKey).characters, String(KeyEquivalent.return.character))
         XCTAssertEqual(try event(.tab).characters, String(KeyEquivalent.tab.character))
+        XCTAssertEqual(try event(.f).characters, "f")
+
+        // X is quick look (Space) in the browser, full screen (F) in the player.
+        let player = NSWindow(), browser = NSWindow()
+        Gamepad.playerWindow = player
+        defer { Gamepad.playerWindow = nil }
+        XCTAssertEqual(Gamepad.xKey(in: player), .f)
+        XCTAssertEqual(Gamepad.xKey(in: browser), .space)
+        XCTAssertEqual(Gamepad.xKey(in: nil), .space)
         XCTAssertEqual(try event(.pageDown).characters, String(KeyEquivalent.pageDown.character))
     }
 }

@@ -112,7 +112,10 @@ struct PlayerWindowView: View {
         }
         // The title bar is hidden, but the Window menu and Mission Control still show the title.
         .onChange(of: player.item?.displayName, initial: true) { _, name in window?.title = name ?? "Player" }
-        .onChange(of: window) { _, window in window?.title = player.item?.displayName ?? "Player" }
+        .onChange(of: window) { _, window in
+            window?.title = player.item?.displayName ?? "Player"
+            Gamepad.playerWindow = window
+        }
     }
 
     private func clickToPause() {

@@ -2,18 +2,20 @@ import AppKit
 import GameController
 
 /// A game controller drives the app with the keys it already knows: the d-pad and the left stick
-/// are the arrows (repeating while held), A is Return, B is Esc (back), X is Space, Y is Tab (the
-/// player's options) and the shoulder buttons are Page Up and Page Down (tabs, chapters). Each press
+/// are the arrows (repeating while held), A is Return, B is Esc (back), X is Space (F in the player:
+/// full screen, as Space would only repeat A), Y is Tab (the player's options) and the shoulder
+/// buttons are Page Up and Page Down (tabs, chapters). Each press
 /// is posted as a key event to the key window, so the browser and the player need nothing of their own.
 /// Input arrives only while Tinyfin is the active app.
 @MainActor
 enum Gamepad {
     enum Key: UInt16 {
-        case returnKey = 36, tab = 48, space = 49, escape = 53, pageUp = 116, pageDown = 121
+        case f = 3, returnKey = 36, tab = 48, space = 49, escape = 53, pageUp = 116, pageDown = 121
         case left = 123, right = 124, down = 125, up = 126
 
         var characters: String {
             switch self {
+            case .f: "f"
             case .returnKey: "\r"
             case .tab: "\t"
             case .pageUp: String(UnicodeScalar(NSPageUpFunctionKey)!)
@@ -49,6 +51,12 @@ enum Gamepad {
                                 isARepeat: isARepeat, keyCode: key.rawValue)
     }
 
+    /// The player's window, which the player sets: X is F there.
+    static weak var playerWindow: NSWindow?
+
+    /// What X presses in `window`.
+    static func xKey(in window: NSWindow?) -> Key { window != nil && window === playerWindow ? .f : .space }
+
     private static var started = false
     /// The direction each pad is held in, and the timer repeating it.
     private static var held: [ObjectIdentifier: (key: Key, timer: Timer)] = [:]
@@ -66,12 +74,15 @@ enum Gamepad {
     // Handlers run on the main queue (GCController's default handlerQueue).
     private static func attach(_ controller: GCController) {
         guard let pad = controller.extendedGamepad else { return }
-        let buttons = [(pad.buttonA, Key.returnKey), (pad.buttonB, .escape), (pad.buttonX, .space), (pad.buttonY, .tab),
+        let buttons = [(pad.buttonA, Key.returnKey), (pad.buttonB, .escape), (pad.buttonY, .tab),
                        (pad.leftShoulder, .pageUp), (pad.rightShoulder, .pageDown)]
         for (button, key) in buttons {
             button.pressedChangedHandler = { _, _, pressed in
                 if pressed { MainActor.assumeIsolated { press(key) } }
             }
+        }
+        pad.buttonX.pressedChangedHandler = { _, _, pressed in
+            if pressed { MainActor.assumeIsolated { press(xKey(in: NSApp.keyWindow)) } }
         }
         for stick in [pad.dpad, pad.leftThumbstick] {
             stick.valueChangedHandler = { stick, x, y in
