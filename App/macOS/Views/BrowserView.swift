@@ -269,6 +269,11 @@ struct BrowserView: View {
     /// keys (bar Escape); with the field empty, navigation keys are the page's even if the field
     /// has focus, and typed characters fall through to the field.
     private func handle(_ event: NSEvent, editing: Bool) -> Bool {
+        if event.isPageUp || event.isPageDown {
+            clearSearch()
+            browser.selectTab(offset: event.isPageUp ? -1 : 1)
+            return true
+        }
         if event.modifierFlags.contains(.command) {
             if event.charactersIgnoringModifiers == "f" { searchFocused = true; return true }
             if let digit = event.charactersIgnoringModifiers.flatMap(Int.init), (1...9).contains(digit) {

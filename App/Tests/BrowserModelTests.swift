@@ -74,6 +74,11 @@ final class BrowserModelTests: XCTestCase {
         XCTAssertEqual(model.selection, BrowserSelection(row: "tabs", index: 0))
         model.selectTab(number: 7)
         XCTAssertEqual(model.tab, .home, "no such tab")
+        model.selectTab(offset: 1)
+        XCTAssertEqual(model.tab, .library("movies"), "Page Down, R1: the next tab")
+        model.selectTab(offset: -1)
+        model.selectTab(offset: -1)
+        XCTAssertEqual(model.tab, .home, "Page Up, L1: stops at the first tab")
         XCTAssertNil(BrowserModel().selectedItem)
     }
 

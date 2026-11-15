@@ -87,7 +87,8 @@ struct PlayerWindowView: View {
         .focusEffectDisabled()
         .focused($focused)
         .onAppear { focused = true }
-        .onKeyPress(keys: [.space, .return, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, "f", "m", "s",
+        .onKeyPress(keys: [.space, .return, .leftArrow, .rightArrow, .upArrow, .downArrow, .escape, .tab, .pageUp,
+                           .pageDown, "f", "m", "s",
                            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]) { press in
             // At the end, Return is the end screen's Play Again.
             if press.key == .return && player.status == .ended { return .ignored }
@@ -173,6 +174,8 @@ struct PlayerWindowView: View {
         case .rightArrow: player.skip(by: 30)
         case .upArrow: player.volume = min(1, player.volume + 0.1)
         case .downArrow: player.volume = max(0, player.volume - 0.1)
+        case .pageUp, .pageDown: player.jumpChapter(forward: key == .pageDown)
+        case .tab: if let view = window?.contentView { OptionsMenu.show(player, in: view) }
         case "f": toggleFullScreen()
         case "m": player.isMuted.toggle()
         case "s": player.cycleSubtitle()
@@ -511,6 +514,58 @@ struct SubtitleMenu: View {
         .help("Subtitles")
         .accessibilityLabel("Subtitles")
         .disabled(player.subtitleOptions.isEmpty)
+    }
+}
+
+/// The control bar's menus in one pop-up, for Tab or a game controller's Y (△): the arrows move
+/// through it, Return picks and Esc closes, as in any menu. It must open from the key press itself:
+/// opened later (dispatched to the main queue) it closes at once.
+@MainActor
+enum OptionsMenu {
+    static func show(_ player: PlaybackController, in view: NSView) {
+        let menu = NSMenu()
+        func add(_ title: String, _ items: [(String, Bool, () -> Void)]) {
+            guard !items.isEmpty else { return }
+            let submenu = NSMenu()
+            for (label, on, action) in items { submenu.addItem(ActionItem(label, on: on, action)) }
+            menu.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = submenu
+        }
+        if !player.subtitleOptions.isEmpty {
+            add("Subtitles", [("Off", player.selectedSubtitle == nil, { player.selectSubtitle(nil) })]
+                + player.subtitleOptions.map { option in
+                    (option.label, player.selectedSubtitle == option.id, { player.selectSubtitle(option.id) })
+                })
+        }
+        if player.audioOptions.count > 1 {
+            add("Audio", player.audioOptions.map { option in
+                (option.label, player.selectedAudio == option.id, { player.selectAudio(option.id) })
+            })
+        }
+        add("Quality", player.qualityOptions.map { option in
+            (option.label, player.session?.quality == option, { player.selectQuality(option) })
+        })
+        add("Chapters", player.chapters.map { chapter in
+            ("\(chapter.name)  \(TimeFormat.clock(chapter.start))", player.currentChapter == chapter, { player.jump(to: chapter) })
+        })
+        add("Speed", PlaybackController.speeds.map { speed in
+            (SpeedLabel.text(speed), player.speed == speed, { player.speed = speed })
+        })
+        menu.popUp(positioning: nil, at: NSPoint(x: view.bounds.midX, y: view.bounds.midY), in: view)
+    }
+
+    private final class ActionItem: NSMenuItem {
+        let run: () -> Void
+
+        init(_ title: String, on: Bool, _ run: @escaping () -> Void) {
+            self.run = run
+            super.init(title: title, action: #selector(fire), keyEquivalent: "")
+            target = self
+            state = on ? .on : .off
+        }
+
+        required init(coder: NSCoder) { fatalError("not used") }
+
+        @objc private func fire() { run() }
     }
 }
 

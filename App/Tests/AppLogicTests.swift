@@ -197,10 +197,14 @@ final class AppLogicTests: XCTestCase {
         XCTAssertTrue(try event(.space).isSpace)
         XCTAssertTrue(try event(.left).isLeftArrow)
         XCTAssertTrue(try event(.up).isUpArrow)
-        for key in [Gamepad.Key.returnKey, .escape, .left, .right, .up, .down] {
+        XCTAssertTrue(try event(.pageUp).isPageUp)
+        XCTAssertTrue(try event(.pageDown).isPageDown)
+        for key in [Gamepad.Key.returnKey, .tab, .escape, .pageUp, .pageDown, .left, .right, .up, .down] {
             XCTAssertNil(try event(key).typedText, "\(key) must not start a search")
         }
         XCTAssertEqual(try event(.left).characters, String(KeyEquivalent.leftArrow.character))
         XCTAssertEqual(try event(.returnKey).characters, String(KeyEquivalent.return.character))
+        XCTAssertEqual(try event(.tab).characters, String(KeyEquivalent.tab.character))
+        XCTAssertEqual(try event(.pageDown).characters, String(KeyEquivalent.pageDown.character))
     }
 }

@@ -142,6 +142,12 @@ final class BrowserModel {
         selection = BrowserSelection(row: Self.tabsRow, index: number - 1)
     }
 
+    /// The tab before or after this one: Page Up and Page Down, a game controller's shoulder buttons.
+    func selectTab(offset: Int) {
+        guard let index = tabs.firstIndex(of: tab) else { return }
+        selectTab(number: index + offset + 1)
+    }
+
     /// The outlined title and the row it sits in.
     var selectedItem: (item: BaseItem, row: [BaseItem])? {
         guard let selection, let row = itemsByRow[selection.row], row.indices.contains(selection.index) else { return nil }

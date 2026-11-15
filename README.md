@@ -169,12 +169,15 @@ over and Mark watched; arrows move between rows and titles.
 
 In the Mac player: click to pause, double-click for full screen, swipe sideways with two fingers on a
 trackpad to scrub. Keys: Space play/pause, ← → −10 s / +30 s, ↑ ↓ volume, F full screen, M mute,
-S next subtitle (then off), 0–9 jump to that tenth of the film. The control bar also has Audio (when there are several
-tracks), Chapters (when the server lists them) and the speed (0.75×–2×).
+S next subtitle (then off), 0–9 jump to that tenth of the film, Page Up/Down previous/next chapter,
+Tab a menu of the control bar's options. The control bar also has Audio (when there are several
+tracks), Chapters (when the server lists them) and the speed (0.75×–2×). In the browser, Page Up/Down
+switch tabs.
 
-A game controller works too, as those keys: the d-pad and left stick are the arrows, A is Return
-(open, play/pause), X is Space (quick look, play/pause) and B is Esc, back: out of a quick look,
-out of full screen, then out of the player.
+A game controller works too, as those keys: the d-pad and left stick are the arrows, A (✕) is Return
+(open, play/pause), X (□) is Space (quick look, play/pause), Y (△) is Tab (the player's options),
+L1/R1 are Page Up/Down (tabs, chapters) and B (○) is Esc, back: out of a quick look, out of full
+screen, then out of the player.
 
 ## Quality presets
 

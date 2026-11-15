@@ -49,6 +49,8 @@ extension NSEvent {
     var isReturn: Bool { keyCode == 36 || keyCode == 76 }
     var isSpace: Bool { keyCode == 49 }
     var isEscape: Bool { keyCode == 53 }
+    var isPageUp: Bool { keyCode == 116 }
+    var isPageDown: Bool { keyCode == 121 }
 
     /// The typed text when this is a plain character key (letters, digits, punctuation), else nil.
     var typedText: String? {

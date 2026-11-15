@@ -423,6 +423,22 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertTrue(jumped, "\(engine.seeks)")
     }
 
+    /// Page Up / Page Down (a controller's shoulder buttons): back goes to this chapter's start,
+    /// or to the previous one within the first 3 seconds, like a CD player's previous track.
+    func testChapterStepping() {
+        let marks = [ChapterMark(id: 0, start: 0, name: "a"), ChapterMark(id: 1, start: 100, name: "b"),
+                     ChapterMark(id: 2, start: 300, name: "c")]
+        func step(_ position: Double, _ forward: Bool) -> String? {
+            PlaybackController.chapter(from: position, in: marks, forward: forward)?.name
+        }
+        XCTAssertEqual(step(150, true), "c")
+        XCTAssertEqual(step(99.8, true), "c", "about to start b counts as in it")
+        XCTAssertNil(step(310, true), "no chapter after the last")
+        XCTAssertEqual(step(150, false), "b")
+        XCTAssertEqual(step(102, false), "a")
+        XCTAssertNil(step(2, false))
+    }
+
     func testSpeedReachesTheEngineAndResetsForTheNextItem() async {
         let (controller, service, engine) = await started()
         controller.speed = 1.5

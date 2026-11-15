@@ -2,23 +2,36 @@ import AppKit
 import GameController
 
 /// A game controller drives the app with the keys it already knows: the d-pad and the left stick
-/// are the arrows (repeating while held), A is Return, B is Esc (back) and X is Space. Each press
+/// are the arrows (repeating while held), A is Return, B is Esc (back), X is Space, Y is Tab (the
+/// player's options) and the shoulder buttons are Page Up and Page Down (tabs, chapters). Each press
 /// is posted as a key event to the key window, so the browser and the player need nothing of their own.
 /// Input arrives only while Tinyfin is the active app.
 @MainActor
 enum Gamepad {
     enum Key: UInt16 {
-        case returnKey = 36, space = 49, escape = 53, left = 123, right = 124, down = 125, up = 126
+        case returnKey = 36, tab = 48, space = 49, escape = 53, pageUp = 116, pageDown = 121
+        case left = 123, right = 124, down = 125, up = 126
 
         var characters: String {
             switch self {
             case .returnKey: "\r"
+            case .tab: "\t"
+            case .pageUp: String(UnicodeScalar(NSPageUpFunctionKey)!)
+            case .pageDown: String(UnicodeScalar(NSPageDownFunctionKey)!)
             case .space: " "
             case .escape: "\u{1b}"
             case .left: String(UnicodeScalar(NSLeftArrowFunctionKey)!)
             case .right: String(UnicodeScalar(NSRightArrowFunctionKey)!)
             case .down: String(UnicodeScalar(NSDownArrowFunctionKey)!)
             case .up: String(UnicodeScalar(NSUpArrowFunctionKey)!)
+            }
+        }
+
+        var modifierFlags: NSEvent.ModifierFlags {
+            switch self {
+            case .left, .right, .down, .up: [.numericPad, .function]
+            case .pageUp, .pageDown: .function
+            default: []
             }
         }
     }
@@ -30,8 +43,7 @@ enum Gamepad {
     }
 
     static func event(_ key: Key, _ type: NSEvent.EventType, window: Int, isARepeat: Bool = false) -> NSEvent? {
-        let arrow: NSEvent.ModifierFlags = [.numericPad, .function]
-        return NSEvent.keyEvent(with: type, location: .zero, modifierFlags: key.rawValue >= 123 ? arrow : [],
+        NSEvent.keyEvent(with: type, location: .zero, modifierFlags: key.modifierFlags,
                                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window, context: nil,
                                 characters: key.characters, charactersIgnoringModifiers: key.characters,
                                 isARepeat: isARepeat, keyCode: key.rawValue)
@@ -54,7 +66,9 @@ enum Gamepad {
     // Handlers run on the main queue (GCController's default handlerQueue).
     private static func attach(_ controller: GCController) {
         guard let pad = controller.extendedGamepad else { return }
-        for (button, key) in [(pad.buttonA, Key.returnKey), (pad.buttonB, .escape), (pad.buttonX, .space)] {
+        let buttons = [(pad.buttonA, Key.returnKey), (pad.buttonB, .escape), (pad.buttonX, .space), (pad.buttonY, .tab),
+                       (pad.leftShoulder, .pageUp), (pad.rightShoulder, .pageDown)]
+        for (button, key) in buttons {
             button.pressedChangedHandler = { _, _, pressed in
                 if pressed { MainActor.assumeIsolated { press(key) } }
             }

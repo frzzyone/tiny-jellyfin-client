@@ -432,6 +432,16 @@ final class PlaybackController {
         Task { await seek(to: chapter.start) }
     }
 
+    /// The next chapter, or back: to the start of this one, or to the one before within its
+    /// first 3 seconds (the Mac's Page Up and Page Down).
+    func jumpChapter(forward: Bool) {
+        if let chapter = Self.chapter(from: position, in: chapters, forward: forward) { jump(to: chapter) }
+    }
+
+    static func chapter(from position: Double, in chapters: [ChapterMark], forward: Bool) -> ChapterMark? {
+        forward ? chapters.first { $0.start > position + 0.5 } : chapters.last { $0.start < position - 3 }
+    }
+
     static func audioOptions(_ source: MediaSourceInfo) -> [AudioOption] {
         source.audioStreams.map { AudioOption(id: $0.index, label: $0.displayTitle ?? $0.title ?? $0.language ?? "Track \($0.index)") }
     }
