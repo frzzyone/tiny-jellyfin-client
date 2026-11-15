@@ -357,7 +357,8 @@ final class EngineTests: XCTestCase {
         try await Task.sleep(nanoseconds: 300_000_000)
         let back = (Date(), engine.currentTime)
         try await Task.sleep(nanoseconds: 1_000_000_000)
-        XCTAssertEqual((engine.currentTime - back.1) / Date().timeIntervalSince(back.0), 1, accuracy: 0.1)
+        XCTAssertEqual((engine.currentTime - back.1) / Date().timeIntervalSince(back.0), 1, accuracy: 0.1,
+                       "from \(start.1) to \(back.1): \(engine.debugSummary)")
     }
 
     /// Direct Play: the other track of the same file without a second download.

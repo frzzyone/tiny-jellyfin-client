@@ -59,3 +59,12 @@ The first change was archived with 15 of its 48 tasks unverified by a person (th
 speakers, or specific files). The list is in
 `openspec/changes/archive/2026-10-12-add-macos-jellyfin-client/manual-checklist.md`. Anything that
 fails there is a bug, not backlog.
+
+## Engine
+
+- **A speed change can freeze the clock** (`testSpeedChangesTheClock`, about 1 run in 3 on macOS,
+  red on CI since 2026-10-14). Going from 1.5× back to 1× leaves the clock stopped near 3.3 s of
+  the 6 s fixture: first `rate=0` with audio fed only ~0.1 s ahead though 2.5 s is queued, then
+  `rate=1` with the timebase at 0 and the audio renderer not ready for more. Setting only the
+  rate (no re-anchor) and `delaysRateChangeUntilHasSufficientMediaData = false` were both tried
+  on 2026-11-15; neither fixed it.
