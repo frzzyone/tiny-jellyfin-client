@@ -133,7 +133,10 @@ struct TVHero: View {
             .padding(.bottom, 20)
         }
         .frame(height: 760)
-        // One click from launch resumes the film.
+        // One click from launch resumes the film. The section spans the hero's full width, so Down
+        // from a tab lands here; without it the focus engine looked straight below the tab, past
+        // the buttons on the left, and went to the first shelf.
+        .focusSection()
         .defaultFocus($primaryFocused, true)
     }
 }
