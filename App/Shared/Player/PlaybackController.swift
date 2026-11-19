@@ -88,7 +88,9 @@ final class PlaybackController {
     @ObservationIgnored var barSampleInterval: TimeInterval = 2
     /// Looks in a row that leave the bars unchanged before the app stops looking for the rest of the item.
     @ObservationIgnored var barSettledLooks = 10
-    @ObservationIgnored private var barSamples: (count: Int, unchanged: Int, bars: PictureBars, last: Date)?
+    @ObservationIgnored private var barSamples: (count: Int, unchanged: Int, bars: PictureBars)?
+    /// When the frame was last looked at, found anything or not: a dark scene finds nothing.
+    @ObservationIgnored private var lastBarLook: Date?
     /// True once the bars have held long enough that the frames are no longer examined.
     @ObservationIgnored private(set) var barsSettled = false
     @ObservationIgnored private let letterbox = LetterboxDetector()
@@ -315,6 +317,7 @@ final class PlaybackController {
         videoSize = nil
         pictureBars = nil
         barSamples = nil
+        lastBarLook = nil
         barsSettled = false
         barsExplained = false
     }
@@ -796,7 +799,8 @@ final class PlaybackController {
     private func sampleBars(_ engine: PlaybackEngine) {
         let now = Date()
         guard !barsSettled else { return }
-        if let last = barSamples?.last, now.timeIntervalSince(last) < barSampleInterval { return }
+        if let lastBarLook, now.timeIntervalSince(lastBarLook) < barSampleInterval { return }
+        lastBarLook = now
         guard let frame = engine.copyDisplayedFrame() else {
             if !barsExplained { PlayerLog.engine("Picture bars: the renderer has no displayed frame to look at") }
             barsExplained = true
@@ -814,7 +818,7 @@ final class PlaybackController {
         let bars = barSamples.map { $0.bars.narrowed(by: seen) } ?? seen
         let count = (barSamples?.count ?? 0) + 1
         let unchanged = bars == barSamples?.bars ? (barSamples?.unchanged ?? 0) + 1 : 0
-        barSamples = (count, unchanged, bars, now)
+        barSamples = (count, unchanged, bars)
         if unchanged >= barSettledLooks {
             barsSettled = true
             PlayerLog.engine(String(format: "Picture bars settled at %.1f%% top, %.1f%% bottom after %d looks", bars.top * 100, bars.bottom * 100, count))

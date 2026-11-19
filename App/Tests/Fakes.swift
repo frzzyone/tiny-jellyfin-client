@@ -60,7 +60,8 @@ final class FakeEngine: PlaybackEngine, @unchecked Sendable {
     func subtitleText(at time: Double) -> String? { nil }
     func subtitleBitmap(at time: Double) -> SubtitleBitmap? { nil }
     var displayedFrame: CVPixelBuffer?
-    func copyDisplayedFrame() -> CVPixelBuffer? { displayedFrame }
+    private(set) var framesCopied = 0
+    func copyDisplayedFrame() -> CVPixelBuffer? { framesCopied += 1; return displayedFrame }
     func stop() { stopped = true; state = .idle }
     var debugSummary: String { "fake state=\(state)" }
 

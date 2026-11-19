@@ -52,6 +52,37 @@ final class PlaybackControllerTests: XCTestCase {
         XCTAssertNil(controller.pictureBars)
     }
 
+    /// A dark scene finds no bars; the frame is still looked at only every `barSampleInterval`,
+    /// not on every tick (each look copies a 4K frame on the main thread).
+    func testDarkFramesAreLookedAtOnlyNowAndThen() async {
+        let (controller, _, engine) = await started()
+        engine.displayedFrame = letterboxedFrame(width: 320, height: 180, top: 90, bottom: 90)
+        engine.send(.state(.playing))
+        try? await Task.sleep(for: .milliseconds(600))
+        XCTAssertNil(controller.pictureBars)
+        XCTAssertEqual(engine.framesCopied, 1)
+        controller.stop()
+    }
+
+    /// Ticks that change nothing notify nothing, or the player's view redraws ten times a second.
+    /// `@Observable` skips an assignment of an equal value, so this holds while every property set
+    /// on the tick is `Equatable`.
+    func testQuietTicksDoNotRedrawThePlayer() async {
+        let (controller, _, engine) = await started()
+        engine.send(.state(.paused))
+        let settled = await eventually { controller.status == .paused && controller.duration == 600 }
+        XCTAssertTrue(settled)
+        try? await Task.sleep(for: .milliseconds(200))
+        nonisolated(unsafe) var changed = false
+        withObservationTracking {
+            _ = (controller.currentTime, controller.duration, controller.subtitleText, controller.subtitleBitmap,
+                 controller.diagnostics, controller.videoSize)
+        } onChange: { changed = true }
+        try? await Task.sleep(for: .milliseconds(500))
+        XCTAssertFalse(changed, "a tick while paused notified the view")
+        controller.stop()
+    }
+
     func testCycleSubtitleSkipsImageTracksAndEndsOff() async {
         let (controller, _, _) = await started()
         var seen: [Int?] = []

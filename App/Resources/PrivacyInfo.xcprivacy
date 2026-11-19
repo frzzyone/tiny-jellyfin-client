@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Mac and iPhone. No tracking, nothing collected: the app talks only to the user's own server. UserDefaults holds the app's own preferences (CA92.1); FFmpeg stats the files it opens (C617.1). -->
+<!-- Mac and iPhone. No tracking, nothing collected: the app talks only to the user's own server. UserDefaults holds the app's own preferences (CA92.1); FFmpeg stats the files it opens (C617.1); the iPhone's automatic downloads check there is room before writing (E174.1). -->
 <plist version="1.0">
 <dict>
 	<key>NSPrivacyTracking</key>
@@ -25,6 +25,14 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>E174.1</string>
 			</array>
 		</dict>
 	</array>
