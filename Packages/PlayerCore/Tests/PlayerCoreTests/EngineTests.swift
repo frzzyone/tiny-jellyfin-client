@@ -20,7 +20,7 @@ final class EngineTests: XCTestCase {
 
     /// The reader thread has no run loop, so what a file read autoreleases is only freed by a
     /// pool around each read: without one, playing a downloaded film kept every byte read (about
-    /// 1 GB every 17 minutes) and a quality switch held twice what its queues did.
+    /// 1 GB every 17 minutes). Streams over HTTP never kept theirs.
     func testReadingAFileKeepsNothingOfWhatItRead() async throws {
         let pipeline = Pipeline(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), allowDolbyVision: false)
         try pipeline.open(startAt: 0)
