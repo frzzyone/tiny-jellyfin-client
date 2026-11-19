@@ -6,7 +6,7 @@ import SwiftUI
 
 /// The full-screen player, driven by the remote. Click or Play/Pause toggles; clicking left or
 /// right skips 10 s back or 30 s on; a swipe scrubs (a click commits, Back cancels); swiping or
-/// clicking down opens the panel (Info, Subtitles, Quality, Audio); Back closes the panel, then
+/// clicking down (or a controller's d-pad down or Y) opens the panel (Info, Subtitles, Quality, Audio); Back closes the panel, then
 /// the player.
 struct TVPlayerView: View {
     @Environment(AppModel.self) private var model
@@ -194,7 +194,7 @@ struct TVPlayerView: View {
             HStack {
                 Text(TimeFormat.clock(time))
                 Spacer()
-                Text(scrub != nil ? "click to jump here · Back to cancel" : "click ◀ −10 s · click ▶ +30 s · swipe to scrub")
+                Text(scrub != nil ? "click to jump here · Back to cancel" : "click ◀ −10 s · click ▶ +30 s · swipe to scrub · ▼ subtitles, audio, quality")
                     .foregroundStyle(.white.opacity(0.55))
                 Spacer()
                 Text("−" + TimeFormat.clock(max(0, player.duration - time)))

@@ -98,7 +98,8 @@ struct TVRemoteSurface: UIViewRepresentable {
         // default), which would stop the app if a reconnecting controller ever called from elsewhere.
         private func attach(_ controller: GCController) {
             guard let pad = controller.extendedGamepad else { return }
-            for (button, command) in [(pad.buttonA, RemoteCommand.select), (pad.buttonX, .playPause)] {
+            // Y opens the panel, as △ opens the options on the Mac.
+            for (button, command) in [(pad.buttonA, RemoteCommand.select), (pad.buttonX, .playPause), (pad.buttonY, .down)] {
                 button.pressedChangedHandler = { [weak self] _, _, pressed in
                     if pressed { DispatchQueue.main.async { self?.gamepad(command) } }
                 }
@@ -117,7 +118,7 @@ struct TVRemoteSurface: UIViewRepresentable {
 
         private func detach(_ controller: GCController) {
             guard let pad = controller.extendedGamepad else { return }
-            [pad.buttonA, pad.buttonX].forEach { $0.pressedChangedHandler = nil }
+            [pad.buttonA, pad.buttonX, pad.buttonY].forEach { $0.pressedChangedHandler = nil }
             [pad.dpad, pad.leftThumbstick].forEach { $0.valueChangedHandler = nil }
         }
 
@@ -147,11 +148,19 @@ struct TVRemoteSurface: UIViewRepresentable {
             CATransaction.commit()
         }
 
+        /// The swipe under way is up or down: a press of that arrow, not a scrub.
+        private var swipingVertically = false
+
         @objc private func panned(_ pan: UIPanGestureRecognizer) {
             switch pan.state {
-            case .began: onCommand(.panBegan)
-            case .changed: onCommand(.panChanged(pan.translation(in: self).x / max(bounds.width, 1)))
-            case .ended, .cancelled, .failed: onCommand(.panEnded)
+            case .began:
+                let velocity = pan.velocity(in: self)
+                swipingVertically = abs(velocity.y) > abs(velocity.x)
+                onCommand(swipingVertically ? (velocity.y > 0 ? .down : .up) : .panBegan)
+            case .changed:
+                if !swipingVertically { onCommand(.panChanged(pan.translation(in: self).x / max(bounds.width, 1))) }
+            case .ended, .cancelled, .failed:
+                if !swipingVertically { onCommand(.panEnded) }
             default: break
             }
         }
