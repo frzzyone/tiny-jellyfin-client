@@ -140,7 +140,8 @@ struct TVCardButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .scaleEffect(configuration.isPressed ? 1.02 : focused ? 1.08 : 1, anchor: .top)
-                .shadow(color: .black.opacity(focused ? 0.6 : 0), radius: 24, y: 18)
+                // Only the focused card blurs a shadow; a hidden one still costs its full radius.
+                .shadow(color: .black.opacity(focused ? 0.6 : 0), radius: focused ? 24 : 0, y: focused ? 18 : 0)
                 .animation(.easeOut(duration: 0.18), value: focused)
         }
     }

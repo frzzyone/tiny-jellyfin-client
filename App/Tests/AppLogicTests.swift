@@ -161,6 +161,12 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(profile.directPlayProfiles[0].videoCodec, "h264,hevc,av1")
     }
 
+    func testArtworkCacheHoldsMoreThanARow() {
+        // The test host is the app, whose model sizes the shared cache at launch.
+        XCTAssertGreaterThanOrEqual(URLCache.shared.diskCapacity, 256 << 20)
+        XCTAssertGreaterThanOrEqual(URLCache.shared.memoryCapacity, 32 << 20)
+    }
+
     func testSubtitleOptionsLabels() {
         let options = PlaybackController.subtitleOptions(movie().mediaSources![0])
         XCTAssertEqual(options.map(\.label), ["English", "Spanish", "French · External"])

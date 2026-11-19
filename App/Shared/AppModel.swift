@@ -20,6 +20,9 @@ final class AppModel {
     #endif
 
     init() {
+        // Artwork: Jellyfin sends tagged images as immutable for a year, but the default cache
+        // (a few MB) has dropped a row's posters by the time it scrolls back.
+        URLCache.shared = URLCache(memoryCapacity: 32 << 20, diskCapacity: 256 << 20)
         #if os(tvOS)
         // Shared with the Top Shelf extension.
         var preferences = AppPreferences(defaults: TVShared.defaults)

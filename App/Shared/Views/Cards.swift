@@ -114,7 +114,9 @@ struct ItemCard: View {
                             .stroke(.white.opacity(0.45), lineWidth: 1.5)
                     }
                 }
-                .shadow(color: .black.opacity(hovering ? 0.5 : 0), radius: 12, y: 6)
+                // A hidden shadow still blurs at its full radius on every card, every frame: off
+                // means radius 0 (the iPhone and TV never hover).
+                .shadow(color: .black.opacity(hovering ? 0.5 : 0), radius: hovering ? 12 : 0, y: hovering ? 6 : 0)
                 .scaleEffect(hovering ? 1.04 : 1)
                 .animation(.easeOut(duration: 0.15), value: hovering)
             Text(title)

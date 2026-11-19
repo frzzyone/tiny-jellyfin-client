@@ -18,6 +18,29 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(delay(13, 0), 0.5, "paused")
     }
 
+    /// The reader thread has no run loop, so what a file read autoreleases is only freed by a
+    /// pool around each read: without one, playing a downloaded film kept every byte read (about
+    /// 1 GB every 17 minutes) and a quality switch held twice what its queues did.
+    func testReadingAFileKeepsNothingOfWhatItRead() async throws {
+        let pipeline = Pipeline(source: MediaSource(url: try Fixtures.url("h264_aac.mp4")), allowDolbyVision: false)
+        try pipeline.open(startAt: 0)
+        pipeline.start()
+        defer { pipeline.stop() }
+        var before = 0
+        for pass in 0..<300 {   // 0.55 MB each
+            while true {
+                let video = pipeline.videoQueue.pop(), audio = pipeline.audioQueue.pop()
+                if video == nil && audio == nil {
+                    if pipeline.videoQueue.endOfStream { break }
+                    try await Task.sleep(nanoseconds: 1_000_000)
+                }
+            }
+            if pass == 20 { before = memoryFootprintMB() }
+            await pipeline.seek(to: 0)
+        }
+        XCTAssertLessThan(memoryFootprintMB() - before, 50, "MB kept after reading the file 280 more times (150 MB)")
+    }
+
     func engine() -> FFmpegEngine {
         let engine = FFmpegEngine()
         engine.isMuted = true

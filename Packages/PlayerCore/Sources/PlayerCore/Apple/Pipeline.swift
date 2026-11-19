@@ -237,7 +237,11 @@ final class Pipeline: @unchecked Sendable {
             }
 
             do {
-                guard let packet = try demuxer.readPacket() else {
+                // This thread has no run loop to drain autoreleased objects: without a pool,
+                // every `Data` a file read returns lived until the thread ended, doubling what
+                // the queues hold and growing with everything read. Routing decodes audio and
+                // subtitles, so it gets one too.
+                guard let packet = try autoreleasepool(invoking: { try demuxer.readPacket() }) else {
                     videoQueue.markEndOfStream()
                     audioQueue.markEndOfStream()
                     continue
@@ -264,7 +268,7 @@ final class Pipeline: @unchecked Sendable {
                         continue
                     }
                 }
-                route(packet)
+                autoreleasepool { route(packet) }
             } catch let error as FFmpegError {
                 if error.isExit || shouldAbortPush { continue }
                 consecutiveErrors += 1

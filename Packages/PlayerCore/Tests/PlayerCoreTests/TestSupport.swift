@@ -18,6 +18,21 @@ enum Fixtures {
     }
 }
 
+#if canImport(Darwin)
+/// The process's memory as the system counts it against its limit, in MB.
+func memoryFootprintMB() -> Int {
+    malloc_zone_pressure_relief(nil, 0)   // freed pages the allocator still holds don't count
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    _ = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+        }
+    }
+    return Int(info.phys_footprint) / 1_048_576
+}
+#endif
+
 /// Runs scripts/test-http-server.py over the fixtures directory. On iOS and tvOS the test process cannot
 /// launch it, so scripts/test-ios.sh starts it on the host and passes its port in TEST_HTTP_PORT
 /// (the simulator shares the host's network).
