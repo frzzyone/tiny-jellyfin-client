@@ -16,20 +16,27 @@ enum RemoteCommand: Equatable {
 /// it takes the remote's presses and touch-surface swipes and hands them to `onCommand`. A game
 /// controller's buttons are read from GameController too: tvOS turns a controller's B into Back, but
 /// its A and d-pad never reached the surface as presses (an Xbox controller could only close the player).
+///
+/// The view itself takes focus (`takesFocus`, false while a panel is up), not a SwiftUI `.focusable()`
+/// around it: that focused SwiftUI's wrapper, and presses travel up from the focused view, never down,
+/// so on a real Apple TV only Back (handled further up) did anything.
 struct TVRemoteSurface: UIViewRepresentable {
     let layer: AVSampleBufferDisplayLayer?
+    var takesFocus = true
     let onCommand: (RemoteCommand) -> Void
 
     func makeUIView(context: Context) -> SurfaceView {
         let view = SurfaceView()
         view.onCommand = onCommand
         view.videoLayer = layer
+        view.takesFocus = takesFocus
         return view
     }
 
     func updateUIView(_ view: SurfaceView, context: Context) {
         view.onCommand = onCommand
         if view.videoLayer !== layer { view.videoLayer = layer }
+        view.takesFocus = takesFocus
     }
 
     final class SurfaceView: UIView {
@@ -57,7 +64,18 @@ struct TVRemoteSurface: UIViewRepresentable {
 
         required init?(coder: NSCoder) { fatalError("not used") }
 
-        override var canBecomeFocused: Bool { true }
+        var takesFocus = true {
+            didSet {
+                guard takesFocus != oldValue else { return }
+                // Back from a panel: focus returns here once the panel's buttons are gone.
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.takesFocus else { return }
+                    self.window?.windowScene?.focusSystem?.requestFocusUpdate(to: self)
+                }
+            }
+        }
+
+        override var canBecomeFocused: Bool { takesFocus }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()

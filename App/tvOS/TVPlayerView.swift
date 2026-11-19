@@ -27,8 +27,7 @@ struct TVPlayerView: View {
 
     var body: some View {
         ZStack {
-            TVRemoteSurface(layer: player.engine?.displayLayer, onCommand: handle)
-                .focusable(panel == nil)
+            TVRemoteSurface(layer: player.engine?.displayLayer, takesFocus: panel == nil, onCommand: handle)
             SubtitleOverlay(text: player.subtitleText, bitmap: player.subtitleBitmap, videoSize: player.videoSize,
                             bars: player.pictureBars)
             if player.status == .loading || player.status == .buffering {

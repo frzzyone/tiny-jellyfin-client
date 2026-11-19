@@ -98,6 +98,8 @@ struct TVHero: View {
     @Environment(\.tvPlay) private var play
     let item: BaseItem
     @FocusState private var primaryFocused: Bool
+    /// tvOS gives the tab bar the first focus; the hero takes it once, at launch, so A resumes.
+    @MainActor private static var tookLaunchFocus = false
 
     private var inProgress: Bool { item.resumePositionSeconds != nil }
     private var playable: Bool { item.type?.isPlayable ?? false }
@@ -133,11 +135,14 @@ struct TVHero: View {
             .padding(.bottom, 20)
         }
         .frame(height: 760)
-        // One click from launch resumes the film. The section spans the hero's full width, so Down
-        // from a tab lands here; without it the focus engine looked straight below the tab, past
-        // the buttons on the left, and went to the first shelf.
-        .focusSection()
+        // One click from launch resumes the film.
         .defaultFocus($primaryFocused, true)
+        .task {
+            guard !Self.tookLaunchFocus, playable else { return }
+            Self.tookLaunchFocus = true
+            try? await Task.sleep(for: .milliseconds(300))
+            primaryFocused = true
+        }
     }
 }
 
