@@ -34,8 +34,15 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
 
     private let condition = NSCondition()
     private var task: URLSessionDataTask?
+    /// Downloaded bytes; the unread ones start at `head`, at file offset `bufferOffset`. Reads move
+    /// `head` and the front is cut off now and then: `Data.removeFirst` keeps the memory before
+    /// the cut, so trimming with it held every byte of the film (2 GB in 10 minutes of a Blu-ray
+    /// remux, and tvOS killed the Apple TV app).
     private var buffer = Data()
+    private var head = 0
     private var bufferOffset: Int64 = 0
+    private var buffered: Int { buffer.count - head }
+    static let compactAfter = 4 * 1024 * 1024
     private var skipRemaining: Int64 = 0
     private var finished = false
     private var failure: Error?
@@ -80,7 +87,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
 
         while true {
             if closed || generation != interruptGeneration { throw ByteSourceCancelled() }
-            let end = bufferOffset + Int64(buffer.count)
+            let end = bufferOffset + Int64(buffered)
             let positionedHere = (task != nil || parked) && failure == nil && offset >= bufferOffset
                 && offset <= end + Self.skipWindow
             if !positionedHere {
@@ -103,7 +110,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
             let deadline = Date().addingTimeInterval(readTimeout)
             while true {
                 if closed || generation != interruptGeneration { throw ByteSourceCancelled() }
-                let available = bufferOffset + Int64(buffer.count) - offset
+                let available = bufferOffset + Int64(buffered) - offset
                 if offset >= bufferOffset && available > 0 { break }
                 if finished { return Data() }
                 if failure != nil { break }
@@ -113,23 +120,24 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
                     break
                 }
             }
-            if failure != nil && !(offset >= bufferOffset && bufferOffset + Int64(buffer.count) > offset) {
+            if failure != nil && !(offset >= bufferOffset && bufferOffset + Int64(buffered) > offset) {
                 task?.cancel()
                 task = nil
                 continue
             }
 
             // Serve from the buffer, dropping everything before `offset`.
-            let drop = Int(offset - bufferOffset)
-            if drop > 0 {
-                buffer.removeFirst(drop)
-                bufferOffset = offset
-            }
-            let count = min(maxLength, buffer.count)
-            let chunk = buffer.prefix(count)
-            buffer.removeFirst(count)
+            head += Int(offset - bufferOffset)
+            bufferOffset = offset
+            let count = min(maxLength, buffered)
+            let chunk = buffer.subdata(in: head..<head + count)
+            head += count
             bufferOffset += Int64(count)
-            return Data(chunk)
+            if head >= Self.compactAfter {
+                buffer = buffer.subdata(in: head..<buffer.count)
+                head = 0
+            }
+            return chunk
         }
     }
 
@@ -158,7 +166,8 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
         var request = URLRequest(url: url)
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
         if offset > 0 { request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range") }
-        buffer.removeAll(keepingCapacity: true)
+        buffer = Data()
+        head = 0
         bufferOffset = offset
         skipRemaining = 0
         finished = false
@@ -214,7 +223,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
             skipRemaining -= Int64(skip)
         }
         buffer.append(data)
-        let parkNow = buffer.count > maxBuffered
+        let parkNow = buffered > maxBuffered
         if parkNow {
             // Far enough ahead: drop the connection and pick up from here later.
             parked = true
@@ -237,7 +246,7 @@ public final class HTTPByteSource: ByteSource, @unchecked Sendable {
                 // The code only: URLSession's error carries the URL, and a transcode's URLs carry
                 // the access token (`api_key`); this error ends up in logs and on screen.
                 failure = (error as? URLError).map { URLError($0.code) } ?? error
-                PlayerLog.network("HTTP error \(url.path) at byte \(bufferOffset + Int64(buffer.count)): \(error.localizedDescription)")
+                PlayerLog.network("HTTP error \(url.path) at byte \(bufferOffset + Int64(buffered)): \(error.localizedDescription)")
             }
         } else if failure == nil {
             finished = true

@@ -153,6 +153,50 @@ final class HTTPTests: XCTestCase {
         XCTAssertEqual(try source.read(at: Int64(local.count), maxLength: 10), Data())
     }
 
+    /// Streaming a long file must not keep what was already read: trimming the buffer with
+    /// `Data.removeFirst` kept it all, 2 GB in 10 minutes of a remux, until tvOS killed the app.
+    func testStreamingDoesNotKeepWhatWasRead() throws {
+        #if os(macOS)
+        let name = "stream-768mb.bin"   // sparse: takes no disk space
+        let file = Fixtures.directory.appendingPathComponent(name)
+        FileManager.default.createFile(atPath: file.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: 768 * 1_048_576)
+        try handle.close()
+        defer { try? FileManager.default.removeItem(at: file) }
+        let server = try TestHTTPServer()
+        // About 250 MB/s, a fast network: at full disk speed URLSession and the allocator swing by
+        // hundreds of MB, which hid what the buffer keeps.
+        let source = HTTPByteSource(url: server.url("\(name)?slow=0.00025"), headers: TestHTTPServer.authHeaders,
+                                    session: HTTPByteSource.makeSession())
+        func footprint() -> Int {
+            malloc_zone_pressure_relief(nil, 0)   // freed pages the allocator still holds don't count
+            var info = task_vm_info_data_t()
+            var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+            _ = withUnsafeMutablePointer(to: &info) {
+                $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                    task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+                }
+            }
+            return Int(info.phys_footprint) / 1_048_576
+        }
+        var offset: Int64 = 0
+        var before = 0
+        while true {
+            let count = try source.read(at: offset, maxLength: 32_768).count
+            if count == 0 { break }
+            offset += Int64(count)
+            // From 256 MB on, once start-up allocations have settled; the old buffer then grew by
+            // every byte read, 512 MB.
+            if offset == 256 * 1_048_576 { before = footprint() }
+        }
+        XCTAssertEqual(offset, 768 * 1_048_576)
+        XCTAssertLessThan(footprint() - before, 64, "MB kept while streaming the last 512 MB")
+        #else
+        throw XCTSkip("the test server serves the host's fixtures; a file written here isn't among them")
+        #endif
+    }
+
     func testAuthorizationHeaderIsSent() throws {
         let server = try TestHTTPServer()
         let source = HTTPByteSource(url: server.url("h264_aac.mp4"), headers: [:], session: HTTPByteSource.makeSession())
