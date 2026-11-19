@@ -6,8 +6,8 @@ import SwiftUI
 
 /// The full-screen player, driven by the remote. Click or Play/Pause toggles; clicking left or
 /// right skips 10 s back or 30 s on; a swipe scrubs (a click commits, Back cancels); swiping or
-/// clicking down (or a controller's d-pad down or Y) opens the panel (Info, Subtitles, Quality, Audio); Back closes the panel, then
-/// the player.
+/// clicking down (or a controller's d-pad down or Y) opens the panel (Info, Subtitles, Quality,
+/// Audio); a controller's L1/R1 step through chapters; Back closes the panel, then the player.
 struct TVPlayerView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
@@ -112,6 +112,9 @@ struct TVPlayerView: View {
             }
             showTransport()
         case .up:
+            showTransport()
+        case .previousChapter, .nextChapter:
+            player.jumpChapter(forward: command == .nextChapter)
             showTransport()
         case .down:
             openPanel(.subtitles)

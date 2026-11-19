@@ -6,6 +6,8 @@ import UIKit
 /// What the Siri Remote did. Clicks arrive as presses; a swipe on the touch surface as a pan.
 enum RemoteCommand: Equatable {
     case select, playPause, left, right, up, down, menu
+    /// A controller's L1/R1.
+    case previousChapter, nextChapter
     case panBegan
     /// Horizontal travel so far, as a fraction of the screen's width.
     case panChanged(Double)
@@ -98,8 +100,9 @@ struct TVRemoteSurface: UIViewRepresentable {
         // default), which would stop the app if a reconnecting controller ever called from elsewhere.
         private func attach(_ controller: GCController) {
             guard let pad = controller.extendedGamepad else { return }
-            // Y opens the panel, as △ opens the options on the Mac.
-            for (button, command) in [(pad.buttonA, RemoteCommand.select), (pad.buttonX, .playPause), (pad.buttonY, .down)] {
+            // Y opens the panel, as △ opens the options on the Mac; L1/R1 step through chapters, as there.
+            for (button, command) in [(pad.buttonA, RemoteCommand.select), (pad.buttonX, .playPause), (pad.buttonY, .down),
+                                      (pad.leftShoulder, .previousChapter), (pad.rightShoulder, .nextChapter)] {
                 button.pressedChangedHandler = { [weak self] _, _, pressed in
                     if pressed { DispatchQueue.main.async { self?.gamepad(command) } }
                 }
@@ -118,7 +121,7 @@ struct TVRemoteSurface: UIViewRepresentable {
 
         private func detach(_ controller: GCController) {
             guard let pad = controller.extendedGamepad else { return }
-            [pad.buttonA, pad.buttonX, pad.buttonY].forEach { $0.pressedChangedHandler = nil }
+            [pad.buttonA, pad.buttonX, pad.buttonY, pad.leftShoulder, pad.rightShoulder].forEach { $0.pressedChangedHandler = nil }
             [pad.dpad, pad.leftThumbstick].forEach { $0.valueChangedHandler = nil }
         }
 
