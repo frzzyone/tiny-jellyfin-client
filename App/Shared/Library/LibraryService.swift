@@ -20,6 +20,9 @@ protocol LibraryService: AnyObject, Sendable {
 
 extension JellyfinClient: LibraryService {
     func resumeItems() async throws -> [BaseItem] { try await resumeItems(limit: 24) }
+    func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] {
+        try await nextUp(limit: limit, seriesId: seriesId, withMediaSources: false)
+    }
 }
 
 extension LibraryService {

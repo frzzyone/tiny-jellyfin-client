@@ -365,13 +365,14 @@ final class DownloadsTests: XCTestCase {
         func subtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int, picture: Bool) -> URL {
             files.appendingPathComponent("sub\(streamIndex).\(picture ? "sup" : "srt")")
         }
-        func posterURL(for item: BaseItem) -> URL? { nil }
+        func posterURL(for item: BaseItem) -> URL? { files.appendingPathComponent("poster-\(item.id).jpg") }
     }
 
     var root: URL!
     var transfer: FakeTransfer!
     var server: FakeServer!
     var probed: (start: Double, duration: Double?) = (0, 600)
+    nonisolated(unsafe) var probedOnMainThread: Bool?
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("dls-\(UUID().uuidString)")
@@ -385,7 +386,7 @@ final class DownloadsTests: XCTestCase {
 
     func makeDownloads(free: Int64 = 100_000_000_000) -> Downloads {
         let downloads = Downloads(store: DownloadStore(root: root.appendingPathComponent("store")), server: { [server] in server },
-                                  probe: { [unowned self] _ in self.probed })
+                                  probe: { [unowned self] _ in self.probedOnMainThread = Thread.isMainThread; return self.probed })
         downloads.transfer = transfer
         downloads.freeBytes = { free }
         return downloads
@@ -432,6 +433,19 @@ final class DownloadsTests: XCTestCase {
         XCTAssertNotNil(downloads.playbackService(for: item))
     }
 
+    func testAPosterThatDidNotComeIsFetchedOnTheNextSync() async throws {
+        let item = film("small", bitrate: 5_000_000)
+        server.items["small"] = item
+        server.streams["small"] = stream(item, copy: false)
+        let downloads = makeDownloads()
+        let poster = downloads.store.file("small", LocalPlaybackService.posterFile)
+        await downloads.download(item)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: poster.path), "the server didn't send it")
+        try Data("JPEG".utf8).write(to: root.appendingPathComponent("poster-small.jpg"))
+        await downloads.sync()
+        XCTAssertEqual(try? Data(contentsOf: poster), Data("JPEG".utf8))
+    }
+
     func testACopyStoresItsStartAndEndsItsEncode() async throws {
         let item = film("remux")
         server.streams["remux"] = stream(item, copy: true, session: "ps1")
@@ -448,6 +462,7 @@ final class DownloadsTests: XCTestCase {
         try await finish(downloads, "remux")
         XCTAssertEqual(downloads.record("remux")?.status, .done)
         XCTAssertEqual(downloads.record("remux")?.timelineOffset, -1.44)
+        XCTAssertEqual(probedOnMainThread, false, "probing reads megabytes: not on the main thread")
         let ended = await eventually { self.server.ended == ["ps1"] }
         XCTAssertTrue(ended, "the server stops encoding: \(server.ended)")
     }

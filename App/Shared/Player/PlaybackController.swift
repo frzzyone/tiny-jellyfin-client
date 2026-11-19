@@ -692,7 +692,8 @@ final class PlaybackController {
             do {
                 let data = try await service.pictureSubtitleData(itemId: itemId, mediaSourceId: mediaSourceId,
                                                                  streamIndex: index, wait: wait)
-                let file = try PictureSubtitleFile(data: data)
+                // Demuxing tens of MB of PGS takes a while: not on the main actor this Task inherits.
+                let file = try await Task.detached { try PictureSubtitleFile(data: data) }.value
                 guard let self, !Task.isCancelled else { return }
                 PlayerLog.engine(String(format: "Controller: subtitle %d drawn by the app from the server's copy (%.1f MB in %.1f s)",
                                         index, Double(data.count) / 1_000_000, Date().timeIntervalSince(started)))

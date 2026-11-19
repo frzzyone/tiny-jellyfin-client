@@ -1,8 +1,9 @@
 import Foundation
 
 private let itemFields = "Overview,MediaSources,MediaStreams,PrimaryImageAspectRatio,PremiereDate,ProductionYear,DateCreated,Genres"
-/// For long lists of cards: no media sources or streams, which run to kilobytes per title (a remux
-/// lists every track). The quick look and detail pages fetch the full item.
+/// For lists of cards: no media sources or streams, which run to tens of kilobytes per title (a
+/// remux lists every track, twice). The quick look, detail pages, player and downloads fetch the
+/// full item; only the download planner asks lists for sizes (`withMediaSources`).
 private let cardFields = "Overview,PrimaryImageAspectRatio,PremiereDate,ProductionYear,DateCreated,Genres"
 
 extension JellyfinClient {
@@ -69,10 +70,10 @@ extension JellyfinClient {
         return result.items.filter { Self.supportedCollectionTypes.contains(($0.collectionType ?? "").lowercased()) }
     }
 
-    public func resumeItems(limit: Int = 24) async throws -> [BaseItem] {
+    public func resumeItems(limit: Int = 24, withMediaSources: Bool = false) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/UserItems/Resume", query: [
             "userId": try requireUserId(), "mediaTypes": "Video", "limit": String(limit),
-            "fields": itemFields, "enableUserData": "true",
+            "fields": withMediaSources ? itemFields : cardFields, "enableUserData": "true",
         ])
         return result.items
     }
@@ -83,10 +84,10 @@ extension JellyfinClient {
     }
 
     /// The next unwatched episode of every series the user has started, most recently watched first.
-    public func nextUp(limit: Int = 24, seriesId: String? = nil) async throws -> [BaseItem] {
+    public func nextUp(limit: Int = 24, seriesId: String? = nil, withMediaSources: Bool = false) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/Shows/NextUp", query: [
             "userId": try requireUserId(), "limit": String(limit), "seriesId": seriesId,
-            "fields": itemFields, "enableUserData": "true",
+            "fields": withMediaSources ? itemFields : cardFields, "enableUserData": "true",
         ])
         return result.items
     }
@@ -107,7 +108,7 @@ extension JellyfinClient {
     /// What the server thinks is like this item.
     public func similar(to itemId: String, limit: Int = 24) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/Items/\(itemId)/Similar", query: [
-            "userId": try requireUserId(), "limit": String(limit), "fields": itemFields, "enableUserData": "true",
+            "userId": try requireUserId(), "limit": String(limit), "fields": cardFields, "enableUserData": "true",
         ])
         return result.items
     }
@@ -163,7 +164,7 @@ extension JellyfinClient {
 
     public func episodes(seriesId: String, seasonId: String) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/Shows/\(seriesId)/Episodes", query: [
-            "userId": try requireUserId(), "seasonId": seasonId, "fields": itemFields, "enableUserData": "true",
+            "userId": try requireUserId(), "seasonId": seasonId, "fields": cardFields, "enableUserData": "true",
         ])
         return result.items.sorted { ($0.indexNumber ?? 0) < ($1.indexNumber ?? 0) }
     }
@@ -238,7 +239,7 @@ public struct ItemQuery: Equatable, Sendable {
             "years": years.isEmpty ? nil : years.map(String.init).joined(separator: ","),
             "searchTerm": (term?.isEmpty ?? true) ? nil : term,
             "startIndex": String(startIndex), "limit": String(limit),
-            "fields": itemFields, "enableUserData": "true",
+            "fields": cardFields, "enableUserData": "true",
         ]
     }
 }

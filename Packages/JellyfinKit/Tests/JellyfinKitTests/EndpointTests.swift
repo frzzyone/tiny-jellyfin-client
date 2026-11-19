@@ -230,6 +230,33 @@ final class DiscoveryEndpointTests: XCTestCase {
         XCTAssertTrue(fields.contains("ProductionYear"))
     }
 
+    /// Card lists leave out the track lists (tens of KB per remux); the download planner, which
+    /// estimates sizes from them, asks for them.
+    func testListsAskForTrackListsOnlyForDownloads() async throws {
+        let server = StubServer()
+        let empty = #"{"Items":[]}"#
+        for path in ["/UserItems/Resume", "/Shows/NextUp", "/Items", "/Items/x/Similar", "/Shows/s/Episodes"] {
+            server.on("GET", path, json: empty)
+        }
+        let client = server.client()
+        func fields(_ path: String) -> String { queryValue(server.lastRequest(path: path), "fields") ?? "" }
+        _ = try await client.resumeItems()
+        _ = try await client.nextUp()
+        _ = try await client.items(ItemQuery(types: [.movie]))
+        _ = try await client.similar(to: "x")
+        _ = try await client.episodes(seriesId: "s", seasonId: "1")
+        for path in ["/UserItems/Resume", "/Shows/NextUp", "/Items", "/Items/x/Similar", "/Shows/s/Episodes"] {
+            XCTAssertFalse(fields(path).contains("MediaSources"), path)
+            XCTAssertTrue(fields(path).contains("Overview"), path)
+        }
+        _ = try await client.resumeItems(withMediaSources: true)
+        _ = try await client.nextUp(withMediaSources: true)
+        _ = try await client.episodes(seriesId: "s", from: "e1", limit: 3)
+        for path in ["/UserItems/Resume", "/Shows/NextUp", "/Shows/s/Episodes"] {
+            XCTAssertTrue(fields(path).contains("MediaSources"), path)
+        }
+    }
+
     func testSimilarAndGenres() async throws {
         let server = StubServer()
         server.on("GET", "/Items/heat/Similar", json: #"{"Items":[{"Id":"c","Name":"Collateral","Type":"Movie"}]}"#)

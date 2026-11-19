@@ -154,20 +154,15 @@ final class Downloads {
     }
 
     /// The poster and subtitle files: small, fetched while the app is open. A picture track the
-    /// server hasn't extracted yet is simply left out.
+    /// server hasn't extracted yet is simply left out. The poster goes first: each subtitle can
+    /// take its whole timeout, and the app may be suspended by then.
     private func fetchExtras(_ record: DownloadRecord, subtitles: [(index: Int, picture: Bool)], server: DownloadServer) async {
         var urls: [(URL, String)] = subtitles.map { sub in
             (server.subtitleURL(itemId: record.id, mediaSourceId: record.source?.id ?? record.id, streamIndex: sub.index, picture: sub.picture),
              LocalPlaybackService.subtitleFile(sub.index, picture: sub.picture))
         }
-        if let poster = server.posterURL(for: record.item) { urls.append((poster, LocalPlaybackService.posterFile)) }
-        for (url, name) in urls {
-            var request = server.request(url)
-            request.timeoutInterval = 15
-            guard let (data, response) = try? await URLSession.shared.data(for: request),
-                  (response as? HTTPURLResponse)?.statusCode ?? 200 == 200, self.record(record.id) != nil else { continue }
-            try? data.write(to: store.file(record.id, name), options: .atomic)
-        }
+        if let poster = server.posterURL(for: record.item) { urls.insert((poster, LocalPlaybackService.posterFile), at: 0) }
+        for (url, name) in urls { await fetch(url, to: name, of: record.id, server: server) }
         if var updated = self.record(record.id), updated.item.mediaSources != nil {
             // Keep only the subtitle tracks whose files arrived.
             let fetched = Set(subtitles.filter { FileManager.default.fileExists(atPath: store.file(record.id, LocalPlaybackService.subtitleFile($0.index, picture: $0.picture)).path) }.map(\.index))
@@ -176,6 +171,26 @@ final class Downloads {
                 updated.item.mediaSources![0].mediaStreams?.removeAll { $0.type == .subtitle && missing.contains($0.index) }
             }
             save(updated)   // also redraws the lists, which now have the poster
+        }
+    }
+
+    @discardableResult
+    private func fetch(_ url: URL, to name: String, of id: String, server: DownloadServer) async -> Bool {
+        var request = server.request(url)
+        request.timeoutInterval = 15
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode ?? 200 == 200, record(id) != nil else { return false }
+        return (try? data.write(to: store.file(id, name), options: .atomic)) != nil
+    }
+
+    /// Posters that didn't come with their download (the app was suspended, the server was slow
+    /// or offline) are asked for again whenever the downloads sync.
+    private func fetchMissingPosters(_ server: DownloadServer) async {
+        for record in records where !FileManager.default.fileExists(atPath: store.file(record.id, LocalPlaybackService.posterFile).path) {
+            guard let url = server.posterURL(for: record.item),
+                  await fetch(url, to: LocalPlaybackService.posterFile, of: record.id, server: server),
+                  let current = self.record(record.id) else { continue }
+            save(current)   // redraws the lists
         }
     }
 
@@ -194,7 +209,9 @@ final class Downloads {
         }
         record.playSessionId = nil
         do {
-            let info = try probe(url)
+            // Probing reads megabytes of the file: off the main actor.
+            let probe = self.probe
+            let info = try await Task.detached { try probe(url) }.value
             let runtime = Ticks.seconds(record.item.runTimeTicks ?? 0)
             // A copy the server stopped early can still end like a whole response. Not retried: its
             // encode failed (a full transcode disk cut The Tin Drum off twice at 8.1 GB), and each
@@ -315,6 +332,7 @@ final class Downloads {
         syncing = true
         defer { syncing = false }
         let settled = await queue.flush(to: server)
+        await fetchMissingPosters(server)
         for (id, watched) in settled where watched {
             guard let finished = record(id), finished.isDone else { continue }
             let next = finished.item.seriesId == nil ? nil
@@ -383,11 +401,13 @@ struct JellyfinDownloadServer: DownloadServer {
     }
 
     func item(id: String) async throws -> BaseItem { try await client.item(id: id) }
-    func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] { try await client.nextUp(limit: limit, seriesId: seriesId) }
+    func nextUp(limit: Int, seriesId: String?) async throws -> [BaseItem] {
+        try await client.nextUp(limit: limit, seriesId: seriesId, withMediaSources: true)
+    }
     func episodes(seriesId: String, from startItemId: String, limit: Int) async throws -> [BaseItem] {
         try await client.episodes(seriesId: seriesId, from: startItemId, limit: limit)
     }
-    func resumeItems(limit: Int) async throws -> [BaseItem] { try await client.resumeItems(limit: limit) }
+    func resumeItems(limit: Int) async throws -> [BaseItem] { try await client.resumeItems(limit: limit, withMediaSources: true) }
     func endEncoding(playSessionId: String) async throws { try await client.endEncoding(playSessionId: playSessionId) }
     func userData(itemId: String) async throws -> UserItemData? { try await client.userData(itemId: itemId) }
     func updateUserData(_ itemId: String, positionSeconds: Double, played: Bool, lastPlayed: Date) async throws -> UserItemData {
