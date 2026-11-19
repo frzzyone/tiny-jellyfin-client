@@ -212,6 +212,8 @@ targets:
       path: App/Resources/Info-TopShelf.plist
       properties:
         CFBundleDisplayName: Tinyfin Top Shelf
+        # App Store Connect refuses a 64-bit extension without it.
+        UIRequiredDeviceCapabilities: [arm64]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
