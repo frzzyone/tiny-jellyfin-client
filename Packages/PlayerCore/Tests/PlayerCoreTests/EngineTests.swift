@@ -9,6 +9,15 @@ import XCTest
 final class EngineTests: XCTestCase {
     override class func setUp() { FFmpegLog.configure() }
 
+    func testFeedingPollsSlowlyWhenFarEnoughAhead() {
+        let delay = { FFmpegEngine.pollDelay(fedTo: $0, clock: 10, feedAhead: 2, rate: $1) }
+        XCTAssertEqual(delay(10.5, 1), 0.02, "short of 2 s: the demuxer is behind, look again soon")
+        XCTAssertEqual(delay(12.3, 1), 0.3, accuracy: 1e-9, "until it is 2 s ahead again")
+        XCTAssertEqual(delay(12.3, 2), 0.15, accuracy: 1e-9, "the clock runs faster at 2×")
+        XCTAssertEqual(delay(20, 1), 0.5, "never more than half a second")
+        XCTAssertEqual(delay(13, 0), 0.5, "paused")
+    }
+
     func engine() -> FFmpegEngine {
         let engine = FFmpegEngine()
         engine.isMuted = true

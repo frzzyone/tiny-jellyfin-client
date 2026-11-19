@@ -38,7 +38,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private let capabilities = EngineCapabilities.current()
 
     // Guarded by `queue`.
-    private var active: Pipeline?
+    private var active: Pipeline? { didSet { publishSubtitles() } }
     private var incoming: Pipeline?
     private var spliceTime: Double?
     private var videoSwitched = false
@@ -59,8 +59,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var bufferingSince: Date?
     private var lastStallLog = Date.distantPast
     private var audioSampleFailures = 0
-    private var selectedSubtitle: Int?
-    private var externalSubtitles: SubtitleTrackStore?
+    private var selectedSubtitle: Int? { didSet { publishSubtitles() } }
+    private var externalSubtitles: SubtitleTrackStore? { didSet { publishSubtitles() } }
     /// Bumped by `stop()`, so a `prepare` that finishes afterwards knows it was abandoned.
     private var generation = 0
     /// Counts seeks: only the newest one resets the clock, and a switch started before one is abandoned.
@@ -75,6 +75,9 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private var snapshotVideoSize: CGSize?
     private var snapshotVideoFormat: CMVideoFormatDescription?
     private var snapshotFrameRate: Double?
+    /// What the subtitle reads need, so the main thread's 10 Hz reads never wait behind `queue`
+    /// (frame copies, audio decoding). The stores have locks of their own.
+    private var snapshotSubtitles: (external: SubtitleTrackStore?, selected: Int?, pipeline: Pipeline?) = (nil, nil, nil)
     /// Position set by a seek while the clock is stopped. The synchronizer applies a new paused
     /// time slightly late, so report this until the clock runs again.
     private var heldTime: Double?
@@ -431,6 +434,8 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     // MARK: Subtitles
 
     public func selectEmbeddedSubtitle(trackId: Int?) {
+        // Readers see the choice at once; the queue publishes it again when it gets there.
+        snapshotLock.withLock { snapshotSubtitles.selected = trackId }
         queue.async { [self] in
             selectedSubtitle = trackId
             // The reader is ahead of the clock: re-read from here, or the events in between are missed.
@@ -442,19 +447,22 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
 
     public func setExternalSubtitles(_ cues: [SubtitleCue]?) {
         let store = cues.map { SubtitleTrackStore(cues: $0) }
+        snapshotLock.withLock { snapshotSubtitles.external = store }
         queue.async { [self] in externalSubtitles = store }
     }
 
+    private func publishSubtitles() {
+        snapshotLock.withLock { snapshotSubtitles = (externalSubtitles, selectedSubtitle, active) }
+    }
+
     public func subtitleText(at time: Double) -> String? {
-        let (external, store) = queue.sync { () -> (SubtitleTrackStore?, SubtitleTrackStore?) in
-            (externalSubtitles, selectedSubtitle.flatMap { active?.subtitleStores[$0] })
-        }
-        return (external ?? store)?.text(at: time)
+        let (external, selected, pipeline) = snapshotLock.withLock { snapshotSubtitles }
+        return (external ?? selected.flatMap { pipeline?.subtitleStores[$0] })?.text(at: time)
     }
 
     public func subtitleBitmap(at time: Double) -> SubtitleBitmap? {
-        let store = queue.sync { selectedSubtitle.flatMap { active?.pictureSubtitles(of: $0) } }
-        return store?.bitmap(at: time)
+        let (_, selected, pipeline) = snapshotLock.withLock { snapshotSubtitles }
+        return selected.flatMap { pipeline?.pictureSubtitles(of: $0) }?.bitmap(at: time)
     }
 
     // MARK: Feeding
@@ -478,10 +486,10 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
     private func feedVideo() {
         while videoRenderer.isReadyForMoreMediaData {
             guard let sample = nextVideoSample() else {
-                // Nothing queued: stop the ready callbacks and poll again shortly.
+                // Nothing queued, or far enough ahead: stop the ready callbacks and poll again later.
                 videoRenderer.stopRequestingMediaData()
                 requestingVideo = false
-                queue.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+                queue.asyncAfter(deadline: .now() + pollDelay(fedTo: lastVideoEnd)) { [weak self] in
                     guard let self, self.active != nil, !self.requestingVideo else { return }
                     self.requestingVideo = true
                     self.videoRenderer.requestMediaDataWhenReady(on: self.queue) { [weak self] in self?.feedVideo() }
@@ -497,7 +505,7 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             guard let sample = nextAudioSample() else {
                 audioRenderer.stopRequestingMediaData()
                 requestingAudio = false
-                queue.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+                queue.asyncAfter(deadline: .now() + pollDelay(fedTo: lastAudioEnd)) { [weak self] in
                     guard let self, self.active != nil, self.audioUsable, !self.requestingAudio else { return }
                     self.requestingAudio = true
                     self.audioRenderer.requestMediaDataWhenReady(on: self.queue) { [weak self] in self?.feedAudio() }
@@ -506,6 +514,17 @@ public final class FFmpegEngine: PlaybackEngine, @unchecked Sendable {
             }
             audioRenderer.enqueue(sample)
         }
+    }
+
+    private func pollDelay(fedTo end: Double) -> Double {
+        Self.pollDelay(fedTo: end, clock: currentTime, feedAhead: feedAhead, rate: Double(desiredRate))
+    }
+
+    /// When to look again for samples: soon if the renderer is short of `feedAhead` (the demuxer is
+    /// behind), else when it will be, at most 0.5 s on. Polling every 20 ms while 2 s ahead kept a
+    /// core awake for the whole film. A seek or a switch restarts feeding at once.
+    static func pollDelay(fedTo end: Double, clock: Double, feedAhead: Double, rate: Double) -> Double {
+        min(0.5, max(0.02, (end - feedAhead - clock) / max(rate, 1)))
     }
 
     private func nextVideoSample() -> CMSampleBuffer? {
