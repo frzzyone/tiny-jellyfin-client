@@ -161,6 +161,13 @@ final class AppLogicTests: XCTestCase {
         XCTAssertEqual(profile.directPlayProfiles[0].videoCodec, "h264,hevc,av1")
     }
 
+    func testTheScreenStaysOnUntilThePictureComes() {
+        let on: [PlayerStatus] = [.loading, .buffering, .playing]
+        let off: [PlayerStatus] = [.idle, .paused, .ended, .failed("x")]
+        XCTAssertTrue(on.allSatisfy(\.keepsScreenOn))
+        XCTAssertFalse(off.contains(where: \.keepsScreenOn), "paused or done, the device may sleep")
+    }
+
     func testArtworkCacheHoldsMoreThanARow() {
         // The test host is the app, whose model sizes the shared cache at launch.
         XCTAssertGreaterThanOrEqual(URLCache.shared.diskCapacity, 256 << 20)

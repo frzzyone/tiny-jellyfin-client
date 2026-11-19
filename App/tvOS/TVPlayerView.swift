@@ -78,6 +78,7 @@ struct TVPlayerView: View {
             if phase == .active { player.returnedToForeground() }
         }
         .onChange(of: player.status) { _, status in if status == .playing { showTransport() } }
+        .keepsScreenOn(while: player.status)
         #if DEBUG
         .task {
             // Screenshot hooks: TJ_TV_PANEL=Info|Subtitles|Quality|Audio opens the panel once playing;

@@ -220,6 +220,21 @@ struct SubtitleMenuItems: View {
     }
 }
 
+extension PlayerStatus {
+    /// The video layer keeps the screen on only while frames move: a slow start or a stall must
+    /// too, or the phone locks (and the TV starts its screensaver) before the picture comes.
+    var keepsScreenOn: Bool { self == .loading || self == .buffering || self == .playing }
+}
+
+#if canImport(UIKit)
+extension View {
+    func keepsScreenOn(while status: PlayerStatus) -> some View {
+        onChange(of: status.keepsScreenOn, initial: true) { _, on in UIApplication.shared.isIdleTimerDisabled = on }
+            .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+    }
+}
+#endif
+
 /// When the iPhone's controls fade: 3 s after the last touch, during real playback, and never while
 /// the user is scrubbing or has a Quality or Subtitles popover open (only they close it).
 enum ControlsAutoHide {

@@ -27,7 +27,8 @@ struct PhonePlayerView: View {
     @State private var pinching = false
     /// Holding the picture: 2× until the finger lifts.
     @State private var hold = SpeedHold()
-    @State private var holdTimer: Task<Void, Never>?
+    /// A finger held still for half a second, until it lifts; resets itself if the gesture is cancelled.
+    @GestureState private var held = false
     @State private var holdEndedAt = Date.distantPast
     /// Touch lock: everything ignored except a tap, which offers the unlock button for a moment.
     @State private var locked = false
@@ -97,6 +98,7 @@ struct PhonePlayerView: View {
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
         .playbackAudioSession(player)
+        .keepsScreenOn(while: player.status)
         .onAppear { PhoneOrientation.lock(.landscape) }
         .onDisappear { PhoneOrientation.lock(.portrait) }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
@@ -113,6 +115,14 @@ struct PhonePlayerView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { player.enteredBackground(pictureInPicture: { pip.isActive }) }
             if phase == .active { player.returnedToForeground() }
+        }
+        .onChange(of: held) { _, held in
+            if held, !hold.isHolding, player.isPlaying, !pinching, swipe == nil, swipeScrubStart == nil {
+                withAnimation(.easeOut(duration: 0.15)) { player.speed = hold.begin(from: player.speed) }
+            } else if !held, let restore = hold.end() {
+                withAnimation(.easeIn(duration: 0.2)) { player.speed = restore }
+                holdEndedAt = Date()
+            }
         }
         .onChange(of: player.status) { _, status in
             // Show the controls for 3 s once the picture is moving.
@@ -153,25 +163,10 @@ struct PhonePlayerView: View {
         let width = size.width
         return Color.clear
             .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { drag in
-                // A finger held still for half a second: 2× until it lifts. Moving makes it a swipe.
-                if hypot(drag.translation.width, drag.translation.height) > 10 {
-                    holdTimer?.cancel()
-                } else if holdTimer == nil && !hold.isHolding {
-                    holdTimer = Task {
-                        try? await Task.sleep(for: .milliseconds(500))
-                        guard !Task.isCancelled, player.isPlaying, !pinching, swipe == nil, swipeScrubStart == nil else { return }
-                        withAnimation(.easeOut(duration: 0.15)) { player.speed = hold.begin(from: player.speed) }
-                    }
-                }
-            }.onEnded { _ in
-                holdTimer?.cancel()
-                holdTimer = nil
-                if let restore = hold.end() {
-                    withAnimation(.easeIn(duration: 0.2)) { player.speed = restore }
-                    holdEndedAt = Date()
-                }
-            })
+            // Held still for half a second: 2× until it lifts.
+            .simultaneousGesture(LongPressGesture(minimumDuration: 0.5, maximumDistance: 10)
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .updating($held) { value, state, _ in if case .second(true, _) = value { state = true } })
             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { drag in
                 guard !pinching else { return }
                 // The first movement decides what the swipe does, for the whole swipe.
@@ -211,7 +206,9 @@ struct PhonePlayerView: View {
                 if pinch.magnification > 1.15 { zoomed = true } else if pinch.magnification < 0.87 { zoomed = false }
                 lastActivity = Date()
             })
-            .gesture(
+            // Simultaneous too: as a plain `.gesture` outside the others it lost to them, and a
+            // touch-down starts the hold, so taps never arrived.
+            .simultaneousGesture(
                 SpatialTapGesture(count: 2).onEnded { tap in
                     let x = tap.location.x
                     if x < width / 3 { skip(-10, leading: true) } else if x > width * 2 / 3 { skip(30, leading: false) }
