@@ -58,8 +58,19 @@ struct TVRemoteSurface: UIViewRepresentable {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(panned))
             pan.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirect.rawValue)]
             addGestureRecognizer(pan)
-            NotificationCenter.default.addObserver(self, selector: #selector(controllerConnected),
-                                                   name: .GCControllerDidConnect, object: nil)
+            // The notification can come on any thread; the block runs on the main queue.
+            connectObserver = NotificationCenter.default.addObserver(forName: .GCControllerDidConnect, object: nil,
+                                                                     queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    if let self, self.window != nil, let controller = note.object as? GCController { self.attach(controller) }
+                }
+            }
+        }
+
+        private var connectObserver: NSObjectProtocol?
+
+        deinit {
+            if let connectObserver { NotificationCenter.default.removeObserver(connectObserver) }
         }
 
         required init?(coder: NSCoder) { fatalError("not used") }
@@ -82,24 +93,21 @@ struct TVRemoteSurface: UIViewRepresentable {
             GCController.controllers().forEach { window == nil ? detach($0) : attach($0) }
         }
 
-        @objc private func controllerConnected(_ note: Notification) {
-            if window != nil, let controller = note.object as? GCController { attach(controller) }
-        }
-
         // Only full gamepads: the Siri Remote is a micro gamepad, and its presses already arrive.
-        // Handlers run on the main queue (GCController's default).
+        // The handlers hop to the main queue rather than assume they are on it (GCController's
+        // default), which would stop the app if a reconnecting controller ever called from elsewhere.
         private func attach(_ controller: GCController) {
             guard let pad = controller.extendedGamepad else { return }
             for (button, command) in [(pad.buttonA, RemoteCommand.select), (pad.buttonX, .playPause)] {
                 button.pressedChangedHandler = { [weak self] _, _, pressed in
-                    if pressed { MainActor.assumeIsolated { self?.gamepad(command) } }
+                    if pressed { DispatchQueue.main.async { self?.gamepad(command) } }
                 }
             }
             for stick in [pad.dpad, pad.leftThumbstick] {
                 var held: RemoteCommand?
                 stick.valueChangedHandler = { [weak self] _, x, y in
-                    MainActor.assumeIsolated {
-                        let command = Self.direction(x: x, y: y)
+                    let command = Self.direction(x: x, y: y)
+                    DispatchQueue.main.async {
                         if command != held, let command { self?.gamepad(command) }
                         held = command
                     }
