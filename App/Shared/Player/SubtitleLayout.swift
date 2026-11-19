@@ -36,12 +36,16 @@ enum SubtitleLayout {
     }
 
     /// How far to raise a picture subtitle, in its canvas's pixels, so it sits above black bars
-    /// encoded into the frames, as text does: a disc places them in the frame's bottom bar, which
-    /// the iPhone's fill mode crops off. Events clear of the bar stay where the disc put them.
-    static func pictureSubtitleLift(_ bitmap: SubtitleBitmap, bars: PictureBars?) -> CGFloat {
-        guard let bars, bars.bottom > 0, let lowest = bitmap.pieces.map({ $0.y + $0.height }).max() else { return 0 }
+    /// encoded into the frames, as text does, and above the bottom of what is on screen: the
+    /// iPhone's fill mode crops the frame, and a disc puts subtitles near its bottom edge.
+    /// `shown` is the part of the frame's height, from its top, that the view shows. Events clear
+    /// of both stay where the disc put them.
+    static func pictureSubtitleLift(_ bitmap: SubtitleBitmap, bars: PictureBars?, shown: CGFloat = 1) -> CGFloat {
+        guard let lowest = bitmap.pieces.map({ $0.y + $0.height }).max() else { return 0 }
         let canvas = CGFloat(bitmap.canvasHeight)
-        let limit = canvas * (1 - bars.bottom - 0.03)
+        var limit = canvas
+        if let bars, bars.bottom > 0 { limit = canvas * (1 - bars.bottom - 0.03) }
+        if shown < 1 { limit = min(limit, canvas * (shown - 0.03)) }
         return max(0, CGFloat(lowest) - limit)
     }
 

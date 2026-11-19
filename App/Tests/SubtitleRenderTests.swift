@@ -66,15 +66,27 @@ final class SubtitleRenderTests: XCTestCase {
         XCTAssertEqual(Double(xs.min() ?? -1), 200, accuracy: 2, "only raised")
     }
 
-    /// White pixels of a 40×20 PGS box at (100,120) on a 320×180 canvas, drawn on a 4:3 view
-    /// showing 16:9 video.
-    private func pictureSubtitlePixels(bars: PictureBars?) -> (xs: [Int], ys: [Int]) {
+    /// The iPhone filling a 2:1 screen with 16:9 video crops the frame's bottom 20 of 360 rows. A
+    /// box on the canvas's bottom edge (rows 160–180) rises to end 3% of the frame above the
+    /// screen's edge: canvas row 164.6, screen row 309.
+    func testPictureSubtitleStaysOnACroppedScreen() {
+        let (_, ys) = pictureSubtitlePixels(bars: nil, y: 160, fill: true, view: CGSize(width: 640, height: 320))
+        XCTAssertEqual(Double(ys.max() ?? -1), 309, accuracy: 2)
+        XCTAssertEqual(pictureSubtitlePixels(bars: nil, fill: true, view: CGSize(width: 640, height: 320)).ys.max(),
+                       -20 + 279, "clear of the edge: where the disc put it")
+    }
+
+    /// White pixels of a 40×20 PGS box at (100,`y`) on a 320×180 canvas, drawn on a view (4:3
+    /// unless given) showing 16:9 video.
+    private func pictureSubtitlePixels(bars: PictureBars?, y: Int = 120, fill: Bool = false,
+                                       view: CGSize = CGSize(width: 640, height: 480)) -> (xs: [Int], ys: [Int]) {
         let white: UInt32 = 0xFFFF_FFFF
-        let piece = SubtitleBitmap.Piece(x: 100, y: 120, width: 40, height: 20,
+        let piece = SubtitleBitmap.Piece(x: 100, y: y, width: 40, height: 20,
                                          indices: [UInt8](repeating: 1, count: 800), palette: [0, white])
         let bitmap = SubtitleBitmap(start: 0, end: 5, canvasWidth: 320, canvasHeight: 180, pieces: [piece])
-        let renderer = ImageRenderer(content: SubtitleOverlay(text: nil, bitmap: bitmap, videoSize: CGSize(width: 1920, height: 1080), bars: bars)
-            .frame(width: 640, height: 480).background(Color.black))
+        let renderer = ImageRenderer(content: SubtitleOverlay(text: nil, bitmap: bitmap, videoSize: CGSize(width: 1920, height: 1080),
+                                                              bars: bars, fill: fill)
+            .frame(width: view.width, height: view.height).background(Color.black))
         renderer.scale = 1
         guard let cg = renderer.cgImage else { XCTFail("no image"); return ([], []) }
         let w = cg.width, h = cg.height

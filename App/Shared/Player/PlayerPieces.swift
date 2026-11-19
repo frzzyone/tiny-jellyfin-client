@@ -14,9 +14,10 @@ struct SubtitleOverlay: View {
     var body: some View {
         GeometryReader { geo in
             if let bitmap {
-                PictureSubtitle(bitmap: bitmap,
-                                frame: SubtitleLayout.frameRect(video: videoSize, in: geo.size, fill: fill),
-                                lift: SubtitleLayout.pictureSubtitleLift(bitmap, bars: bars))
+                let frame = SubtitleLayout.frameRect(video: videoSize, in: geo.size, fill: fill)
+                PictureSubtitle(bitmap: bitmap, frame: frame,
+                                lift: SubtitleLayout.pictureSubtitleLift(bitmap, bars: bars,
+                                                                         shown: (geo.size.height - frame.minY) / max(1, frame.height)))
                     .equatable()
             }
             if let text, !text.isEmpty {
