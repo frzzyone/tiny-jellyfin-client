@@ -13,6 +13,7 @@ struct TinyJellyfinTVApp: App {
                 .preferredColorScheme(.dark)
                 .task {
                     model.player.beforePlay = DisplayMatch.apply
+                    FlightRecorder.start(player: model.player) { model.client }
                     model.session.restore()
                     #if DEBUG
                     // Simulator hook: TJ_SERVER=<address> skips typing it with the remote; TJ_USER=<name>
