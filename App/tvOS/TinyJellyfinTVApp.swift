@@ -15,9 +15,12 @@ struct TinyJellyfinTVApp: App {
                     model.player.beforePlay = DisplayMatch.apply
                     model.session.restore()
                     #if DEBUG
-                    // Simulator hook: TJ_SERVER=<address> skips typing it with the remote.
-                    if case .serverEntry = model.session.state, let address = ProcessInfo.processInfo.environment["TJ_SERVER"] {
+                    // Simulator hook: TJ_SERVER=<address> skips typing it with the remote; TJ_USER=<name>
+                    // then signs in with an empty password (the demo server's account).
+                    let env = ProcessInfo.processInfo.environment
+                    if case .serverEntry = model.session.state, let address = env["TJ_SERVER"] {
                         await model.session.connect(address: address)
+                        if let user = env["TJ_USER"] { await model.session.signIn(username: user, password: "") }
                     }
                     #endif
                 }
