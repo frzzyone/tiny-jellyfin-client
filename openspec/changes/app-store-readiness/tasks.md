@@ -1,8 +1,8 @@
 ## 1. Submission
 
 - [x] 1.1 Privacy manifests for the apps and the Top Shelf; `ITSAppUsesNonExemptEncryption`; local-network text everywhere; `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`
-- [ ] 1.2 Validate an archive per platform in Xcode's Organizer (needs the signing team)
-- [ ] 1.3 App Store Connect: reserve "Tinyfin", privacy policy URL, "Data Not Collected", review notes with the demo server (https://demo.jellyfin.org/stable, demo / empty password; "Use a password instead" on Apple TV) and the plain-HTTP justification
+- [x] 1.2 Validate an archive per platform (App Store Connect processed build 21 for iPhone and Apple TV as valid)
+- [x] 1.3 App Store Connect: reserve "Tinyfin", privacy policy URL, "Data Not Collected", review notes with the demo server (https://demo.jellyfin.org/stable, demo / empty password; "Use a password instead" on Apple TV) and the plain-HTTP justification
 
 ## 2. Sign-in
 
