@@ -35,7 +35,8 @@ Tinyfin is an independent app, not an official Jellyfin product.
 Tinyfin collects nothing. It talks only to the Jellyfin server you sign in to: no analytics, no
 crash reporting, no accounts or servers of ours. Your sign-in token stays in the device's Keychain
 and is not synced through iCloud; preferences stay on the device. What your Jellyfin server records
-(what you watched, how far) is up to that server and its administrator.
+(what you watched, how far) is up to that server and its administrator. The full policy is in
+[docs/privacy.md](docs/privacy.md).
 
 The behaviour is specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec) in
 [`openspec/specs`](openspec/specs) (built as the changes archived in [`openspec/changes/archive`](openspec/changes/archive)).
