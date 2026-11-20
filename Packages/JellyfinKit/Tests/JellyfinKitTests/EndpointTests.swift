@@ -295,16 +295,6 @@ final class DiscoveryEndpointTests: XCTestCase {
         XCTAssertEqual(body["LastPlayedDate"] as? String, "2026-11-06T21:20:00Z")
     }
 
-    func testClientLogGoesAsPlainText() async throws {
-        let server = StubServer()
-        server.on("POST", "/ClientLog/Document", json: #"{"FileName":"upload_tinyfin.log"}"#)
-        let name = try await server.client().uploadClientLog("10:00 avail=900MB\n")
-        XCTAssertEqual(name, "upload_tinyfin.log")
-        let request = server.lastRequest(path: "/ClientLog/Document")
-        XCTAssertEqual(request?.value(forHTTPHeaderField: "Content-Type"), "text/plain")
-        XCTAssertEqual(request?.httpBody.map { String(decoding: $0, as: UTF8.self) }, "10:00 avail=900MB\n")
-    }
-
     func testEpisodesFromOneOnAskForThatManyPresentOnes() async throws {
         let server = StubServer()
         server.on("GET", "/Shows/s/Episodes", json: #"{"Items":[{"Id":"e2"},{"Id":"e3"}],"TotalRecordCount":2}"#)

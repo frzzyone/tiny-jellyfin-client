@@ -31,11 +31,6 @@ Things we know about and have chosen not to do yet. Each should become its own O
 
 - **Scrub previews** (trickplay thumbnails while swiping) and holding left/right to scrub.
 - **Siri and system search** ("play Troy"), user profiles, server discovery: left out of the first version.
-- **Remove the flight recorder before an App Store release** (`App/Shared/Player/FlightRecorder.swift`,
-  started in `TinyJellyfinTVApp`). It was added for TestFlight in 1.3.0 (16) because the Apple TV
-  won't pair with Xcode and a kill for memory leaves no crash report; it found the streaming leak.
-  It sends a log to the user's own Jellyfin server after playback ends without a stop, which a
-  shipping app shouldn't do unannounced; a film left open when tvOS closes the app counts too.
 
 ## Playback engine
 

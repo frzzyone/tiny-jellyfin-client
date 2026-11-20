@@ -144,17 +144,6 @@ extension JellyfinClient {
         return try await post("/UserItems/\(itemId)/UserData", query: ["userId": try requireUserId()], body: body)
     }
 
-    /// Puts `text` in the server's log folder (Dashboard › Logs) as an `upload_…` file and returns
-    /// its name. Jellyfin accepts it from any signed-in user unless client log uploads are turned off.
-    public func uploadClientLog(_ text: String) async throws -> String {
-        struct Response: Decodable { var fileName: String }
-        var request = makeRequest("POST", "/ClientLog/Document")
-        request.httpBody = Data(text.utf8)
-        request.setValue("text/plain", forHTTPHeaderField: "Content-Type")
-        let response: Response = try decode(try await send(request))
-        return response.fileName
-    }
-
     public func seasons(seriesId: String) async throws -> [BaseItem] {
         let result: ItemsResult = try await get("/Shows/\(seriesId)/Seasons", query: [
             "userId": try requireUserId(), "enableUserData": "true",
