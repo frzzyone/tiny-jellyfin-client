@@ -446,6 +446,25 @@ final class DownloadsTests: XCTestCase {
         XCTAssertEqual(try? Data(contentsOf: poster), Data("JPEG".utf8))
     }
 
+    /// Avatar's English track: the server was still pulling it out of the remux when the download
+    /// asked, so it came on a later sync instead of never.
+    func testASubtitleThatDidNotComeIsFetchedOnTheNextSync() async throws {
+        let item = film("remux")
+        server.items["remux"] = item
+        server.streams["remux"] = stream(item, copy: true)
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        try await finish(downloads, "remux")
+        XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2], "3's file wasn't ready")
+        try Data("PG".utf8).write(to: root.appendingPathComponent("sub3.sup"))
+        await downloads.sync()
+        let record = try XCTUnwrap(downloads.record("remux"))
+        XCTAssertEqual(record.source?.subtitleStreams.map(\.index), [2, 3])
+        XCTAssertEqual(record.source?.subtitleStreams.last?.isExternal, true)
+        XCTAssertEqual(record.source?.audioStreams.map(\.index), [1], "still the copy's one audio track")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: downloads.store.file("remux", "sub-3.sup").path))
+    }
+
     func testACopyStoresItsStartAndEndsItsEncode() async throws {
         let item = film("remux")
         server.streams["remux"] = stream(item, copy: true, session: "ps1")

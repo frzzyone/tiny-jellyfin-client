@@ -53,6 +53,8 @@ final class Downloads {
     /// Reads a finished file's start and length (`MediaFileInfo.read` in the app).
     @ObservationIgnored var probe: (URL) throws -> (start: Double, duration: Double?)
     @ObservationIgnored private var syncing = false
+    /// Downloads holding every subtitle track there is, so the server isn't asked again this launch.
+    @ObservationIgnored private var subtitlesComplete: Set<String> = []
     /// Tries for a server copy before giving up: each is a full new encode.
     static let copyAttempts = 3
 
@@ -191,6 +193,37 @@ final class Downloads {
                   await fetch(url, to: LocalPlaybackService.posterFile, of: record.id, server: server),
                   let current = self.record(record.id) else { continue }
             save(current)   // redraws the lists
+        }
+    }
+
+    /// Subtitle tracks that didn't come with their download, asked for again whenever the downloads
+    /// sync. Jellyfin pulls a track out of the file only when asked, reading the whole file, which
+    /// for a 4K remux takes minutes: the first request gives up, but it starts the extraction.
+    /// Last in the sync, since a track still being extracted holds each request for its timeout.
+    private func fetchMissingSubtitles(_ server: DownloadServer) async {
+        for record in records where record.isDone && !subtitlesComplete.contains(record.id) {
+            guard let full = try? await server.item(id: record.id),
+                  let source = full.mediaSources?.first(where: { $0.id == record.source?.id }) ?? full.mediaSources?.first
+            else { continue }
+            let have = Set(record.source?.subtitleStreams.map(\.index) ?? [])
+            let wanted = Self.subtitlesToFetch(source, isCopy: record.isCopy).filter { !have.contains($0.index) }
+            var arrived: Set<Int> = []
+            for sub in wanted {
+                let url = server.subtitleURL(itemId: record.id, mediaSourceId: record.source?.id ?? record.id,
+                                             streamIndex: sub.index, picture: sub.picture)
+                if await fetch(url, to: LocalPlaybackService.subtitleFile(sub.index, picture: sub.picture), of: record.id, server: server) {
+                    arrived.insert(sub.index)
+                }
+            }
+            if arrived.count == wanted.count { subtitlesComplete.insert(record.id) }
+            guard !arrived.isEmpty, var current = self.record(record.id), current.source != nil else { continue }
+            let added = source.subtitleStreams.filter { arrived.contains($0.index) }.map { stream in
+                var stream = stream
+                stream.isExternal = true
+                return stream
+            }
+            current.item.mediaSources![0].mediaStreams = ((current.source?.mediaStreams ?? []) + added).sorted { $0.index < $1.index }
+            save(current)
         }
     }
 
@@ -342,7 +375,11 @@ final class Downloads {
             if let (item, kind) = swap.download { await download(item, kind: kind) }
         }
         guard let nextUp = try? await server.nextUp(limit: DownloadPlanner.shows, seriesId: nil),
-              let resume = try? await server.resumeItems(limit: 12) else { await startNext(); return }
+              let resume = try? await server.resumeItems(limit: 12) else {
+            await startNext()
+            await fetchMissingSubtitles(server)
+            return
+        }
         var shows: [[BaseItem]] = []
         for episode in nextUp {
             var coming = [episode]
@@ -360,6 +397,7 @@ final class Downloads {
         for id in plan.delete { delete(id, byUser: false) }
         for item in plan.download { await download(item, kind: .forYou) }
         await startNext()
+        await fetchMissingSubtitles(server)
     }
 
     // MARK: Helpers
