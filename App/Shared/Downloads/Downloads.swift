@@ -53,8 +53,9 @@ final class Downloads {
     /// Reads a finished file's start and length (`MediaFileInfo.read` in the app).
     @ObservationIgnored var probe: (URL) throws -> (start: Double, duration: Double?)
     @ObservationIgnored private var syncing = false
-    /// Downloads holding every subtitle track there is, so the server isn't asked again this launch.
-    @ObservationIgnored private var subtitlesComplete: Set<String> = []
+    /// Downloads whose missing subtitles were asked for this launch: a track the server never
+    /// sends would otherwise hold every sync for its timeout, and each ask re-reads the whole file.
+    @ObservationIgnored private var subtitlesAsked: Set<String> = []
     /// Tries for a server copy before giving up: each is a full new encode.
     static let copyAttempts = 3
 
@@ -180,6 +181,7 @@ final class Downloads {
     private func fetch(_ url: URL, to name: String, of id: String, server: DownloadServer) async -> Bool {
         var request = server.request(url)
         request.timeoutInterval = 15
+        request.allowsCellularAccess = false   // like the downloads; a remux's picture tracks are hundreds of MB
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode ?? 200 == 200, record(id) != nil else { return false }
         return (try? data.write(to: store.file(id, name), options: .atomic)) != nil
@@ -201,12 +203,15 @@ final class Downloads {
     /// for a 4K remux takes minutes: the first request gives up, but it starts the extraction.
     /// Last in the sync, since a track still being extracted holds each request for its timeout.
     private func fetchMissingSubtitles(_ server: DownloadServer) async {
-        for record in records where record.isDone && !subtitlesComplete.contains(record.id) {
+        for record in records where record.isDone && !subtitlesAsked.contains(record.id) {
             guard let full = try? await server.item(id: record.id),
                   let source = full.mediaSources?.first(where: { $0.id == record.source?.id }) ?? full.mediaSources?.first
             else { continue }
-            let have = Set(record.source?.subtitleStreams.map(\.index) ?? [])
-            let wanted = Self.subtitlesToFetch(source, isCopy: record.isCopy).filter { !have.contains($0.index) }
+            subtitlesAsked.insert(record.id)
+            // From the disk, not the record: a record can list a track whose fetch was cut short.
+            let wanted = Self.subtitlesToFetch(source, isCopy: record.isCopy).filter {
+                !FileManager.default.fileExists(atPath: store.file(record.id, LocalPlaybackService.subtitleFile($0.index, picture: $0.picture)).path)
+            }
             var arrived: Set<Int> = []
             for sub in wanted {
                 let url = server.subtitleURL(itemId: record.id, mediaSourceId: record.source?.id ?? record.id,
@@ -215,9 +220,9 @@ final class Downloads {
                     arrived.insert(sub.index)
                 }
             }
-            if arrived.count == wanted.count { subtitlesComplete.insert(record.id) }
             guard !arrived.isEmpty, var current = self.record(record.id), current.source != nil else { continue }
-            let added = source.subtitleStreams.filter { arrived.contains($0.index) }.map { stream in
+            let listed = Set(current.source?.subtitleStreams.map(\.index) ?? [])
+            let added = source.subtitleStreams.filter { arrived.contains($0.index) && !listed.contains($0.index) }.map { stream in
                 var stream = stream
                 stream.isExternal = true
                 return stream

@@ -335,6 +335,7 @@ final class DownloadsTests: XCTestCase {
         var ended: [String] = []
         var userData: [String: UserItemData] = [:]
         var updates: [String] = []
+        var subtitleAsks: [Int] = []
         let files: URL
 
         init(files: URL) { self.files = files }
@@ -363,7 +364,8 @@ final class DownloadsTests: XCTestCase {
         }
         func request(_ url: URL) -> URLRequest { URLRequest(url: url) }
         func subtitleURL(itemId: String, mediaSourceId: String, streamIndex: Int, picture: Bool) -> URL {
-            files.appendingPathComponent("sub\(streamIndex).\(picture ? "sup" : "srt")")
+            subtitleAsks.append(streamIndex)
+            return files.appendingPathComponent("sub\(streamIndex).\(picture ? "sup" : "srt")")
         }
         func posterURL(for item: BaseItem) -> URL? { files.appendingPathComponent("poster-\(item.id).jpg") }
     }
@@ -449,7 +451,8 @@ final class DownloadsTests: XCTestCase {
     /// Avatar's English track: the server was still pulling it out of the remux when the download
     /// asked, so it came on a later sync instead of never.
     func testASubtitleThatDidNotComeIsFetchedOnTheNextSync() async throws {
-        let item = film("remux")
+        var item = film("remux")
+        item.mediaSources![0].defaultSubtitleStreamIndex = 3
         server.items["remux"] = item
         server.streams["remux"] = stream(item, copy: true)
         let downloads = makeDownloads()
@@ -457,12 +460,30 @@ final class DownloadsTests: XCTestCase {
         try await finish(downloads, "remux")
         XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2], "3's file wasn't ready")
         try Data("PG".utf8).write(to: root.appendingPathComponent("sub3.sup"))
+        server.subtitleAsks = []
         await downloads.sync()
+        XCTAssertEqual(server.subtitleAsks, [3, 4], "only the missing tracks (external 4 never comes)")
         let record = try XCTUnwrap(downloads.record("remux"))
         XCTAssertEqual(record.source?.subtitleStreams.map(\.index), [2, 3])
         XCTAssertEqual(record.source?.subtitleStreams.last?.isExternal, true)
+        XCTAssertEqual(record.source?.defaultSubtitleStreamIndex, 3, "selected at the start again")
         XCTAssertEqual(record.source?.audioStreams.map(\.index), [1], "still the copy's one audio track")
         XCTAssertTrue(FileManager.default.fileExists(atPath: downloads.store.file("remux", "sub-3.sup").path))
+    }
+
+    /// A track the server never sends is asked for once a launch, not on every sync.
+    func testAMissingSubtitleIsAskedForOnceALaunch() async throws {
+        let item = film("remux")
+        server.items["remux"] = item
+        server.streams["remux"] = stream(item, copy: true)
+        let downloads = makeDownloads()
+        await downloads.download(item)
+        try await finish(downloads, "remux")
+        server.subtitleAsks = []
+        await downloads.sync()
+        await downloads.sync()
+        XCTAssertEqual(server.subtitleAsks, [3, 4])
+        XCTAssertEqual(downloads.record("remux")?.source?.subtitleStreams.map(\.index), [2])
     }
 
     func testACopyStoresItsStartAndEndsItsEncode() async throws {
