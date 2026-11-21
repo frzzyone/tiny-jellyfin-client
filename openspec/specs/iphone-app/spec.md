@@ -15,9 +15,9 @@ server as the Mac app does, keep the token in the iOS Keychain, and restore the 
 - **THEN** they land on Home, and on the next launch they land on Home without signing in
 
 ### Requirement: Browsing on iPhone
-The app SHALL offer Home, one tab per video library (named after it) and Search, with Home showing the resume hero and the
+The app SHALL offer Home, one tab per video library (named after it), Search and Downloads, with Home showing the resume hero and the
 same rows as the Mac app, each row scrolling sideways. Tapping a title SHALL open a detail sheet with
-its facts, overview, progress, Resume or Play, Start over and Mark watched; series open to seasons and
+its facts, overview, progress, Resume or Play, Start over, Mark watched and Download; series open to seasons and
 episodes.
 
 #### Scenario: Resume from Home
@@ -33,6 +33,7 @@ The player SHALL fill the screen in landscape, show its controls on a tap and hi
 playback, skip back 10 s or forward 30 s on a double-tap on the left or right third, scrub with the
 progress bar, and offer quality and subtitle menus with the same behaviour as the Mac player. An
 open menu SHALL stay open, and the controls with it, until the user picks an option or closes it.
+A downloaded copy SHALL offer no quality menu.
 
 #### Scenario: Skip with a double-tap
 - **WHEN** the user double-taps the right third of the picture
@@ -45,6 +46,10 @@ open menu SHALL stay open, and the controls with it, until the user picks an opt
 #### Scenario: A menu waits for the user
 - **WHEN** the user opens Subtitles during playback and doesn't touch the screen for a minute
 - **THEN** the menu and the controls are still showing
+
+#### Scenario: Playing a download
+- **WHEN** the user plays a downloaded film
+- **THEN** the controls show Subtitles but no Quality menu, and the delivery reads Downloaded
 
 ### Requirement: Brightness, volume and fill
 In the player, a vertical swipe SHALL set the screen brightness on the left half and the device
@@ -103,13 +108,18 @@ pinch out SHALL fill the screen and a pinch in fit the picture, like the fill bu
 - **THEN** the picture fills the screen, as the fill button would
 
 ### Requirement: Hold to fast-forward and touch lock
-In the player, holding a finger still on the picture SHALL play at 2× until it lifts, then return to the
-previous speed. A lock button SHALL hide the controls and ignore gestures until the user unlocks, offered by
+In the player, holding a finger still on the picture for half a second SHALL play at 2× until it lifts,
+then return to the previous speed; a shorter touch SHALL remain a tap, showing or hiding the controls as
+before. A lock button SHALL hide the controls and ignore gestures until the user unlocks, offered by
 a tap.
 
 #### Scenario: Hold through a slow scene
 - **WHEN** the user holds a finger on the picture during playback at 1×
 - **THEN** playback runs at 2× with a "2×" badge while the finger is down, and at 1× again once it lifts
+
+#### Scenario: A tap is not a hold
+- **WHEN** the user taps the picture while the controls are hidden, then taps it again away from the buttons
+- **THEN** the first tap shows the controls, the second hides them, and playback speed never changes
 
 #### Scenario: Locked in a pocket
 - **WHEN** the user locks the screen and the phone is then touched and swiped

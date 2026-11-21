@@ -20,7 +20,7 @@
 - [x] 4.3 Cancelled open stops at once (`testCancelledOpenStopsAtOnce`); abandoned start ends its transcode (`testClosingWhileOpeningEndsTheTranscode`)
 - [x] 4.4 HLS seek reopens at the target (covered by the HLS seek tests)
 - [x] 4.5 Backgrounding: pause unless Picture in Picture takes over, redraw on return (`testBackgroundPausesAndReturnRedraws`, `testPictureInPictureKeepsPlayingInTheBackground`); an interrupted display layer isn't a failure
-- [ ] 4.5a Lock the phone and come back; swipe home with PiP; leave the Apple TV app mid-film (needs devices)
+- [x] 4.5a Lock the phone and come back; swipe home with PiP; leave the Apple TV app mid-film (needs devices) (confirmed by the user on their devices, 2026-11-21)
 - [x] 4.6 Shared engine state behind its locks; Thread Sanitizer finds no races in the engine tests (it also found the packet queues' end-of-stream flag)
 
 ## 5. User experience
@@ -30,5 +30,5 @@
 - [x] 5.3 Apple TV: the track panel scrolls past nine rows; "Watched" with Play Again / Close at the end
 - [x] 5.4 Apple TV: the Top Shelf reloads when the session ends (sign-out or an expired token)
 - [x] 5.5 iPhone: controls don't hide under VoiceOver; Magic Tap plays and pauses
-- [ ] 5.6 Check on devices: sign-in keyboard and AutoFill (iPhone); a 40-track subtitle panel and the end card (Apple TV); Top Shelf after signing out; VoiceOver in the iPhone player
+- [x] 5.6 Check on devices: sign-in keyboard and AutoFill (iPhone); a 40-track subtitle panel and the end card (Apple TV); Top Shelf after signing out; VoiceOver in the iPhone player (confirmed by the user on their devices, 2026-11-21)
 - [x] 5.7 Dynamic Type in the iPhone browser: fixed sizes scale on the nearest text style's curve; card text stops at the largest standard size; button rows and the detail header stack at accessibility sizes (checked in the simulator at the default and largest sizes; the player keeps fixed sizes)

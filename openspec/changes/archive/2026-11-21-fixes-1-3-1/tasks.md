@@ -21,8 +21,8 @@ All implemented before this change was written; each box names its commit.
 
 ## 4. On devices
 
-- [ ] 4.1 On a real iPhone: taps show and hide the controls, a double-tap skips, a half-second hold plays at 2×, and the phone doesn't lock during a slow start but does once paused
-- [ ] 4.2 On a real Apple TV: the screensaver doesn't start while a film loads
+- [x] 4.1 On a real iPhone: taps show and hide the controls, a double-tap skips, a half-second hold plays at 2×, and the phone doesn't lock during a slow start but does once paused (confirmed by the user on their devices, 2026-11-21)
+- [x] 4.2 On a real Apple TV: the screensaver doesn't start while a film loads (confirmed by the user on their devices, 2026-11-21)
 
 ## Workflow follow-up
 

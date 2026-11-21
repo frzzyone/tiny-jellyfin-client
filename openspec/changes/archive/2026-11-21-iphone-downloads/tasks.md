@@ -26,20 +26,20 @@
 ## 5. Downloader (App/iOS)
 
 - [x] 5.1 `DownloadManager`: background session, start (PlaybackInfo with the download profile → original or copy), subtitles and images, progress, cancel, original resume, copy restart ×3, truncation check, not-enough-space, `endEncoding`, one copy at a time; `PhoneAppDelegate` forwards session events; verify the logic it can test with an injected transfer (states, retries, truncation) and a real download on the simulator against the demo server
-- [ ] 5.2 Wi-Fi only with Waiting for Wi-Fi from `NWPathMonitor`; verify on a phone with Wi-Fi off (cellular only) that a download waits and starts when Wi-Fi returns
-- [ ] 5.3 `BGAppRefreshTask` `app.tinyjellyfin.Tinyfin.refresh` (Info.plist permitted identifier, `fetch` background mode in project.yml): flush, plan, start downloads, reschedule for 6 h; verify with `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.tinyjellyfin.Tinyfin.refresh"]` in the debugger that a pick starts downloading
+- [x] 5.2 Wi-Fi only with Waiting for Wi-Fi from `NWPathMonitor`; verify on a phone with Wi-Fi off (cellular only) that a download waits and starts when Wi-Fi returns (confirmed by the user on their devices, 2026-11-21)
+- [x] 5.3 `BGAppRefreshTask` `app.tinyjellyfin.Tinyfin.refresh` (Info.plist permitted identifier, `fetch` background mode in project.yml): flush, plan, start downloads, reschedule for 6 h; verify with `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.tinyjellyfin.Tinyfin.refresh"]` in the debugger that a pick starts downloading (confirmed by the user on their devices, 2026-11-21)
 
 ## 6. iPhone UI
 
 - [x] 6.1 `DownloadButton` on the detail sheet and the episode-row icon, as approved in 1.1; verify by simulator screenshots of each state (`TJ_*` hooks as needed)
 - [x] 6.2 Downloads tab: sections, series list, swipe to delete, empty state, posters from disk; verify by screenshots, including in flight mode
-- [ ] 6.3 Offline launch to Downloads, Go to Downloads on Home and library errors, no Play for titles that aren't downloaded while offline; verify on the simulator with the network off (or a phone in flight mode)
-- [ ] 6.4 Flush, Smart Downloads and Downloads for you triggers (launch, foreground, network back, after a stop, Home refresh); deleting a pick by hand dismisses it; sign out deletes everything after a best-effort flush; verify on a phone: finish a downloaded episode offline, reconnect, see it watched on the server and the next one downloading
+- [x] 6.3 Offline launch to Downloads, Go to Downloads on Home and library errors, no Play for titles that aren't downloaded while offline; verify on the simulator with the network off (or a phone in flight mode) (confirmed by the user on their devices, 2026-11-21)
+- [x] 6.4 Flush, Smart Downloads and Downloads for you triggers (launch, foreground, network back, after a stop, Home refresh); deleting a pick by hand dismisses it; sign out deletes everything after a best-effort flush; verify on a phone: finish a downloaded episode offline, reconnect, see it watched on the server and the next one downloading (confirmed by the user on their devices, 2026-11-21)
 - [x] 6.5 Dynamic Type for the new screens (the iPhone app follows it); verify a screenshot at accessibility-extra-extra-extra-large
 
 ## 7. Integration and docs
 
-- [ ] 7.1 Real-world pass on the user's iPhone: a 2-hour 4K film downloaded with the phone locked, Downloads for you filling overnight on Wi-Fi within 30 GB, played in flight mode with subtitles, progress back on the server, an interrupted copy retried; verify and record anything still needing a person in `manual-checklist.md`
+- [x] 7.1 Real-world pass on the user's iPhone: a 2-hour 4K film downloaded with the phone locked, Downloads for you filling overnight on Wi-Fi within 30 GB, played in flight mode with subtitles, progress back on the server, an interrupted copy retried; verify and record anything still needing a person in `manual-checklist.md` (confirmed by the user on their devices, 2026-11-21)
 - [x] 7.2 README (iPhone section: Downloads), CLAUDE.md (download invariants found on the way), `openspec validate iphone-downloads --strict`; verify the validate passes and CI is green
 
 ## Workflow follow-up

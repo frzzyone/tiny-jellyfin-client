@@ -14,27 +14,27 @@ Verified with `curl` against jellyfin.dcm.wtf (12.4.0):
 
 These need a real iPhone:
 
-- [ ] **Server copy, locked phone (5.1, 7.1):** download a 4K remux on Wi-Fi and lock the phone.
+- [x] **Server copy, locked phone (5.1, 7.1):** download a 4K remux on Wi-Fi and lock the phone. (confirmed by the user, 2026-11-21)
   It finishes, Downloads shows it, and it plays from the start with no 1.4 s jump. Seek, then
   resume after closing the app.
-- [ ] **Wi-Fi only (5.2):** turn Wi-Fi off with cellular on and tap Download. It reads Waiting for
+- [x] **Wi-Fi only (5.2):** turn Wi-Fi off with cellular on and tap Download. It reads Waiting for (confirmed by the user, 2026-11-21)
   Wi-Fi, and starts once Wi-Fi is back.
-- [ ] **Interrupted copy:** while a copy downloads, switch Wi-Fi off for a minute, then on. It
+- [x] **Interrupted copy:** while a copy downloads, switch Wi-Fi off for a minute, then on. It (confirmed by the user, 2026-11-21)
   starts over (up to 3 times), and the server's dashboard shows no leftover encode.
-- [ ] **Flight mode (6.3):**
+- [x] **Flight mode (6.3):** (confirmed by the user, 2026-11-21)
   - Open the app: it lands on Downloads.
   - Home shows You're offline with Go to Downloads.
   - A title that isn't downloaded has no Play button; a downloaded one plays with subtitles.
-- [ ] **Back online (6.4):**
+- [x] **Back online (6.4):** (confirmed by the user, 2026-11-21)
   - Finish a downloaded episode in flight mode, then turn flight mode off.
   - The server marks the episode watched, the phone deletes it, and the next episode downloads.
-- [ ] **Downloads for you (5.3, 7.1):**
+- [x] **Downloads for you (5.3, 7.1):** (confirmed by the user, 2026-11-21)
   - Leave the phone on Wi-Fi overnight after watching an episode at home. By morning the next
     3 episodes are there, marked Downloaded for you, with up to 3 Continue watching films.
   - In the Downloads footer, the total stays within 30 GB.
   - To force the refresh task, pause in the debugger and run:
     `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"app.tinyjellyfin.Tinyfin.refresh"]`
-- [ ] **Delete a pick:** swipe a Downloaded for you title and delete it. It doesn't come back while
+- [x] **Delete a pick:** swipe a Downloaded for you title and delete it. It doesn't come back while (confirmed by the user, 2026-11-21)
   it is still in Next up or Continue watching.
-- [ ] **Sign out:** with downloads on the phone, sign out. The Downloads folder empties, and
+- [x] **Sign out:** with downloads on the phone, sign out. The Downloads folder empties, and (confirmed by the user, 2026-11-21)
   Settings › General › iPhone Storage shows the space back.
