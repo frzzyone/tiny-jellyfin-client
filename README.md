@@ -29,7 +29,6 @@ Tinyfin is an independent app, not an official Jellyfin product.
   [Releases](https://github.com/frzzyone/tiny-jellyfin-client/releases). Open it and drag Tinyfin to
   Applications. There are no automatic updates; new versions appear on that page.
 - **iPhone and Apple TV:** [Tinyfin Player on the App Store](https://apps.apple.com/app/id6822798528), free.
-  The Apple TV version is in App Review and will appear on the same page once approved.
 
 ## Privacy
 
